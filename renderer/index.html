@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>System Generator</title>
+    <link rel="icon" href="/favicon.ico">
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #000;
+        color: #ccc;
+        font-family: monospace;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #box {
+        border: 2px solid #444;
+        padding: 40px 48px;
+        min-width: 320px;
+        text-align: center;
+      }
+      #title {
+        font-size: 1.1rem;
+        letter-spacing: 0.2em;
+        color: #fff;
+        margin-bottom: 32px;
+      }
+      #seed-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 24px;
+        font-size: 0.85rem;
+        color: #888;
+      }
+      #seed-input {
+        flex: 1;
+        background: #111;
+        border: 1px solid #444;
+        color: #fff;
+        font-family: monospace;
+        font-size: 0.85rem;
+        padding: 6px 8px;
+        outline: none;
+      }
+      #seed-input:focus {
+        border-color: #888;
+      }
+      .btn {
+        display: block;
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 10px;
+        background: transparent;
+        border: 1px solid #555;
+        color: #ccc;
+        font-family: monospace;
+        font-size: 0.85rem;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+      }
+      .btn:hover {
+        border-color: #fff;
+        color: #fff;
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      #seeds-link {
+        margin-top: 20px;
+        font-size: 0.75rem;
+        color: #555;
+      }
+      #seeds-link a {
+        color: #6ab0d4;
+        text-decoration: none;
+      }
+      #seeds-link a:hover {
+        text-decoration: underline;
+      }
+      #error {
+        margin-top: 12px;
+        font-size: 0.75rem;
+        color: #f44;
+        min-height: 1em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="box">
+      <div id="title">STAR SYSTEM GENERATOR</div>
+      <div id="seed-row">
+        <label for="seed-input">SEED</label>
+        <input
+          id="seed-input"
+          type="text"
+          placeholder="Random"
+          autocomplete="off"
+          spellcheck="false"
+        >
+      </div>
+      <button class="btn" id="generate-btn">GENERATE</button>
+      <div id="seeds-link"><a href="/seeds">VIEW SAVED SEEDS</a></div>
+      <div id="error"></div>
+    </div>
+    <script type="module">
+      import { saveSystem } from "/storage.js";
+
+      const seedInput = document.getElementById("seed-input");
+      const generateBtn = document.getElementById("generate-btn");
+      const errorEl = document.getElementById("error");
+
+      generateBtn.addEventListener("click", async () => {
+        errorEl.textContent = "";
+        const raw = seedInput.value.trim();
+        if (raw && !/^\d+$/.test(raw)) {
+          errorEl.textContent = "Seed must be a whole number";
+          return;
+        }
+        generateBtn.textContent = "GENERATING...";
+        generateBtn.disabled = true;
+        const params = raw ? `?seed=${encodeURIComponent(raw)}` : "";
+        let navigating = false;
+        try {
+          const res = await fetch(`/generate${params}`);
+          if (!res.ok) {
+            errorEl.textContent = await res.text();
+            return;
+          }
+          const data = await res.json();
+          saveSystem(data);
+          navigating = true;
+          location.href = `/seed/${data.seed}`;
+        } catch (err) {
+          errorEl.textContent = `Network error: ${err.message}`;
+        } finally {
+          if (!navigating) {
+            generateBtn.textContent = "GENERATE";
+            generateBtn.disabled = false;
+          }
+        }
+      });
+
+      seedInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") generateBtn.click();
+      });
+    </script>
+    <script>
+      const _sse = new EventSource("/sse");
+      _sse.onmessage = () => location.reload();
+      _sse.onerror = () => _sse.close();
+    </script>
+  </body>
+</html>

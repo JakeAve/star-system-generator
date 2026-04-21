@@ -1,0 +1,7 @@
+.playwright-mcp
+seeds/*.json
+*.md
+assets.json
+!README.md
+.claude
+.DS_Store

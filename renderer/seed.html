@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Seed Viewer</title>
+    <link rel="icon" href="/favicon.ico">
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #000;
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+      }
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        color: #888;
+        font-family: monospace;
+        font-size: 0.85rem;
+        letter-spacing: 0.1em;
+      }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="loading">LOADING...</div>
+    <script type="module">
+      import { buildSystem } from "/scene.js";
+      import { loadSystem, saveSystem } from "/storage.js";
+
+      const parts = window.location.pathname.split("/");
+      const numericId = parseInt(parts[2], 10);
+      if (!parts[2] || isNaN(numericId)) {
+        location.href = "/seeds";
+      } else {
+        const loadingEl = document.getElementById("loading");
+        let data = loadSystem(numericId);
+        if (!data) {
+          try {
+            const res = await fetch(`/generate?seed=${numericId}`);
+            if (!res.ok) throw new Error(await res.text());
+            data = await res.json();
+            saveSystem(data);
+          } catch (err) {
+            loadingEl.textContent = `Error: ${err.message}`;
+          }
+        }
+        if (data) {
+          loadingEl.remove();
+          buildSystem(data);
+        }
+      }
+    </script>
+    <script>
+      const _sse = new EventSource("/sse");
+      _sse.onmessage = () => location.reload();
+      _sse.onerror = () => _sse.close();
+    </script>
+  </body>
+</html>
