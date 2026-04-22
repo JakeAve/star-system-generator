@@ -1,5 +1,3 @@
-// system-seeder-2/config.ts
-
 import {
   ArchetypeProfile,
   GeneratorConfig,
