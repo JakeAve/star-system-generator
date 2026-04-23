@@ -75,6 +75,8 @@ const STYLES = `
     border: 1px solid #2a2a3a; border-radius: 8px;
   }
   #cs-handle { display: none; }
+  #cs-content { padding-top: 14px; }
+  #cs-detail { top: -14px; }
 }
 `;
 
