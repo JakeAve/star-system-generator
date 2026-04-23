@@ -45,12 +45,12 @@
         const genLink = document.createElement("a");
         genLink.className = "nav-link";
         genLink.href = "./index.html";
-        genLink.textContent = "+ NEW";
+        genLink.textContent = "← SEEDS";
 
         const viewLink = document.createElement("a");
         viewLink.className = "nav-link";
         viewLink.href = `./seed.html#${numericId}`;
-        viewLink.textContent = "→ 3D VIEW";
+        viewLink.textContent = "⇄ 3D VIEW";
 
         nav.append(genLink, viewLink);
         document.body.appendChild(nav);
