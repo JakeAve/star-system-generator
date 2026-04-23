@@ -30,6 +30,11 @@ const TYPE_HEX = {
   moon: "#aaaaaa",
 };
 
+const SPECTRAL_STAR_COLOR = {
+  O: "#9bb0ff", B: "#aabfff", A: "#cad7ff",
+  F: "#f8f7ff", G: "#fff5b0", K: "#ffcc6f", M: "#ff6633",
+};
+
 let panelEl = null;
 let styleEl = null;
 let activeRow = null;
@@ -69,7 +74,8 @@ export function buildPanel(seed, animObjects, callbacks) {
   list.className = "po";
 
   // Star row (static — passes null to onFocus)
-  const starRow = makeRow("star", `${seed.star.spectralType}-type Star`, false);
+  const starColor = SPECTRAL_STAR_COLOR[seed.star.spectralType] ?? TYPE_HEX.star;
+  const starRow = makeRow("star", `${seed.star.spectralType}-type Star`, false, starColor);
   starRow.addEventListener("click", () => {
     setActive(starRow);
     callbacks.onFocus(null);
@@ -107,12 +113,12 @@ export function buildPanel(seed, animObjects, callbacks) {
   document.body.appendChild(panelEl);
 }
 
-function makeRow(type, name, isMoon) {
+function makeRow(type, name, isMoon, color) {
   const row = document.createElement("div");
   row.className = "pr" + (isMoon ? " pm" : "");
   const dot = document.createElement("span");
   dot.className = "dot";
-  dot.style.background = TYPE_HEX[type] ?? "#fff";
+  dot.style.background = color ?? TYPE_HEX[type] ?? "#fff";
   const label = document.createElement("span");
   label.textContent = name;
   row.append(dot, label);

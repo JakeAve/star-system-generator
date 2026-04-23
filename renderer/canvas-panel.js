@@ -60,6 +60,18 @@ const TYPE_HEX = {
   comet:       "#88aacc",
 };
 
+const SPECTRAL_STAR_COLOR = {
+  O: "#9bb0ff", B: "#aabfff", A: "#cad7ff",
+  F: "#f8f7ff", G: "#fff5b0", K: "#ffcc6f", M: "#ff6633",
+};
+
+function colorFor(obj) {
+  if (obj?.type === "star") {
+    return SPECTRAL_STAR_COLOR[obj.data?.spectralType] ?? TYPE_HEX.star;
+  }
+  return TYPE_HEX[obj?.type] ?? "#fff";
+}
+
 const PEEK_PX = 48;                  // visible height when collapsed
 const OPEN_FRACTION_ON_CLICK = 0.6;  // viewport fraction when toggling open
 const CLICK_SLOP_PX = 5;             // drag distance under which release is a click
@@ -129,7 +141,8 @@ function initHandle(handle) {
 function buildList(seed, animObjects) {
   listEl.innerHTML = "";
 
-  const starRow = makeListRow("star", `${seed.star.spectralType}-type Star`, false, "star");
+  const starColor = SPECTRAL_STAR_COLOR[seed.star.spectralType] ?? TYPE_HEX.star;
+  const starRow = makeListRow("star", `${seed.star.spectralType}-type Star`, false, "star", starColor);
   starRow.addEventListener("click", () => {
     setActiveRow(starRow);
     const starObj = animObjects.find(o => o.type === "star");
@@ -164,13 +177,13 @@ function buildList(seed, animObjects) {
   }
 }
 
-function makeListRow(type, name, isMoon, id) {
+function makeListRow(type, name, isMoon, id, color) {
   const row = document.createElement("li");
   row.className = "cs-row-item" + (isMoon ? " cs-moon" : "");
   if (id) row.dataset.bodyId = id;
   const dot = document.createElement("span");
   dot.className = "cs-dot";
-  dot.style.background = TYPE_HEX[type] ?? "#fff";
+  dot.style.background = color ?? TYPE_HEX[type] ?? "#fff";
   const label = document.createElement("span");
   label.textContent = name;
   row.append(dot, label);
@@ -295,7 +308,7 @@ export function clearCanvasPanel() {
 
 function onBodySelected(obj) {
   peekDot.style.display = "inline-block";
-  peekDot.style.background = TYPE_HEX[obj.type] ?? "#fff";
+  peekDot.style.background = colorFor(obj);
   peekName.textContent = obj.name;
 
   const row = listEl.querySelector(`[data-body-id="${obj.id}"]`);
