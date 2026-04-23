@@ -25,6 +25,13 @@ const STYLES = `
 #cs-content { flex: 1; overflow-y: auto; padding: 0 16px 40vh; display: none; }
 #cs-detail { margin-bottom: 12px; }
 #cs-detail h2 { font-size: 14px; color: #fff; margin-bottom: 8px; }
+#cs-flyto {
+  display: inline-block; margin-bottom: 10px;
+  background: #1a1a2a; border: 1px solid #333; color: #ccc;
+  cursor: pointer; border-radius: 3px; padding: 4px 12px;
+  font-family: monospace; font-size: 12px; letter-spacing: 0.05em;
+}
+#cs-flyto:hover { border-color: #6ab0d4; color: #fff; }
 .cs-field { display: flex; justify-content: space-between; padding: 3px 0;
   border-bottom: 1px solid #1a1a2a; font-size: 12px; }
 .cs-field span:first-child { color: #888; }
@@ -182,6 +189,16 @@ function showDetail(obj) {
   const h2 = document.createElement("h2");
   h2.textContent = obj.name;
   detailEl.appendChild(h2);
+
+  if (obj.type !== "star") {
+    const flyBtn = document.createElement("button");
+    flyBtn.id = "cs-flyto";
+    flyBtn.textContent = "→ Fly to";
+    flyBtn.addEventListener("click", () => {
+      panelCallbacks.onFlyTo?.(obj);
+    });
+    detailEl.appendChild(flyBtn);
+  }
 
   const fields = obj.type === "star"
     ? [

@@ -369,6 +369,12 @@ function animate(time) {
     const t = easeInOutCubic(flyState.progress);
     cam.x = flyState.startX + (flyState.targetX - flyState.startX) * t;
     cam.y = flyState.startY + (flyState.targetY - flyState.startY) * t;
+    if (flyState.targetScale !== null) {
+      // Interpolate scale in log space so zoom feels even
+      const ls = Math.log(flyState.startScale);
+      const lt = Math.log(flyState.targetScale);
+      cam.scale = Math.exp(ls + (lt - ls) * t);
+    }
     if (flyState.progress >= 1) flyState = null;
   }
 
@@ -435,6 +441,7 @@ export function buildSystem(seed) {
 
   buildCanvasPanel(seed, animObjects, {
     onFocus: obj => { if (obj) selectBody(obj.id); },
+    onFlyTo: obj => { if (obj) flyToBody(obj.id); },
   });
   buildPlaybackWidget({
     onTimeScale: ts => { timeScale = ts; },
@@ -450,8 +457,28 @@ export function selectBody(id) {
   const obj = animObjectsById[id];
   if (!obj) return;
   flyState = {
-    startX: cam.x, startY: cam.y,
-    targetX: obj.worldX, targetY: obj.worldY,
+    startX: cam.x, startY: cam.y, startScale: cam.scale,
+    targetX: obj.worldX, targetY: obj.worldY, targetScale: null,
+    progress: 0,
+  };
+  canvas.dispatchEvent(new CustomEvent("bodySelected", {
+    detail: obj,
+    bubbles: true,
+  }));
+}
+
+export function flyToBody(id) {
+  selectedId = id;
+  const obj = animObjectsById[id];
+  if (!obj) return;
+  const minDim = Math.min(canvas.width, canvas.height);
+  const targetScale = Math.max(
+    0.01,
+    Math.min(500, (minDim * 0.2) / Math.max(obj.visualR, 1e-6)),
+  );
+  flyState = {
+    startX: cam.x, startY: cam.y, startScale: cam.scale,
+    targetX: obj.worldX, targetY: obj.worldY, targetScale,
     progress: 0,
   };
   canvas.dispatchEvent(new CustomEvent("bodySelected", {
