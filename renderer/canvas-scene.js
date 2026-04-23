@@ -178,7 +178,146 @@ function drawBodies() {
   }
 }
 
+function buildAnimObjects(seed) {
+  const objs = [];
+
+  // Star (fixed at world origin)
+  objs.push({
+    id: "star",
+    name: `${seed.star.spectralType}-type Star`,
+    type: "star",
+    data: seed.star,
+    worldX: 0, worldY: 0,
+    visualR: visualRadius(seed.star.radius * SOLAR_TO_EARTH_RADII),
+    a: 0, b: 0, c: 0, initialAngle: 0, orbitPeriod: 1, parentId: null,
+  });
+
+  // Planets (sorted ascending by orbitRadius) then each planet's moons
+  const sorted = [...seed.objects].sort((a, b) => a.orbitRadius - b.orbitRadius);
+  for (const obj of sorted) {
+    const { a, b, c } = orbitParams(obj.orbitRadius, obj.eccentricity, false);
+    objs.push({
+      id: obj.id, name: obj.name, type: obj.type, data: obj,
+      a, b, c,
+      initialAngle: (obj.orbitalPhase ?? 0) * Math.PI * 2,
+      orbitPeriod: obj.orbitPeriod || 1,
+      parentId: null,
+      worldX: 0, worldY: 0,
+      visualR: visualRadius(obj.radius),
+    });
+    for (const moon of (obj.moons ?? [])) {
+      const mp = orbitParams(moon.orbitRadius, moon.eccentricity, true);
+      objs.push({
+        id: moon.id, name: moon.name, type: moon.type, data: moon,
+        a: mp.a, b: mp.b, c: mp.c,
+        initialAngle: (moon.orbitalPhase ?? 0) * Math.PI * 2,
+        orbitPeriod: moon.orbitPeriod || 1,
+        parentId: obj.id,
+        worldX: 0, worldY: 0,
+        visualR: visualRadius(moon.radius),
+      });
+    }
+  }
+  return objs;
+}
+
+function updatePositions() {
+  for (const obj of animObjects) {
+    if (obj.type === "star") continue;
+    const angle = obj.initialAngle + (2 * Math.PI / obj.orbitPeriod) * elapsedDays;
+    const pos = orbitPosition(obj.a, obj.b, obj.c, angle);
+    if (obj.parentId === null) {
+      obj.worldX = pos.x;
+      obj.worldY = pos.y;
+    } else {
+      const parent = animObjectsById[obj.parentId];
+      obj.worldX = parent.worldX + pos.x;
+      obj.worldY = parent.worldY + pos.y;
+    }
+  }
+}
+
+function animate(time) {
+  rafId = requestAnimationFrame(animate);
+  if (lastTime === null) { lastTime = time; return; }
+  const delta = Math.min((time - lastTime) / 1000, 0.1);
+  lastTime = time;
+
+  if (!paused) elapsedDays += delta * timeScale;
+
+  // Fly-to camera lerp
+  if (flyState !== null) {
+    flyState.progress = Math.min(flyState.progress + delta / FLY_DURATION, 1);
+    const t = easeInOutCubic(flyState.progress);
+    cam.x = flyState.startX + (flyState.targetX - flyState.startX) * t;
+    cam.y = flyState.startY + (flyState.targetY - flyState.startY) * t;
+    if (flyState.progress >= 1) flyState = null;
+  }
+
+  updatePositions();
+  drawStarfield();
+  applyTransform();
+  drawOrbits();
+  drawBodies();
+}
+
+function clearScene() {
+  if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+  animObjects = [];
+  animObjectsById = {};
+  starfield = [];
+  selectedId = null;
+  elapsedDays = 0;
+  lastTime = null;
+  paused = false;
+  timeScale = 1;
+  flyState = null;
+}
+
 export function buildSystem(seed) {
-  // stub — expanded in Task 5
+  if (!seed) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#666";
+    ctx.font = "14px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("No system loaded — generate one first", canvas.width / 2, canvas.height / 2);
+    const link = document.createElement("a");
+    link.href = "/";
+    link.textContent = "← Generate";
+    link.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,40px);color:#6ab0d4;font-family:monospace;font-size:13px";
+    document.body.appendChild(link);
+    return;
+  }
+
+  clearScene();
   currentSeed = seed;
+  animObjects = buildAnimObjects(seed);
+  animObjectsById = Object.fromEntries(animObjects.map(o => [o.id, o]));
+  starfield = buildStarfield(seed.seed, canvas.width, canvas.height);
+
+  // Fit all planet orbits in view
+  const maxR = Math.max(
+    1,
+    ...animObjects
+      .filter(o => o.parentId === null && o.type !== "star")
+      .map(o => o.a + Math.abs(o.c)),
+  );
+  cam.x = 0;
+  cam.y = 0;
+  cam.scale = Math.min(canvas.width, canvas.height) / 2 / maxR * 0.8;
+
+  buildCanvasPanel(seed, animObjects, {
+    onFocus: obj => { if (obj) selectBody(obj.id); },
+    onPause:     () => { paused = true; },
+    onResume:    () => { paused = false; },
+    onTimeScale: ts => { timeScale = ts; },
+  });
+
+  rafId = requestAnimationFrame(animate);
+}
+
+export function selectBody(id) {
+  selectedId = id;
 }
