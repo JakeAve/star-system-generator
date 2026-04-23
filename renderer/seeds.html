@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Saved Seeds</title>
-    <link rel="icon" href="/favicon.ico">
+    <link rel="icon" href="./favicon.ico">
     <style>
       * {
         margin: 0;
@@ -87,18 +87,18 @@
     </style>
   </head>
   <body>
-    <a href="/" id="back">← GENERATOR</a>
+    <a href="./index.html" id="back">← GENERATOR</a>
     <h1>SAVED SEEDS</h1>
     <div id="list" class="seed-list"></div>
     <script type="module">
-      import { listSeeds } from "/storage.js";
+      import { listSeeds } from "./storage.js";
 
       const listEl = document.getElementById("list");
       const seeds = listSeeds();
 
       if (seeds.length === 0) {
         listEl.innerHTML =
-          '<p class="empty">No seeds saved yet. <a href="/">Generate one.</a></p>';
+          '<p class="empty">No seeds saved yet. <a href="./index.html">Generate one.</a></p>';
       } else {
         const ARCHETYPE_LABEL = {
           dynamicallyCold: "cold",
@@ -154,7 +154,7 @@
 
           const a = document.createElement("a");
           a.className = "seed-row";
-          a.href = `/seed/${sys.seed}`;
+          a.href = `./seed.html#${sys.seed}`;
 
           const numSpan = document.createElement("span");
           numSpan.className = "seed-num";
@@ -178,7 +178,7 @@
       }
     </script>
     <script>
-      const _sse = new EventSource("/sse");
+      const _sse = new EventSource("./sse");
       _sse.onmessage = () => location.reload();
       _sse.onerror = () => _sse.close();
     </script>
