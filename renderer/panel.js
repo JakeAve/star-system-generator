@@ -1,6 +1,6 @@
 const STYLES = `
 #system-panel {
-  position: fixed; top: 16px; right: 16px; width: 260px;
+  position: fixed; top: 64px; right: 16px; width: 260px;
   background: rgba(0,0,0,0.75); border: 1px solid #2a2a3a;
   border-radius: 4px; color: #ccc; font-family: monospace;
   font-size: 13px; z-index: 5; user-select: none;
@@ -89,28 +89,7 @@ export function buildPanel(seed, animObjects, callbacks) {
   });
   playRow.append(playBtn);
 
-  const speedRow = document.createElement("div");
-  speedRow.className = "pc-row";
-  const speedLabel = document.createElement("label");
-  speedLabel.textContent = "Speed";
-  const slider = document.createElement("input");
-  slider.type = "range";
-  slider.min = "0";
-  slider.max = "100";
-  slider.value = "01"; // ≈10× default (0.1 × 5000^0.54 ≈ 10)
-  const speedVal = document.createElement("label");
-  speedVal.style.cssText = "min-width:42px;text-align:right";
-
-  function applySpeed(v) {
-    const ts = 0.1 * Math.pow(5000, v / 100);
-    speedVal.textContent = ts < 10 ? `${ts.toFixed(1)}×` : `${Math.round(ts)}×`;
-    callbacks.onTimeScale(ts);
-  }
-  applySpeed(1);
-  slider.addEventListener("input", () => applySpeed(Number(slider.value)));
-  speedRow.append(speedLabel, slider, speedVal);
-
-  ctrl.append(playRow, speedRow);
+  ctrl.append(playRow);
 
   // ── Object list ───────────────────────────────────────────────────────────────
   const list = document.createElement("div");

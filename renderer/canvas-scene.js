@@ -1,4 +1,5 @@
 import { buildCanvasPanel } from "./canvas-panel.js";
+import { buildSpeedWidget } from "./speed-widget.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AU_SCALE = 100;
@@ -436,8 +437,8 @@ export function buildSystem(seed) {
     onFocus: obj => { if (obj) selectBody(obj.id); },
     onPause:     () => { paused = true; },
     onResume:    () => { paused = false; },
-    onTimeScale: ts => { timeScale = ts; },
   });
+  buildSpeedWidget(ts => { timeScale = ts; });
 
   rafId = requestAnimationFrame(animate);
 }

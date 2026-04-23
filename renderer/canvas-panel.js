@@ -29,8 +29,6 @@ const STYLES = `
 #cs-play { background: #1a1a2a; border: 1px solid #333; color: #ccc;
   cursor: pointer; border-radius: 3px; padding: 3px 10px;
   font-family: monospace; font-size: 13px; }
-#cs-slider { flex: 1; accent-color: #6ab0d4; }
-#cs-speed-val { color: #aaa; font-size: 11px; min-width: 42px; text-align: right; }
 #cs-list { list-style: none; padding: 12px 0 0; margin: 0; }
 .cs-row-item { display: flex; align-items: center; gap: 8px; padding: 6px 0;
   cursor: pointer; border-bottom: 1px solid #111; }
@@ -67,7 +65,7 @@ const STATE_TRANSFORM = {
 };
 
 let sheetEl = null, styleEl = null, expandBtn = null;
-let peekName, peekDot, contentEl, detailEl, listEl, playBtn, slider, speedVal;
+let peekName, peekDot, contentEl, detailEl, listEl, playBtn;
 let currentState = STATE.COLLAPSED;
 let activeRow = null;
 let playing = true;
@@ -251,28 +249,7 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
     playing ? callbacks.onResume() : callbacks.onPause();
   });
   playRow.append(playBtn);
-
-  const speedRow = document.createElement("div");
-  speedRow.className = "cs-row";
-  const speedLabel = document.createElement("label");
-  speedLabel.textContent = "Speed";
-  speedLabel.htmlFor = "cs-slider";
-  speedLabel.style.cssText = "color:#888;font-size:11px";
-  slider = document.createElement("input");
-  slider.id = "cs-slider";
-  slider.type = "range";
-  slider.min = "0"; slider.max = "100"; slider.value = "1";
-  speedVal = document.createElement("span");
-  speedVal.id = "cs-speed-val";
-  function applySpeed(v) {
-    const ts = 0.1 * Math.pow(5000, v / 100);
-    speedVal.textContent = ts < 10 ? `${ts.toFixed(1)}×` : `${Math.round(ts)}×`;
-    callbacks.onTimeScale(ts);
-  }
-  applySpeed(1);
-  slider.addEventListener("input", () => applySpeed(Number(slider.value)));
-  speedRow.append(speedLabel, slider, speedVal);
-  controls.append(playRow, speedRow);
+  controls.append(playRow);
 
   listEl = document.createElement("ul");
   listEl.id = "cs-list";
