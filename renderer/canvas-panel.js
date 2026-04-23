@@ -16,6 +16,7 @@ const STYLES = `
   #cs-header { cursor: default; padding-top: 12px; }
   #cs-header:active { cursor: default; }
   #cs-handle-bar { display: none; }
+  #cs-content { display: block; }
 }
 #cs-header {
   flex-shrink: 0; cursor: grab; touch-action: none;
