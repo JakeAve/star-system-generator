@@ -201,11 +201,12 @@ function easeInOutCubic(t) {
 }
 
 function handleFocus(animObj) {
+  const isStar = !animObj || animObj.type === "star";
   flyState = {
     startCamPos: camera.position.clone(),
     startTarget: controls.target.clone(),
-    animObj, // null means star — fly to origin, no tracking after
-    flyOffset: animObj ? animObj.flyOffset : starFlyOffset,
+    animObj: isStar ? null : animObj,
+    flyOffset: isStar ? starFlyOffset : animObj.flyOffset,
     progress: 0,
   };
   lockedTarget = null;
@@ -245,6 +246,10 @@ function buildObject(data, parentContainer, isMoon) {
   parentContainer.add(mesh);
 
   animObjects.push({
+    id: data.id,
+    type: data.type,
+    name: data.name,
+    data,
     mesh,
     a,
     b,
@@ -286,13 +291,24 @@ export function buildSystem(seed) {
   const starMat = new THREE.MeshBasicMaterial({
     color: SPECTRAL_STAR_COLOR[spectralType] ?? SPECTRAL_STAR_COLOR.G,
   });
-  systemRoot.add(new THREE.Mesh(starGeo, starMat));
+  const starMesh = new THREE.Mesh(starGeo, starMat);
+  starMesh.userData.id = "star";
+  systemRoot.add(starMesh);
+  animObjects.push({
+    id: "star",
+    type: "star",
+    name: `${spectralType}-type Star`,
+    data: seed.star,
+    mesh: starMesh,
+    flyOffset: starFlyOffset,
+  });
 
   for (const obj of seed.objects) {
     buildObject(obj, systemRoot, false);
   }
   buildPanel(seed, animObjects, {
     onFocus: handleFocus,
+    onFlyTo: handleFocus,
   });
   buildPlaybackWidget({
     onTimeScale: (ts) => {

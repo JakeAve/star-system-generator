@@ -1,4 +1,4 @@
-import { buildCanvasPanel } from "./canvas-panel.js";
+import { buildPanel } from "./panel.js";
 import { buildPlaybackWidget } from "./playback-widget.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -452,7 +452,7 @@ export function buildSystem(seed) {
   cam.y = 0;
   cam.scale = Math.min(canvas.width, canvas.height) / 2 / maxR * 0.8;
 
-  buildCanvasPanel(seed, animObjects, {
+  buildPanel(seed, animObjects, {
     onFocus: obj => { if (obj) selectBody(obj.id); },
     onFlyTo: obj => { if (obj) flyToBody(obj.id); },
   });
