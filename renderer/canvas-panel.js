@@ -105,7 +105,7 @@ function buildList(seed, animObjects) {
   listEl.innerHTML = "";
 
   // Star row
-  const starRow = makeListRow("star", `${seed.star.spectralType}-type Star`, false);
+  const starRow = makeListRow("star", `${seed.star.spectralType}-type Star`, false, "star");
   starRow.addEventListener("click", () => {
     setActiveRow(starRow);
     const starObj = animObjects.find(o => o.type === "star");
@@ -119,8 +119,9 @@ function buildList(seed, animObjects) {
   const sorted = [...seed.objects].sort((a, b) => a.orbitRadius - b.orbitRadius);
   for (const obj of sorted) {
     const planetAnimObj = animObjects.find(o => o.id === obj.id);
-    const row = makeListRow(obj.type, obj.name, false);
+    const row = makeListRow(obj.type, obj.name, false, obj.id);
     row.addEventListener("click", () => {
+      if (!planetAnimObj) return;
       setActiveRow(row);
       panelCallbacks.onFocus(planetAnimObj);
       showDetail(planetAnimObj);
@@ -130,8 +131,9 @@ function buildList(seed, animObjects) {
 
     for (const moon of (obj.moons ?? [])) {
       const moonAnimObj = animObjects.find(o => o.id === moon.id);
-      const moonRow = makeListRow(moon.type, moon.name, true);
+      const moonRow = makeListRow(moon.type, moon.name, true, moon.id);
       moonRow.addEventListener("click", () => {
+        if (!moonAnimObj) return;
         setActiveRow(moonRow);
         panelCallbacks.onFocus(moonAnimObj);
         showDetail(moonAnimObj);
@@ -142,9 +144,10 @@ function buildList(seed, animObjects) {
   }
 }
 
-function makeListRow(type, name, isMoon) {
+function makeListRow(type, name, isMoon, id) {
   const row = document.createElement("li");
   row.className = "cs-row-item" + (isMoon ? " cs-moon" : "");
+  if (id) row.dataset.bodyId = id;
   const dot = document.createElement("span");
   dot.className = "cs-dot";
   dot.style.background = TYPE_HEX[type] ?? "#fff";
@@ -161,6 +164,7 @@ function setActiveRow(row) {
 }
 
 function showDetail(obj) {
+  if (!obj) return;
   detailEl.innerHTML = "";
   const h2 = document.createElement("h2");
   h2.textContent = obj.name;
@@ -312,14 +316,9 @@ function onBodySelected(obj) {
   peekDot.style.background = TYPE_HEX[obj.type] ?? "#fff";
   peekName.textContent = obj.name;
 
-  // Highlight the matching list row by name
-  const rows = listEl.querySelectorAll(".cs-row-item");
-  for (const row of rows) {
-    if (row.querySelector("span:last-child")?.textContent === obj.name) {
-      setActiveRow(row);
-      break;
-    }
-  }
+  // Highlight the matching list row by id
+  const row = listEl.querySelector(`[data-body-id="${obj.id}"]`);
+  if (row) setActiveRow(row);
 
   showDetail(obj);
   setState(STATE.HALF);
