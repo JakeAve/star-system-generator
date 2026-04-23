@@ -1,7 +1,9 @@
 {
   "tasks": {
     "seed": "deno run --allow-write seeder/main.ts",
-    "renderer": "deno run --allow-net --allow-read --allow-write --allow-run --allow-env server.ts"
+    "build": "deno run --allow-read --allow-write --allow-env --allow-run --allow-net build.ts",
+    "renderer": "deno task build && deno run --allow-net --allow-read --allow-write --allow-run --allow-env server.ts",
+    "test": "deno test --allow-read --allow-write --allow-env --allow-run --allow-net"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1"

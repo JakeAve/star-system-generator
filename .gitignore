@@ -5,3 +5,5 @@ assets.json
 !README.md
 .claude
 .DS_Store
+.vscode
+renderer/generator.bundle.js
