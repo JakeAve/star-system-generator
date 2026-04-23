@@ -405,6 +405,7 @@ Deno.test("non-locked bodies have rotationPeriodDays within config range", () =>
     [ObjectType.Asteroid, cfg.rotationPeriodDays.asteroid],
     [ObjectType.DwarfPlanet, cfg.rotationPeriodDays.dwarfPlanet],
     [ObjectType.Moon, cfg.rotationPeriodDays.moon],
+    [ObjectType.Comet, cfg.rotationPeriodDays.comet],
   ];
   for (let seed = 0; seed < 10; seed++) {
     const system = generateSolarSystem({ seed });
@@ -440,6 +441,72 @@ Deno.test("generateSolarSystem: CompactMultiplanet has no moons on inner planets
     break;
   }
   assert(found, "Could not find a CompactMultiplanet system in 500 seeds");
+});
+
+Deno.test("comets have eccentricity in [0.7, 0.97]", () => {
+  let checked = 0;
+  for (let seed = 0; seed < 100; seed++) {
+    const system = generateSolarSystem({ seed });
+    for (const obj of system.objects) {
+      if (obj.type !== ObjectType.Comet) continue;
+      assert(
+        obj.eccentricity >= 0.7 && obj.eccentricity <= 0.97,
+        `Comet seed ${seed} eccentricity ${obj.eccentricity} outside [0.7, 0.97]`,
+      );
+      checked++;
+    }
+  }
+  assert(checked > 0, "No comets found in 100 systems to check eccentricity");
+});
+
+Deno.test("comets have no moons and are never knownAtStart", () => {
+  let checked = 0;
+  for (let seed = 0; seed < 50; seed++) {
+    const system = generateSolarSystem({ seed });
+    for (const obj of system.objects) {
+      if (obj.type !== ObjectType.Comet) continue;
+      assertEquals(obj.moons.length, 0, `Comet ${obj.id} has moons`);
+      assertEquals(obj.knownAtStart, false, `Comet ${obj.id} is knownAtStart`);
+      checked++;
+    }
+  }
+  assert(checked > 0, "No comets found in 50 systems");
+});
+
+Deno.test("comets have settlementCap between 1 and 2", () => {
+  let checked = 0;
+  for (let seed = 0; seed < 50; seed++) {
+    const system = generateSolarSystem({ seed });
+    for (const obj of system.objects) {
+      if (obj.type !== ObjectType.Comet) continue;
+      assert(
+        obj.settlementCap >= 1 && obj.settlementCap <= 2,
+        `Comet ${obj.id} settlementCap ${obj.settlementCap} outside [1, 2]`,
+      );
+      checked++;
+    }
+  }
+  assert(checked > 0, "No comets found in 50 systems");
+});
+
+Deno.test("comets produce water and volatiles deposits more than metals", () => {
+  let waterCount = 0;
+  let volatileCount = 0;
+  let metalCount = 0;
+  for (let seed = 0; seed < 100; seed++) {
+    const system = generateSolarSystem({ seed });
+    for (const obj of system.objects) {
+      if (obj.type !== ObjectType.Comet) continue;
+      for (const dep of obj.deposits) {
+        if (dep.resource === Resource.Water) waterCount++;
+        if (dep.resource === Resource.Volatiles) volatileCount++;
+        if (dep.resource === Resource.Metals) metalCount++;
+      }
+    }
+  }
+  assert(waterCount > 0, "Comets should produce water deposits");
+  assert(volatileCount > 0, "Comets should produce volatiles deposits");
+  assertEquals(metalCount, 0, "Comets should never produce metal deposits");
 });
 
 Deno.test("generateSolarSystem: comets appear across seeds", () => {
