@@ -7,43 +7,44 @@ const STYLES = `
   font-size: 13px; z-index: 10; user-select: none;
   display: flex; flex-direction: column;
 }
-#cs-header {
-  flex-shrink: 0; cursor: grab; touch-action: none;
-  padding: 10px 16px 10px;
+#cs-content {
+  flex: 1 1 0; min-height: 0; overflow-y: auto;
+  padding: 0 16px 24px;
 }
-#cs-header:active { cursor: grabbing; }
-#cs-header * { pointer-events: none; }
-#cs-handle-bar {
-  width: 40px; height: 4px; border-radius: 2px; background: #444;
-  margin: 0 auto 10px;
-}
-#cs-peek {
-  display: flex; align-items: center; gap: 8px;
-}
-#cs-peek-name { font-size: 12px; color: #aaa; letter-spacing: 0.05em; }
-#cs-peek-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-#cs-content { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 0 16px 24px; display: none; }
 #cs-detail {
   position: sticky; top: 0; z-index: 1;
   background: rgba(0,0,0,0.92);
-  padding: 8px 0 12px;
-  margin-bottom: 4px;
+  padding-bottom: 12px;
+  margin: 0 -16px 4px;
+  padding-left: 16px; padding-right: 16px;
   border-bottom: 1px solid #1a1a2a;
   transition: padding 0.2s ease;
+}
+#cs-handle {
+  cursor: grab; touch-action: none;
+  padding: 10px 0 8px;
+  display: flex; justify-content: center;
+}
+#cs-handle:active { cursor: grabbing; }
+#cs-handle::before {
+  content: ""; width: 40px; height: 4px; border-radius: 2px; background: #444;
+  pointer-events: none;
 }
 #cs-detail-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin-bottom: 8px;
   transition: margin-bottom 0.2s ease;
 }
+#cs-detail-head-left {
+  display: flex; align-items: center; gap: 8px;
+  min-width: 0; flex: 1 1 auto;
+}
 #cs-detail-head h2 {
   font-size: 14px; color: #fff; margin: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   transition: font-size 0.2s ease;
 }
-#cs-detail.cs-detail-compact { padding: 4px 0 6px; }
-#cs-detail.cs-detail-compact #cs-detail-head { margin-bottom: 0; }
-#cs-detail.cs-detail-compact #cs-detail-head h2 { font-size: 12px; }
-#cs-detail.cs-detail-compact .cs-field { display: none; }
+#cs-detail-head h2.placeholder { color: #888; font-weight: normal; font-size: 12px; letter-spacing: 0.05em; }
 #cs-flyto {
   flex-shrink: 0;
   background: #1a1a2a; border: 1px solid #333; color: #ccc;
@@ -51,6 +52,10 @@ const STYLES = `
   font-family: monospace; font-size: 12px; letter-spacing: 0.05em;
 }
 #cs-flyto:hover { border-color: #6ab0d4; color: #fff; }
+#cs-detail.cs-detail-compact { padding-bottom: 6px; }
+#cs-detail.cs-detail-compact #cs-detail-head { margin-bottom: 0; }
+#cs-detail.cs-detail-compact #cs-detail-head h2 { font-size: 12px; }
+#cs-detail.cs-detail-compact .cs-field { display: none; }
 .cs-field { display: flex; justify-content: space-between; padding: 3px 0;
   border-bottom: 1px solid #1a1a2a; font-size: 12px; }
 .cs-field span:first-child { color: #888; }
@@ -69,10 +74,7 @@ const STYLES = `
     width: 320px; height: auto !important; max-height: none;
     border: 1px solid #2a2a3a; border-radius: 8px;
   }
-  #cs-header { cursor: default; padding-top: 12px; }
-  #cs-header:active { cursor: default; }
-  #cs-handle-bar { display: none; }
-  #cs-content { display: block; }
+  #cs-handle { display: none; }
 }
 `;
 
@@ -99,13 +101,13 @@ function colorFor(obj) {
   return TYPE_HEX[obj?.type] ?? "#fff";
 }
 
-const PEEK_PX = 48;                  // visible height when collapsed
-const OPEN_FRACTION_ON_CLICK = 0.6;  // viewport fraction when toggling open
-const CLICK_SLOP_PX = 5;             // drag distance under which release is a click
+const PEEK_PX = 48;
+const OPEN_FRACTION_ON_CLICK = 0.6;
+const CLICK_SLOP_PX = 5;
 const TRANSITION = "height 0.3s ease";
 
 let sheetEl = null, styleEl = null;
-let peekName, peekDot, contentEl, detailEl, listEl;
+let contentEl, detailEl, listEl;
 let activeRow = null;
 let panelCallbacks = {};
 let bodySelectedController = null;
@@ -114,25 +116,22 @@ let currentHeight = PEEK_PX;
 function isDesktop() {
   return window.matchMedia("(min-width: 900px)").matches;
 }
-function maxHeight() {
+function maxHeightPx() {
   return window.innerHeight;
 }
 function openHeight() {
-  return maxHeight() * OPEN_FRACTION_ON_CLICK;
+  return maxHeightPx() * OPEN_FRACTION_ON_CLICK;
 }
 
 function setHeight(h, animate = true) {
   if (isDesktop()) {
-    // Desktop layout is driven by CSS; clear any inline values.
     sheetEl.style.transition = "";
     sheetEl.style.height = "";
-    contentEl.style.display = "";
     return;
   }
-  currentHeight = Math.max(PEEK_PX, Math.min(maxHeight(), h));
+  currentHeight = Math.max(PEEK_PX, Math.min(maxHeightPx(), h));
   sheetEl.style.transition = animate ? TRANSITION : "none";
   sheetEl.style.height = `${currentHeight}px`;
-  contentEl.style.display = currentHeight > PEEK_PX + 10 ? "block" : "none";
 }
 
 function toggle() {
@@ -234,21 +233,49 @@ function setActiveRow(row) {
   row.classList.add("cs-active");
 }
 
+function renderDetailPlaceholder() {
+  // Clear everything except the drag handle.
+  for (const child of [...detailEl.children]) {
+    if (child.id !== "cs-handle") child.remove();
+  }
+  const head = document.createElement("div");
+  head.id = "cs-detail-head";
+  const left = document.createElement("div");
+  left.id = "cs-detail-head-left";
+  const h2 = document.createElement("h2");
+  h2.className = "placeholder";
+  h2.textContent = "Tap a body to inspect";
+  left.append(h2);
+  head.appendChild(left);
+  detailEl.appendChild(head);
+}
+
 function showDetail(obj) {
   if (!obj) return;
-  detailEl.innerHTML = "";
+  for (const child of [...detailEl.children]) {
+    if (child.id !== "cs-handle") child.remove();
+  }
 
   const head = document.createElement("div");
   head.id = "cs-detail-head";
+
+  const left = document.createElement("div");
+  left.id = "cs-detail-head-left";
+  const dot = document.createElement("span");
+  dot.className = "cs-dot";
+  dot.style.background = colorFor(obj);
   const h2 = document.createElement("h2");
   h2.textContent = obj.name;
+  left.append(dot, h2);
+
   const flyBtn = document.createElement("button");
   flyBtn.id = "cs-flyto";
   flyBtn.textContent = "→ Fly to";
   flyBtn.addEventListener("click", () => {
     panelCallbacks.onFlyTo?.(obj);
   });
-  head.append(h2, flyBtn);
+
+  head.append(left, flyBtn);
   detailEl.appendChild(head);
 
   const fields = obj.type === "star"
@@ -294,29 +321,18 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   sheetEl = document.createElement("div");
   sheetEl.id = "cs-sheet";
 
-  const header = document.createElement("div");
-  header.id = "cs-header";
-  const handleBar = document.createElement("div");
-  handleBar.id = "cs-handle-bar";
-
-  const peek = document.createElement("div");
-  peek.id = "cs-peek";
-  peekDot = document.createElement("span");
-  peekDot.id = "cs-peek-dot";
-  peekDot.style.display = "none";
-  peekName = document.createElement("span");
-  peekName.id = "cs-peek-name";
-  peekName.textContent = "Tap a body to inspect";
-  peek.append(peekDot, peekName);
-
-  header.append(handleBar, peek);
-  initHandle(header);
-
   contentEl = document.createElement("div");
   contentEl.id = "cs-content";
 
   detailEl = document.createElement("div");
   detailEl.id = "cs-detail";
+
+  const handle = document.createElement("div");
+  handle.id = "cs-handle";
+  initHandle(handle);
+  detailEl.appendChild(handle);
+
+  renderDetailPlaceholder();
 
   listEl = document.createElement("ul");
   listEl.id = "cs-list";
@@ -326,7 +342,7 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   contentEl.addEventListener("scroll", () => {
     detailEl.classList.toggle("cs-detail-compact", contentEl.scrollTop > 20);
   });
-  sheetEl.append(header, contentEl);
+  sheetEl.append(contentEl);
   document.body.appendChild(sheetEl);
 
   setHeight(PEEK_PX, false);
@@ -335,7 +351,6 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   document.addEventListener("bodySelected", e => onBodySelected(e.detail), {
     signal: bodySelectedController.signal,
   });
-  // Re-apply layout when crossing the desktop/mobile breakpoint.
   window.matchMedia("(min-width: 900px)").addEventListener("change", () => {
     setHeight(currentHeight, false);
   }, { signal: bodySelectedController.signal });
@@ -352,12 +367,7 @@ export function clearCanvasPanel() {
 }
 
 function onBodySelected(obj) {
-  peekDot.style.display = "inline-block";
-  peekDot.style.background = colorFor(obj);
-  peekName.textContent = obj.name;
-
   const row = listEl.querySelector(`[data-body-id="${obj.id}"]`);
   if (row) setActiveRow(row);
-
   showDetail(obj);
 }
