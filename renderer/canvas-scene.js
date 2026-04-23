@@ -47,6 +47,7 @@ globalThis.addEventListener("resize", () => {
   canvas.width  = innerWidth;
   canvas.height = innerHeight;
   ctx.imageSmoothingEnabled = false;
+  if (currentSeed) starfield = buildStarfield(currentSeed.seed, canvas.width, canvas.height);
 });
 
 // ─── Camera state ─────────────────────────────────────────────────────────────
@@ -276,6 +277,7 @@ function clearScene() {
 
 export function buildSystem(seed) {
   if (!seed) {
+    clearScene();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
