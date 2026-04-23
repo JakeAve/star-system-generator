@@ -67,6 +67,115 @@ let flyState       = null; // { startX, startY, targetX, targetY, progress }
 let rafId          = null;
 let currentSeed    = null;
 
+// ─── Input state ──────────────────────────────────────────────────────────────
+let dragStart      = null;
+let camAtDrag      = null;
+let touchCache     = {};     // identifier → { x, y }
+let pinchStartDist = null;
+let pinchStartScale = null;
+let pinchMidWorld  = null;   // world point under pinch midpoint at start
+
+function screenToWorld(sx, sy) {
+  return {
+    x: (sx - canvas.width / 2) / cam.scale + cam.x,
+    y: (sy - canvas.height / 2) / cam.scale + cam.y,
+  };
+}
+
+function handleTap(screenX, screenY) {
+  const { x: wx, y: wy } = screenToWorld(screenX, screenY);
+  const MIN_HIT = 20 / cam.scale;
+  let best = null, bestDist = Infinity;
+  for (const obj of animObjects) {
+    const d = Math.hypot(obj.worldX - wx, obj.worldY - wy);
+    const hitR = Math.max(MIN_HIT, obj.visualR);
+    if (d < hitR && d < bestDist) { best = obj; bestDist = d; }
+  }
+  if (best) selectBody(best.id);
+}
+
+canvas.addEventListener("mousedown", e => {
+  dragStart = { x: e.clientX, y: e.clientY };
+  camAtDrag = { x: cam.x, y: cam.y };
+});
+canvas.addEventListener("mousemove", e => {
+  if (!dragStart) return;
+  cam.x = camAtDrag.x - (e.clientX - dragStart.x) / cam.scale;
+  cam.y = camAtDrag.y - (e.clientY - dragStart.y) / cam.scale;
+});
+canvas.addEventListener("mouseup", e => {
+  if (dragStart &&
+      Math.abs(e.clientX - dragStart.x) < 4 &&
+      Math.abs(e.clientY - dragStart.y) < 4) {
+    handleTap(e.clientX, e.clientY);
+  }
+  dragStart = null;
+});
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.909;
+  const before = screenToWorld(e.clientX, e.clientY);
+  cam.scale = Math.max(0.01, cam.scale * factor);
+  const after = screenToWorld(e.clientX, e.clientY);
+  cam.x += before.x - after.x;
+  cam.y += before.y - after.y;
+}, { passive: false });
+
+canvas.addEventListener("touchstart", e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    touchCache[t.identifier] = { x: t.clientX, y: t.clientY };
+  }
+  const pts = Object.values(touchCache);
+  if (pts.length === 2) {
+    pinchStartDist  = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+    pinchStartScale = cam.scale;
+    const mx = (pts[0].x + pts[1].x) / 2;
+    const my = (pts[0].y + pts[1].y) / 2;
+    pinchMidWorld = screenToWorld(mx, my);
+    dragStart = null;
+  } else if (pts.length === 1) {
+    dragStart = { x: pts[0].x, y: pts[0].y };
+    camAtDrag = { x: cam.x, y: cam.y };
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchmove", e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    touchCache[t.identifier] = { x: t.clientX, y: t.clientY };
+  }
+  const pts = Object.values(touchCache);
+  if (pts.length === 2 && pinchStartDist !== null) {
+    const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+    cam.scale = Math.max(0.01, pinchStartScale * dist / pinchStartDist);
+    // Keep pinch midpoint fixed in world space
+    const mx = (pts[0].x + pts[1].x) / 2;
+    const my = (pts[0].y + pts[1].y) / 2;
+    const after = screenToWorld(mx, my);
+    cam.x += pinchMidWorld.x - after.x;
+    cam.y += pinchMidWorld.y - after.y;
+  } else if (pts.length === 1 && dragStart) {
+    cam.x = camAtDrag.x - (pts[0].x - dragStart.x) / cam.scale;
+    cam.y = camAtDrag.y - (pts[0].y - dragStart.y) / cam.scale;
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchend", e => {
+  const wasSingle = Object.keys(touchCache).length === 1;
+  for (const t of e.changedTouches) delete touchCache[t.identifier];
+  pinchStartDist = null;
+  if (wasSingle && e.changedTouches.length === 1) {
+    const t = e.changedTouches[0];
+    if (dragStart &&
+        Math.abs(t.clientX - dragStart.x) < 10 &&
+        Math.abs(t.clientY - dragStart.y) < 10) {
+      handleTap(t.clientX, t.clientY);
+    }
+    dragStart = null;
+  }
+});
+
 function visualRadius(r) {
   return Math.max(MIN_VIS_R, Math.log1p(r) * BODY_SCALE);
 }
@@ -322,4 +431,15 @@ export function buildSystem(seed) {
 
 export function selectBody(id) {
   selectedId = id;
+  const obj = animObjectsById[id];
+  if (!obj) return;
+  flyState = {
+    startX: cam.x, startY: cam.y,
+    targetX: obj.worldX, targetY: obj.worldY,
+    progress: 0,
+  };
+  canvas.dispatchEvent(new CustomEvent("bodySelected", {
+    detail: obj,
+    bubbles: true,
+  }));
 }
