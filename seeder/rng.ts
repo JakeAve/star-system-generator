@@ -299,7 +299,7 @@ export function generateName(
   _index: number,
 ): string {
   _nameCounter++;
-  if (type === ObjectType.Asteroid || type === ObjectType.DwarfPlanet) {
+  if (type === ObjectType.Asteroid || type === ObjectType.DwarfPlanet || type === ObjectType.Comet) {
     const prefix = rng.pick(PREFIXES).slice(0, 3).toUpperCase();
     return `${_nameCounter}-${prefix}`;
   }

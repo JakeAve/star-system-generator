@@ -61,6 +61,14 @@ export const RESOURCE_WEIGHTS: Record<ObjectType, ResourceWeights> = {
     [Resource.HeavyMetals]: 0.4,
     [Resource.Volatiles]: 0.5,
   },
+  [ObjectType.Comet]: {
+    [Resource.Water]: 2.0,
+    [Resource.Volatiles]: 1.8,
+    [Resource.Organics]: 0.8,
+    [Resource.Silicates]: 0.05,
+    [Resource.Metals]: 0.0,
+    [Resource.HeavyMetals]: 0.0,
+  },
 };
 
 // ── Frost-line multipliers ────────────────────────────────────────────────────
@@ -89,6 +97,7 @@ export const SETTLEMENT_CONFIG: GeneratorConfig["settlementConfig"] = {
   moonOuter: { min: 2, radiusDivisor: 2 },
   dwarfPlanet: { min: 2, radiusDivisor: 3 },
   rockyPlanet: { min: 1, radiusMultiplier: 1.5 },
+  comet: { min: 1, max: 2 },
 };
 
 // ── Radius ranges (relative units 1–10) ──────────────────────────────────────
@@ -101,6 +110,7 @@ export const RADIUS_RANGES: GeneratorConfig["radiusRanges"] = {
   dwarfPlanet: { min: 0.001, max: 0.022 }, // Ceres (0.00015) → Pluto (0.0022) -- very tiny!
   moon: { min: 0.001, max: 0.025 }, // small captured rock → Ganymede (0.025)
   asteroid: { min: 0.000001, max: 0.0002 }, // boulders → Vesta (0.000045)
+  comet: { min: 0.000001, max: 0.0005 },
 };
 
 // ── Mass ranges (relative units 1–10) ────────────────────────────────────────
@@ -113,6 +123,7 @@ export const MASS_RANGES: GeneratorConfig["massRanges"] = {
   asteroid: { min: 0.1, max: 2 },
   dwarfPlanet: { min: 0.5, max: 2 },
   superEarth: { min: 2, max: 10 }, // just above rocky max → ~10 M⊕
+  comet: { min: 0.1, max: 2 },
 };
 
 // ── Eccentricity defaults ─────────────────────────────────────────────────────
@@ -125,8 +136,9 @@ export const ECCENTRICITY_DEFAULTS: Record<
   [ObjectType.GasGiant]: { min: 0.0, max: 0.1 },
   [ObjectType.IceGiant]: { min: 0.0, max: 0.08 },
   [ObjectType.Moon]: { min: 0.0, max: 0.05 },
-  [ObjectType.Asteroid]: { min: 0.05, max: 0.3 },
+  [ObjectType.Asteroid]: { min: 0.05, max: 0.45 },
   [ObjectType.DwarfPlanet]: { min: 0.02, max: 0.2 },
+  [ObjectType.Comet]: { min: 0.7, max: 0.97 },
 };
 
 export const CAPTURED_MOON_ECCENTRICITY = { min: 0.1, max: 0.5 };
@@ -441,5 +453,6 @@ export const DEFAULT_CONFIG: GeneratorConfig = {
     asteroid: { min: 0.04, max: 1.0 },
     dwarfPlanet: { min: 0.25, max: 7.0 },
     moon: { min: 1.0, max: 30.0 },
+    comet: { min: 0.25, max: 30.0 },
   },
 };

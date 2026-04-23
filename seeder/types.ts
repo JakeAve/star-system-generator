@@ -16,6 +16,7 @@ export enum ObjectType {
   Moon = "moon",
   Asteroid = "asteroid",
   DwarfPlanet = "dwarfPlanet",
+  Comet = "comet",
 }
 
 export enum MigrationArchetype {
@@ -94,6 +95,7 @@ export type ResourceWeights = Record<Resource, number>;
 export interface SettlementEntry {
   cap?: number;
   min?: number;
+  max?: number;
   radiusDivisor?: number;
   radiusMultiplier?: number;
 }
@@ -149,6 +151,7 @@ export interface GeneratorConfig {
     asteroid: { min: number; max: number };
     dwarfPlanet: { min: number; max: number };
     superEarth: { min: number; max: number };
+    comet: { min: number; max: number };
   };
   massRanges: {
     rockyPlanet: { min: number; max: number };
@@ -158,6 +161,7 @@ export interface GeneratorConfig {
     asteroid: { min: number; max: number };
     dwarfPlanet: { min: number; max: number };
     superEarth: { min: number; max: number };
+    comet: { min: number; max: number };
   };
   /** Default eccentricity range per object type; overridden by slot.eccentricityRange */
   eccentricityDefaults: Record<ObjectType, { min: number; max: number }>;
@@ -172,6 +176,7 @@ export interface GeneratorConfig {
     moonOuter: SettlementEntry;
     dwarfPlanet: SettlementEntry;
     rockyPlanet: SettlementEntry;
+    comet: SettlementEntry;
   };
   archetypeProfiles: Record<MigrationArchetype, ArchetypeProfile>;
   starLuminosity: Record<SpectralType, [number, number]>;
@@ -188,5 +193,6 @@ export interface GeneratorConfig {
     asteroid: { min: number; max: number };
     dwarfPlanet: { min: number; max: number };
     moon: { min: number; max: number };
+    comet: { min: number; max: number };
   };
 }
