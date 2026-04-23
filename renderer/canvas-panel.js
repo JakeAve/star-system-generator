@@ -24,9 +24,13 @@ const STYLES = `
 #cs-peek-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 #cs-content { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 0 16px 24px; display: none; }
 #cs-detail { margin-bottom: 12px; }
-#cs-detail h2 { font-size: 14px; color: #fff; margin-bottom: 8px; }
+#cs-detail-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 8px;
+}
+#cs-detail-head h2 { font-size: 14px; color: #fff; margin: 0; }
 #cs-flyto {
-  display: inline-block; margin-bottom: 10px;
+  flex-shrink: 0;
   background: #1a1a2a; border: 1px solid #333; color: #ccc;
   cursor: pointer; border-radius: 3px; padding: 4px 12px;
   font-family: monospace; font-size: 12px; letter-spacing: 0.05em;
@@ -182,19 +186,19 @@ function setActiveRow(row) {
 function showDetail(obj) {
   if (!obj) return;
   detailEl.innerHTML = "";
+
+  const head = document.createElement("div");
+  head.id = "cs-detail-head";
   const h2 = document.createElement("h2");
   h2.textContent = obj.name;
-  detailEl.appendChild(h2);
-
-  if (obj.type !== "star") {
-    const flyBtn = document.createElement("button");
-    flyBtn.id = "cs-flyto";
-    flyBtn.textContent = "→ Fly to";
-    flyBtn.addEventListener("click", () => {
-      panelCallbacks.onFlyTo?.(obj);
-    });
-    detailEl.appendChild(flyBtn);
-  }
+  const flyBtn = document.createElement("button");
+  flyBtn.id = "cs-flyto";
+  flyBtn.textContent = "→ Fly to";
+  flyBtn.addEventListener("click", () => {
+    panelCallbacks.onFlyTo?.(obj);
+  });
+  head.append(h2, flyBtn);
+  detailEl.appendChild(head);
 
   const fields = obj.type === "star"
     ? [
