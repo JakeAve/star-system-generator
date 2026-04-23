@@ -161,6 +161,7 @@ function animate(time) {
     if (!paused) elapsedDays += delta * timeScale;
     // animObjects must be iterated parent-before-child: planets push before their moons (see buildObject)
     for (const obj of animObjects) {
+      if (obj.type === "star") continue;
       const angle = obj.initialAngle +
         ((Math.PI * 2) / obj.orbitPeriod) * elapsedDays;
       obj.mesh.position.copy(orbitPosition(obj.a, obj.b, obj.c, angle));
