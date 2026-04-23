@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>System Generator</title>
-    <link rel="icon" href="/favicon.ico">
+    <link rel="icon" href="./favicon.ico">
     <style>
       * {
         margin: 0;
@@ -108,17 +108,18 @@
         >
       </div>
       <button class="btn" id="generate-btn">GENERATE</button>
-      <div id="seeds-link"><a href="/seeds">VIEW SAVED SEEDS</a></div>
+      <div id="seeds-link"><a href="./seeds.html">VIEW SAVED SEEDS</a></div>
       <div id="error"></div>
     </div>
     <script type="module">
-      import { saveSystem } from "/storage.js";
+      import { generateSolarSystem } from "./generator.bundle.js";
+      import { saveSystem } from "./storage.js";
 
       const seedInput = document.getElementById("seed-input");
       const generateBtn = document.getElementById("generate-btn");
       const errorEl = document.getElementById("error");
 
-      generateBtn.addEventListener("click", async () => {
+      generateBtn.addEventListener("click", () => {
         errorEl.textContent = "";
         const raw = seedInput.value.trim();
         if (raw && !/^\d+$/.test(raw)) {
@@ -127,25 +128,15 @@
         }
         generateBtn.textContent = "GENERATING...";
         generateBtn.disabled = true;
-        const params = raw ? `?seed=${encodeURIComponent(raw)}` : "";
-        let navigating = false;
         try {
-          const res = await fetch(`/generate${params}`);
-          if (!res.ok) {
-            errorEl.textContent = await res.text();
-            return;
-          }
-          const data = await res.json();
+          const seed = raw ? parseInt(raw, 10) : undefined;
+          const data = generateSolarSystem(seed !== undefined ? { seed } : {});
           saveSystem(data);
-          navigating = true;
-          location.href = `/seed/${data.seed}`;
+          location.href = `./seed.html#${data.seed}`;
         } catch (err) {
-          errorEl.textContent = `Network error: ${err.message}`;
-        } finally {
-          if (!navigating) {
-            generateBtn.textContent = "GENERATE";
-            generateBtn.disabled = false;
-          }
+          errorEl.textContent = `Error: ${err.message}`;
+          generateBtn.textContent = "GENERATE";
+          generateBtn.disabled = false;
         }
       });
 
@@ -154,7 +145,7 @@
       });
     </script>
     <script>
-      const _sse = new EventSource("/sse");
+      const _sse = new EventSource("./sse");
       _sse.onmessage = () => location.reload();
       _sse.onerror = () => _sse.close();
     </script>
