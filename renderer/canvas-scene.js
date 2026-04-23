@@ -64,7 +64,7 @@ let elapsedDays    = 0;
 let lastTime       = null;
 let paused         = false;
 let timeScale      = 1;
-let flyState       = null; // { startX, startY, targetX, targetY, progress }
+let flyState       = null; // { startX, startY, startScale, target, targetScale, progress }
 let rafId          = null;
 let currentSeed    = null;
 
@@ -363,14 +363,17 @@ function animate(time) {
 
   if (!paused) elapsedDays += delta * timeScale;
 
-  // Fly-to camera lerp
+  // Fly-to camera lerp — update positions first so live target is current
+  updatePositions();
+
   if (flyState !== null) {
     flyState.progress = Math.min(flyState.progress + delta / FLY_DURATION, 1);
     const t = easeInOutCubic(flyState.progress);
-    cam.x = flyState.startX + (flyState.targetX - flyState.startX) * t;
-    cam.y = flyState.startY + (flyState.targetY - flyState.startY) * t;
+    const tx = flyState.target.worldX;
+    const ty = flyState.target.worldY;
+    cam.x = flyState.startX + (tx - flyState.startX) * t;
+    cam.y = flyState.startY + (ty - flyState.startY) * t;
     if (flyState.targetScale !== null) {
-      // Interpolate scale in log space so zoom feels even
       const ls = Math.log(flyState.startScale);
       const lt = Math.log(flyState.targetScale);
       cam.scale = Math.exp(ls + (lt - ls) * t);
@@ -378,7 +381,6 @@ function animate(time) {
     if (flyState.progress >= 1) flyState = null;
   }
 
-  updatePositions();
   drawStarfield();
   applyTransform();
   drawOrbits();
@@ -458,7 +460,7 @@ export function selectBody(id) {
   if (!obj) return;
   flyState = {
     startX: cam.x, startY: cam.y, startScale: cam.scale,
-    targetX: obj.worldX, targetY: obj.worldY, targetScale: null,
+    target: obj, targetScale: null,
     progress: 0,
   };
   canvas.dispatchEvent(new CustomEvent("bodySelected", {
@@ -478,7 +480,7 @@ export function flyToBody(id) {
   );
   flyState = {
     startX: cam.x, startY: cam.y, startScale: cam.scale,
-    targetX: obj.worldX, targetY: obj.worldY, targetScale,
+    target: obj, targetScale,
     progress: 0,
   };
   canvas.dispatchEvent(new CustomEvent("bodySelected", {
