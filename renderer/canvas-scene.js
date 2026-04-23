@@ -65,6 +65,7 @@ let lastTime       = null;
 let paused         = false;
 let timeScale      = 1;
 let flyState       = null; // { startX, startY, startScale, target, targetScale, progress }
+let lockedTarget   = null; // animObj that camera follows after fly completes
 let rafId          = null;
 let currentSeed    = null;
 
@@ -98,6 +99,7 @@ function handleTap(screenX, screenY) {
 canvas.addEventListener("mousedown", e => {
   dragStart = { x: e.clientX, y: e.clientY };
   camAtDrag = { x: cam.x, y: cam.y };
+  lockedTarget = null;
 });
 canvas.addEventListener("mousemove", e => {
   if (!dragStart) return;
@@ -115,6 +117,7 @@ canvas.addEventListener("mouseup", e => {
 canvas.addEventListener("mouseleave", () => { dragStart = null; });
 canvas.addEventListener("wheel", e => {
   e.preventDefault();
+  lockedTarget = null;
   const factor = e.deltaY < 0 ? 1.1 : 0.909;
   const before = screenToWorld(e.clientX, e.clientY);
   cam.scale = Math.max(0.01, Math.min(500, cam.scale * factor));
@@ -125,6 +128,7 @@ canvas.addEventListener("wheel", e => {
 
 canvas.addEventListener("touchstart", e => {
   e.preventDefault();
+  lockedTarget = null;
   for (const t of e.changedTouches) {
     touchCache[t.identifier] = { x: t.clientX, y: t.clientY };
   }
@@ -378,7 +382,13 @@ function animate(time) {
       const lt = Math.log(flyState.targetScale);
       cam.scale = Math.exp(ls + (lt - ls) * t);
     }
-    if (flyState.progress >= 1) flyState = null;
+    if (flyState.progress >= 1) {
+      lockedTarget = flyState.target;
+      flyState = null;
+    }
+  } else if (lockedTarget !== null) {
+    cam.x = lockedTarget.worldX;
+    cam.y = lockedTarget.worldY;
   }
 
   drawStarfield();
@@ -398,6 +408,7 @@ function clearScene() {
   paused = false;
   timeScale = 1;
   flyState = null;
+  lockedTarget = null;
   dragStart = null;
   camAtDrag = null;
   touchCache = {};
