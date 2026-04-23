@@ -1,11 +1,11 @@
 const STYLES = `
 #cs-sheet {
-  position: fixed; bottom: 0; left: 0; right: 0; height: 90vh;
+  position: fixed; bottom: 0; left: 0; right: 0; height: 0;
+  max-height: 100vh;
   background: rgba(0,0,0,0.92); border-top: 1px solid #2a2a3a;
   border-radius: 12px 12px 0 0; color: #ccc; font-family: monospace;
   font-size: 13px; z-index: 10; user-select: none;
   display: flex; flex-direction: column;
-  transform: translateY(100%);
 }
 #cs-header {
   flex-shrink: 0; cursor: grab; touch-action: none;
@@ -22,7 +22,7 @@ const STYLES = `
 }
 #cs-peek-name { font-size: 12px; color: #aaa; letter-spacing: 0.05em; }
 #cs-peek-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-#cs-content { flex: 1; overflow-y: auto; padding: 0 16px 40vh; display: none; }
+#cs-content { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 0 16px 24px; display: none; }
 #cs-detail { margin-bottom: 12px; }
 #cs-detail h2 { font-size: 14px; color: #fff; margin-bottom: 8px; }
 #cs-flyto {
@@ -57,48 +57,43 @@ const TYPE_HEX = {
 };
 
 const PEEK_PX = 48;                  // visible height when collapsed
-const OPEN_FRACTION_ON_CLICK = 0.6;  // how much of the sheet opens on click (60%)
+const OPEN_FRACTION_ON_CLICK = 0.6;  // viewport fraction when toggling open
 const CLICK_SLOP_PX = 5;             // drag distance under which release is a click
-const TRANSITION = "transform 0.3s ease";
+const TRANSITION = "height 0.3s ease";
 
 let sheetEl = null, styleEl = null;
 let peekName, peekDot, contentEl, detailEl, listEl;
 let activeRow = null;
 let panelCallbacks = {};
 let bodySelectedController = null;
-let currentOffset = 0;               // translateY px: 0 = fully open, max = collapsed
+let currentHeight = PEEK_PX;
 
-function sheetHeight() {
-  return sheetEl.getBoundingClientRect().height;
+function maxHeight() {
+  return window.innerHeight;
 }
-function collapsedOffset() {
-  return Math.max(0, sheetHeight() - PEEK_PX);
-}
-function openOffset() {
-  return sheetHeight() * (1 - OPEN_FRACTION_ON_CLICK);
+function openHeight() {
+  return maxHeight() * OPEN_FRACTION_ON_CLICK;
 }
 
-function setOffset(offset, animate = true) {
-  const max = collapsedOffset();
-  currentOffset = Math.max(0, Math.min(max, offset));
+function setHeight(h, animate = true) {
+  currentHeight = Math.max(PEEK_PX, Math.min(maxHeight(), h));
   sheetEl.style.transition = animate ? TRANSITION : "none";
-  sheetEl.style.transform = `translateY(${currentOffset}px)`;
-  contentEl.style.display = currentOffset < max - 10 ? "block" : "none";
+  sheetEl.style.height = `${currentHeight}px`;
+  contentEl.style.display = currentHeight > PEEK_PX + 10 ? "block" : "none";
 }
 
 function toggle() {
-  const max = collapsedOffset();
-  setOffset(currentOffset >= max - 5 ? openOffset() : max);
+  setHeight(currentHeight <= PEEK_PX + 5 ? openHeight() : PEEK_PX);
 }
 
 function initHandle(handle) {
   let startY = null;
-  let startOffset = 0;
+  let startHeight = 0;
   let moved = false;
 
   handle.addEventListener("pointerdown", (e) => {
     startY = e.clientY;
-    startOffset = currentOffset;
+    startHeight = currentHeight;
     moved = false;
     handle.setPointerCapture(e.pointerId);
     sheetEl.style.transition = "none";
@@ -109,7 +104,8 @@ function initHandle(handle) {
     if (startY === null) return;
     const dy = e.clientY - startY;
     if (Math.abs(dy) > CLICK_SLOP_PX) moved = true;
-    setOffset(startOffset + dy, false);
+    // Dragging up (negative dy) grows the sheet
+    setHeight(startHeight - dy, false);
   });
 
   const finish = (e) => {
@@ -275,8 +271,7 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   sheetEl.append(header, contentEl);
   document.body.appendChild(sheetEl);
 
-  // Start collapsed; use rAF so the sheet height is measurable.
-  requestAnimationFrame(() => setOffset(collapsedOffset(), false));
+  setHeight(PEEK_PX, false);
 
   bodySelectedController = new AbortController();
   document.addEventListener("bodySelected", e => onBodySelected(e.detail), {
@@ -289,7 +284,7 @@ export function clearCanvasPanel() {
   styleEl?.remove();
   sheetEl = styleEl = null;
   activeRow = null;
-  currentOffset = 0;
+  currentHeight = PEEK_PX;
   bodySelectedController?.abort();
   bodySelectedController = null;
 }
