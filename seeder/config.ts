@@ -235,6 +235,12 @@ export const ARCHETYPE_PROFILES: Record<MigrationArchetype, ArchetypeProfile> =
           auRange: { min: 20.0, max: 50.0 },
           dwarfPlanetChance: 0.15,
         },
+        {
+          objectType: ObjectType.Comet,
+          countRange: { min: 3, max: 8 },
+          auRange: { min: 30, max: 120 },
+          probability: 0.8,
+        },
       ],
     },
 
@@ -278,6 +284,12 @@ export const ARCHETYPE_PROFILES: Record<MigrationArchetype, ArchetypeProfile> =
           auRange: { min: 20.0, max: 50.0 },
           dwarfPlanetChance: 0.15,
         },
+        {
+          objectType: ObjectType.Comet,
+          countRange: { min: 4, max: 10 },
+          auRange: { min: 35, max: 130 },
+          probability: 0.8,
+        },
       ],
     },
 
@@ -315,6 +327,12 @@ export const ARCHETYPE_PROFILES: Record<MigrationArchetype, ArchetypeProfile> =
           countRange: { min: 3, max: 12 },
           auRange: { min: 20.0, max: 50.0 },
           dwarfPlanetChance: 0.15,
+        },
+        {
+          objectType: ObjectType.Comet,
+          countRange: { min: 2, max: 5 },
+          auRange: { min: 40, max: 150 },
+          probability: 0.8,
         },
       ],
     },
@@ -372,6 +390,12 @@ export const ARCHETYPE_PROFILES: Record<MigrationArchetype, ArchetypeProfile> =
           auRange: { min: 20.0, max: 50.0 },
           dwarfPlanetChance: 0.15,
         },
+        {
+          objectType: ObjectType.Comet,
+          countRange: { min: 6, max: 14 },
+          auRange: { min: 25, max: 100 },
+          probability: 0.8,
+        },
       ],
     },
 
@@ -407,6 +431,12 @@ export const ARCHETYPE_PROFILES: Record<MigrationArchetype, ArchetypeProfile> =
           countRange: { min: 3, max: 12 },
           auRange: { min: 20.0, max: 50.0 },
           dwarfPlanetChance: 0.15,
+        },
+        {
+          objectType: ObjectType.Comet,
+          countRange: { min: 2, max: 6 },
+          auRange: { min: 30, max: 100 },
+          probability: 0.8,
         },
       ],
     },

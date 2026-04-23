@@ -441,3 +441,12 @@ Deno.test("generateSolarSystem: CompactMultiplanet has no moons on inner planets
   }
   assert(found, "Could not find a CompactMultiplanet system in 500 seeds");
 });
+
+Deno.test("generateSolarSystem: comets appear across seeds", () => {
+  let cometCount = 0;
+  for (let seed = 0; seed < 50; seed++) {
+    const system = generateSolarSystem({ seed });
+    cometCount += system.objects.filter((o) => o.type === ObjectType.Comet).length;
+  }
+  assert(cometCount > 0, "No comets found in 50 systems");
+});

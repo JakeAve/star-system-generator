@@ -48,6 +48,8 @@ export function settlementCap(
     const e = sc.dwarfPlanet;
     return Math.max(e.min!, Math.floor(radius / e.radiusDivisor!));
   }
+  // Comets set their own cap in makeComet via rng.int — settlementCap is not called for them
+  if (type === ObjectType.Comet) throw new Error("settlementCap: comets set their own cap via rng.int in makeComet");
   // rockyPlanet
   const e = sc.rockyPlanet;
   return Math.max(e.min!, Math.floor(radius * e.radiusMultiplier!));
@@ -428,6 +430,45 @@ function makeAsteroid(
   };
 }
 
+// ── Comet builder ─────────────────────────────────────────────────────────────
+
+function makeComet(
+  rng: RNG,
+  nextId: () => string,
+  orbitAU: number,
+  index: number,
+  eccentricity: number,
+  config: GeneratorConfig,
+  frostLineAU: number,
+  starMass: number,
+): CelestialObject {
+  const rr = config.radiusRanges.comet;
+  const mr = config.massRanges.comet;
+  const radius = r3(rng.float(rr.min, rr.max));
+  const rotRange = config.rotationPeriodDays.comet;
+
+  return {
+    id: nextId(),
+    name: generateName(rng, ObjectType.Comet, index),
+    type: ObjectType.Comet,
+    orbitRadius: r2(orbitAU),
+    orbitPeriod: Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365),
+    eccentricity,
+    radius,
+    mass: r2(rng.float(mr.min, mr.max)),
+    settlementCap: rng.int(
+      config.settlementConfig.comet.min!,
+      config.settlementConfig.comet.max!,
+    ),
+    deposits: generateDeposits(rng, ObjectType.Comet, config, orbitAU, frostLineAU),
+    moons: [],
+    knownAtStart: false,
+    orbitalPhase: r2(rng.float(0, 1)),
+    rotationPeriodDays: r2(rng.float(rotRange.min, rotRange.max)),
+    tidallyLocked: false,
+  };
+}
+
 // ── Archetype picker ──────────────────────────────────────────────────────────
 
 function pickArchetype(
@@ -460,6 +501,7 @@ export function generateSolarSystem(
   let planetIdx = 0;
   let giantIdx = 0;
   let iceGiantIdx = 0;
+  let cometIdx = 0;
 
   for (const slot of profile.slots) {
     if (slot.probability !== undefined && rng.next() > slot.probability) {
@@ -541,6 +583,8 @@ export function generateSolarSystem(
           frostLineAU,
           star.mass,
         );
+      } else if (effectiveType === ObjectType.Comet) {
+        obj = makeComet(rng, nextId, orbitAU, cometIdx++, ecc, cfg, frostLineAU, star.mass);
       } else {
         // RockyPlanet or superEarth
         const radiusRange = slot.objectType === "superEarth"
@@ -565,7 +609,7 @@ export function generateSolarSystem(
         );
       }
 
-      obj.knownAtStart = isKnown;
+      obj.knownAtStart = isKnown && obj.type !== ObjectType.Comet;
       objects.push(obj);
     }
   }
