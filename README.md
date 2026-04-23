@@ -78,8 +78,7 @@ The deployed site is fully client-side:
 
 | Page | Purpose |
 | --- | --- |
-| `index.html` | Generator — enter a seed or generate random, navigate to the viewer |
-| `seeds.html` | Library — list of seeds saved in `localStorage` |
+| `index.html` | Generator + scroll-snap library of seeds saved in `localStorage` |
 | `seed.html#<seed>` | 3D orrery view |
 | `canvas.html#<seed>` | 2D canvas view |
 

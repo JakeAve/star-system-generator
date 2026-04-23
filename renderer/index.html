@@ -11,14 +11,34 @@
         padding: 0;
         box-sizing: border-box;
       }
-      body {
+      html, body {
         background: #000;
         color: #ccc;
         font-family: monospace;
-        min-height: 100vh;
+      }
+      html {
+        scroll-snap-type: y mandatory;
+        scroll-behavior: smooth;
+        height: 100dvh;
+        overflow-y: scroll;
+      }
+      body {
+        height: 100%;
+      }
+      .section {
+        height: 100dvh;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+        position: relative;
+      }
+      #generator {
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+      #library {
+        padding: 40px 48px;
+        overflow-y: auto;
       }
       #box {
         border: 2px solid #444;
@@ -74,46 +94,117 @@
         opacity: 0.4;
         cursor: default;
       }
-      #seeds-link {
-        margin-top: 20px;
-        font-size: 0.75rem;
-        color: #555;
-      }
-      #seeds-link a {
-        color: #6ab0d4;
-        text-decoration: none;
-      }
-      #seeds-link a:hover {
-        text-decoration: underline;
-      }
       #error {
         margin-top: 12px;
         font-size: 0.75rem;
         color: #f44;
         min-height: 1em;
       }
+      .scroll-btn {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        background: transparent;
+        border: 1px solid #333;
+        color: #666;
+        font-family: monospace;
+        font-size: 0.75rem;
+        letter-spacing: 0.2em;
+        padding: 8px 16px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+      }
+      .scroll-btn:hover {
+        border-color: #888;
+        color: #ccc;
+      }
+      #to-library {
+        bottom: 32px;
+      }
+      #to-generator {
+        top: 32px;
+      }
+      h1 {
+        font-size: 1.1rem;
+        letter-spacing: 0.2em;
+        color: #fff;
+        margin: 48px 0 32px;
+        font-weight: normal;
+      }
+      .seed-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        max-width: 640px;
+      }
+      .seed-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 8px 12px;
+        border: 1px solid transparent;
+        text-decoration: none;
+        color: #ccc;
+      }
+      .seed-row:hover {
+        border-color: #333;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .seed-num {
+        color: #fff;
+        font-size: 0.95rem;
+        min-width: 140px;
+        padding-top: 1px;
+      }
+      .seed-details {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .seed-meta {
+        font-size: 0.75rem;
+        color: #666;
+      }
+      .seed-meta-2 {
+        font-size: 0.75rem;
+        color: #444;
+      }
+      .empty {
+        font-size: 0.85rem;
+        color: #555;
+      }
     </style>
   </head>
   <body>
-    <div id="box">
-      <div id="title">STAR SYSTEM GENERATOR</div>
-      <div id="seed-row">
-        <label for="seed-input">SEED</label>
-        <input
-          id="seed-input"
-          type="text"
-          placeholder="Random"
-          autocomplete="off"
-          spellcheck="false"
-        >
+    <section id="generator" class="section">
+      <div id="box">
+        <div id="title">STAR SYSTEM GENERATOR</div>
+        <div id="seed-row">
+          <label for="seed-input">SEED</label>
+          <input
+            id="seed-input"
+            type="text"
+            placeholder="Random"
+            autocomplete="off"
+            spellcheck="false"
+          >
+        </div>
+        <button class="btn" id="generate-btn">GENERATE</button>
+        <div id="error"></div>
       </div>
-      <button class="btn" id="generate-btn">GENERATE</button>
-      <div id="seeds-link"><a href="./seeds.html">VIEW SAVED SEEDS</a></div>
-      <div id="error"></div>
-    </div>
+      <a href="#library" id="to-library" class="scroll-btn">↓ SAVED SEEDS</a>
+    </section>
+
+    <section id="library" class="section">
+      <a href="#generator" id="to-generator" class="scroll-btn">↑ GENERATOR</a>
+      <h1>SAVED SEEDS</h1>
+      <div id="list" class="seed-list"></div>
+    </section>
+
     <script type="module">
       import { generateSolarSystem } from "./generator.bundle.js";
-      import { saveSystem } from "./storage.js";
+      import { listSeeds, saveSystem } from "./storage.js";
 
       const seedInput = document.getElementById("seed-input");
       const generateBtn = document.getElementById("generate-btn");
@@ -143,6 +234,90 @@
       seedInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") generateBtn.click();
       });
+
+      const listEl = document.getElementById("list");
+      const seeds = listSeeds();
+
+      if (seeds.length === 0) {
+        listEl.innerHTML =
+          '<p class="empty">No seeds saved yet — generate one above.</p>';
+      } else {
+        const ARCHETYPE_LABEL = {
+          dynamicallyCold: "cold",
+          warmJupiter: "warm jupiter",
+          hotJupiter: "hot jupiter",
+          grandTack: "grand tack",
+          compactMultiplanet: "compact",
+        };
+
+        seeds.sort((a, b) => a.seed - b.seed);
+        for (const sys of seeds) {
+          const objects = sys.objects ?? [];
+          const planets = objects.filter((o) => o.type !== "asteroid");
+          const planetCount = planets.length;
+          const asteroidCount = objects.filter((o) =>
+            o.type === "asteroid"
+          ).length;
+          const moonCount = objects.reduce(
+            (n, o) => n + (o.moons?.length ?? 0),
+            0,
+          );
+          const orbits = planets.map((o) => o.orbitRadius).filter((r) =>
+            r > 0
+          );
+          const auRange = orbits.length
+            ? `${Math.min(...orbits).toFixed(1)}–${
+              Math.max(...orbits).toFixed(1)
+            } AU`
+            : null;
+          const hz = sys.star?.habitableZoneAU;
+          const hzStr = hz != null ? `HZ ${hz.toFixed(1)} AU` : null;
+          const archetype = ARCHETYPE_LABEL[sys.migrationHistory] ??
+            sys.migrationHistory;
+
+          const line1 = [
+            `${sys.star?.spectralType ?? "?"}-type star`,
+            archetype,
+          ].filter(Boolean).join(" · ");
+
+          const line2 = [
+            `${planetCount} planet${planetCount !== 1 ? "s" : ""}`,
+            moonCount > 0
+              ? `${moonCount} moon${moonCount !== 1 ? "s" : ""}`
+              : null,
+            asteroidCount > 0
+              ? `${asteroidCount} asteroid${
+                asteroidCount !== 1 ? "s" : ""
+              }`
+              : null,
+            auRange,
+            hzStr,
+          ].filter(Boolean).join(" · ");
+
+          const a = document.createElement("a");
+          a.className = "seed-row";
+          a.href = `./seed.html#${sys.seed}`;
+
+          const numSpan = document.createElement("span");
+          numSpan.className = "seed-num";
+          numSpan.textContent = `SEED ${sys.seed}`;
+
+          const details = document.createElement("span");
+          details.className = "seed-details";
+
+          const metaSpan = document.createElement("span");
+          metaSpan.className = "seed-meta";
+          metaSpan.textContent = line1;
+
+          const meta2Span = document.createElement("span");
+          meta2Span.className = "seed-meta-2";
+          meta2Span.textContent = line2;
+
+          details.append(metaSpan, meta2Span);
+          a.append(numSpan, details);
+          listEl.appendChild(a);
+        }
+      }
     </script>
     <script>
       const _sse = new EventSource("./sse");
