@@ -23,12 +23,27 @@ const STYLES = `
 #cs-peek-name { font-size: 12px; color: #aaa; letter-spacing: 0.05em; }
 #cs-peek-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 #cs-content { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 0 16px 24px; display: none; }
-#cs-detail { margin-bottom: 12px; }
+#cs-detail {
+  position: sticky; top: 0; z-index: 1;
+  background: rgba(0,0,0,0.92);
+  padding: 8px 0 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #1a1a2a;
+  transition: padding 0.2s ease;
+}
 #cs-detail-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin-bottom: 8px;
+  transition: margin-bottom 0.2s ease;
 }
-#cs-detail-head h2 { font-size: 14px; color: #fff; margin: 0; }
+#cs-detail-head h2 {
+  font-size: 14px; color: #fff; margin: 0;
+  transition: font-size 0.2s ease;
+}
+#cs-detail.cs-detail-compact { padding: 4px 0 6px; }
+#cs-detail.cs-detail-compact #cs-detail-head { margin-bottom: 0; }
+#cs-detail.cs-detail-compact #cs-detail-head h2 { font-size: 12px; }
+#cs-detail.cs-detail-compact .cs-field { display: none; }
 #cs-flyto {
   flex-shrink: 0;
   background: #1a1a2a; border: 1px solid #333; color: #ccc;
@@ -308,6 +323,9 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   buildList(seed, animObjects);
 
   contentEl.append(detailEl, listEl);
+  contentEl.addEventListener("scroll", () => {
+    detailEl.classList.toggle("cs-detail-compact", contentEl.scrollTop > 20);
+  });
   sheetEl.append(header, contentEl);
   document.body.appendChild(sheetEl);
 
