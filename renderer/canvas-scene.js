@@ -87,6 +87,97 @@ function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
+// Mulberry32 PRNG — seeded so starfield is stable across frames
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function buildStarfield(systemSeed, w, h) {
+  const rand = mulberry32(systemSeed);
+  const dots = [];
+  for (let i = 0; i < 250; i++) {
+    dots.push({ x: Math.floor(rand() * w), y: Math.floor(rand() * h) });
+  }
+  return dots;
+}
+
+function applyTransform() {
+  ctx.setTransform(
+    cam.scale, 0, 0, cam.scale,
+    canvas.width / 2 - cam.x * cam.scale,
+    canvas.height / 2 - cam.y * cam.scale,
+  );
+}
+
+function drawStarfield() {
+  // Draw in screen space (reset transform first)
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#ffffff44";
+  for (const dot of starfield) {
+    ctx.fillRect(dot.x, dot.y, 1, 1);
+  }
+}
+
+function drawOrbits() {
+  ctx.lineWidth = 1 / cam.scale;
+  for (const obj of animObjects) {
+    if (obj.type === "star") continue;
+    const isMoon = obj.parentId !== null;
+    const parent = isMoon ? animObjectsById[obj.parentId] : null;
+    const px = parent ? parent.worldX : 0;
+    const py = parent ? parent.worldY : 0;
+
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.beginPath();
+    ctx.ellipse(obj.c, 0, obj.a, obj.b, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = isMoon ? "#0a2a2a" : "#1a3a6a";
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawBodies() {
+  for (const obj of animObjects) {
+    const r = Math.max(2 / cam.scale, obj.visualR);
+    const isSelected = obj.id === selectedId;
+
+    ctx.save();
+    ctx.translate(obj.worldX, obj.worldY);
+
+    // Selection ring
+    if (isSelected) {
+      ctx.beginPath();
+      ctx.arc(0, 0, r + 3 / cam.scale, 0, Math.PI * 2);
+      ctx.strokeStyle = "#6ab0d4";
+      ctx.lineWidth = 1.5 / cam.scale;
+      ctx.stroke();
+    }
+
+    // Body fill
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = obj.type === "star"
+      ? (SPECTRAL_STAR_COLOR[obj.data.spectralType] ?? "#fff5b0")
+      : (TYPE_COLORS[obj.type] ?? "#ffffff");
+    ctx.fill();
+
+    // 1px border
+    ctx.strokeStyle = TYPE_BORDERS[obj.type] ?? "#888";
+    ctx.lineWidth = 1 / cam.scale;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+
 export function buildSystem(seed) {
   // stub — expanded in Task 5
   currentSeed = seed;
