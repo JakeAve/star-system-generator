@@ -18,7 +18,10 @@ const POINT_LIGHT_COLOR = 0xfff5e0;
 const POINT_LIGHT_INTENSITY = 50;
 const AMBIENT_LIGHT_COLOR = 0x333344;
 const AMBIENT_LIGHT_INTENSITY = 20;
-const FLY_DURATION = 1.5; // seconds for camera fly-in animation
+const FLY_SPEED_AU_PER_SEC = 5; // tune me: how fast the camera flies, in AU/s
+const FLY_MIN_SEC = 0.4;
+const FLY_MAX_SEC = 4.0;
+const FLY_ZOOM_OUT_FACTOR = 0.6; // tune me: peak mid-flight pull-back, as a fraction of camera travel distance
 const FLY_OFFSET_FACTOR = 6; // visual-radius multipliers for camera standoff
 const FLY_OFFSET_MIN = 0.2; // floor so tiny bodies (asteroids, moons) park at a viewable distance
 const SOLAR_TO_EARTH_RADII = 109; // 1 solar radius ≈ 109 Earth radii
@@ -138,7 +141,9 @@ let lockedTarget = null; // animObj being tracked, or null
 let flyState = null; // { startCamPos, startTarget, animObj, progress } or null
 const tmpVec = new THREE.Vector3();
 const flyEndTarget = new THREE.Vector3();
-const flyEndCamPos = new THREE.Vector3();
+const flyTmpTarget = new THREE.Vector3();
+const flyTmpDir = new THREE.Vector3();
+const FLY_END_DIR = new THREE.Vector3(1, 1, 1).normalize();
 const lockedPrevPos = new THREE.Vector3();
 const lockDelta = new THREE.Vector3();
 
@@ -162,16 +167,29 @@ function animate(time) {
     }
     // Fly-in animation
     if (flyState !== null) {
-      flyState.progress = Math.min(flyState.progress + delta / FLY_DURATION, 1);
+      flyState.progress = Math.min(flyState.progress + delta / flyState.duration, 1);
       const t = easeInOutCubic(flyState.progress);
+
       if (flyState.animObj) {
         flyState.animObj.mesh.getWorldPosition(flyEndTarget);
       } else {
         flyEndTarget.set(0, 0, 0);
       }
-      flyEndCamPos.copy(flyEndTarget).addScalar(flyState.flyOffset);
-      camera.position.lerpVectors(flyState.startCamPos, flyEndCamPos, t);
-      controls.target.lerpVectors(flyState.startTarget, flyEndTarget, t);
+
+      // Interpolate the target (what the camera is looking at).
+      flyTmpTarget.lerpVectors(flyState.startTarget, flyEndTarget, t);
+      controls.target.copy(flyTmpTarget);
+
+      // Interpolate the direction from target to camera, then normalize.
+      flyTmpDir.lerpVectors(flyState.startOffsetDir, FLY_END_DIR, t).normalize();
+
+      // Interpolate distance with a mid-flight zoom-out bump.
+      const baseDist = flyState.startOffsetDist * (1 - t) + flyState.flyOffset * t;
+      const bump = flyState.zoomOutBoost * Math.sin(Math.PI * t);
+      const dist = baseDist + bump;
+
+      camera.position.copy(flyTmpTarget).addScaledVector(flyTmpDir, dist);
+
       if (flyState.progress >= 1) {
         lockedTarget = flyState.animObj;
         if (lockedTarget) lockedTarget.mesh.getWorldPosition(lockedPrevPos);
@@ -202,12 +220,35 @@ function easeInOutCubic(t) {
 
 function handleFocus(animObj) {
   const isStar = !animObj || animObj.type === "star";
+  const startCamPos = camera.position.clone();
+  const startTarget = controls.target.clone();
+  const flyOffset = isStar ? starFlyOffset : animObj.flyOffset;
+
+  // Start offset = vector from target to camera at t=0 (preserves current angle/distance).
+  const startOffset = startCamPos.clone().sub(startTarget);
+  const startOffsetDist = Math.max(startOffset.length(), 1e-6);
+  const startOffsetDir = startOffset.clone().divideScalar(startOffsetDist);
+
+  // Estimated end state for duration + zoom-out sizing.
+  const endTarget = new THREE.Vector3();
+  if (!isStar) animObj.mesh.getWorldPosition(endTarget);
+  const endCamPos = endTarget.clone().addScaledVector(FLY_END_DIR, flyOffset);
+  const travel = startCamPos.distanceTo(endCamPos);
+
+  const rawDuration = travel / (FLY_SPEED_AU_PER_SEC * AU_SCALE);
+  const duration = Math.max(FLY_MIN_SEC, Math.min(FLY_MAX_SEC, rawDuration));
+  const zoomOutBoost = travel * FLY_ZOOM_OUT_FACTOR;
+
   flyState = {
-    startCamPos: camera.position.clone(),
-    startTarget: controls.target.clone(),
+    startCamPos,
+    startTarget,
+    startOffsetDir,
+    startOffsetDist,
     animObj: isStar ? null : animObj,
-    flyOffset: isStar ? starFlyOffset : animObj.flyOffset,
+    flyOffset,
     progress: 0,
+    duration,
+    zoomOutBoost,
   };
   lockedTarget = null;
 }
