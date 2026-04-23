@@ -7,6 +7,16 @@ const STYLES = `
   font-size: 13px; z-index: 10; user-select: none;
   display: flex; flex-direction: column;
 }
+@media (min-width: 900px) {
+  #cs-sheet {
+    top: 64px; right: 16px; bottom: 16px; left: auto;
+    width: 320px; height: auto !important; max-height: none;
+    border: 1px solid #2a2a3a; border-radius: 8px;
+  }
+  #cs-header { cursor: default; padding-top: 12px; }
+  #cs-header:active { cursor: default; }
+  #cs-handle-bar { display: none; }
+}
 #cs-header {
   flex-shrink: 0; cursor: grab; touch-action: none;
   padding: 10px 16px 10px;
@@ -84,6 +94,9 @@ let panelCallbacks = {};
 let bodySelectedController = null;
 let currentHeight = PEEK_PX;
 
+function isDesktop() {
+  return window.matchMedia("(min-width: 900px)").matches;
+}
 function maxHeight() {
   return window.innerHeight;
 }
@@ -92,6 +105,13 @@ function openHeight() {
 }
 
 function setHeight(h, animate = true) {
+  if (isDesktop()) {
+    // Desktop layout is driven by CSS; clear any inline values.
+    sheetEl.style.transition = "";
+    sheetEl.style.height = "";
+    contentEl.style.display = "";
+    return;
+  }
   currentHeight = Math.max(PEEK_PX, Math.min(maxHeight(), h));
   sheetEl.style.transition = animate ? TRANSITION : "none";
   sheetEl.style.height = `${currentHeight}px`;
@@ -99,6 +119,7 @@ function setHeight(h, animate = true) {
 }
 
 function toggle() {
+  if (isDesktop()) return;
   setHeight(currentHeight <= PEEK_PX + 5 ? openHeight() : PEEK_PX);
 }
 
@@ -108,6 +129,7 @@ function initHandle(handle) {
   let moved = false;
 
   handle.addEventListener("pointerdown", (e) => {
+    if (isDesktop()) return;
     startY = e.clientY;
     startHeight = currentHeight;
     moved = false;
@@ -120,7 +142,6 @@ function initHandle(handle) {
     if (startY === null) return;
     const dy = e.clientY - startY;
     if (Math.abs(dy) > CLICK_SLOP_PX) moved = true;
-    // Dragging up (negative dy) grows the sheet
     setHeight(startHeight - dy, false);
   });
 
@@ -294,6 +315,10 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   document.addEventListener("bodySelected", e => onBodySelected(e.detail), {
     signal: bodySelectedController.signal,
   });
+  // Re-apply layout when crossing the desktop/mobile breakpoint.
+  window.matchMedia("(min-width: 900px)").addEventListener("change", () => {
+    setHeight(currentHeight, false);
+  }, { signal: bodySelectedController.signal });
 }
 
 export function clearCanvasPanel() {
