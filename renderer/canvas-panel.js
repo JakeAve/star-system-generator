@@ -101,6 +101,103 @@ function initDragHandle(handle) {
   }, { passive: true });
 }
 
+function buildList(seed, animObjects) {
+  listEl.innerHTML = "";
+
+  // Star row
+  const starRow = makeListRow("star", `${seed.star.spectralType}-type Star`, false);
+  starRow.addEventListener("click", () => {
+    setActiveRow(starRow);
+    const starObj = animObjects.find(o => o.type === "star");
+    panelCallbacks.onFocus(starObj);
+    showDetail(starObj);
+    setState(STATE.HALF);
+  });
+  listEl.appendChild(starRow);
+
+  // Planets sorted by orbitRadius, each followed by their moons
+  const sorted = [...seed.objects].sort((a, b) => a.orbitRadius - b.orbitRadius);
+  for (const obj of sorted) {
+    const planetAnimObj = animObjects.find(o => o.id === obj.id);
+    const row = makeListRow(obj.type, obj.name, false);
+    row.addEventListener("click", () => {
+      setActiveRow(row);
+      panelCallbacks.onFocus(planetAnimObj);
+      showDetail(planetAnimObj);
+      setState(STATE.HALF);
+    });
+    listEl.appendChild(row);
+
+    for (const moon of (obj.moons ?? [])) {
+      const moonAnimObj = animObjects.find(o => o.id === moon.id);
+      const moonRow = makeListRow(moon.type, moon.name, true);
+      moonRow.addEventListener("click", () => {
+        setActiveRow(moonRow);
+        panelCallbacks.onFocus(moonAnimObj);
+        showDetail(moonAnimObj);
+        setState(STATE.HALF);
+      });
+      listEl.appendChild(moonRow);
+    }
+  }
+}
+
+function makeListRow(type, name, isMoon) {
+  const row = document.createElement("li");
+  row.className = "cs-row-item" + (isMoon ? " cs-moon" : "");
+  const dot = document.createElement("span");
+  dot.className = "cs-dot";
+  dot.style.background = TYPE_HEX[type] ?? "#fff";
+  const label = document.createElement("span");
+  label.textContent = name;
+  row.append(dot, label);
+  return row;
+}
+
+function setActiveRow(row) {
+  if (activeRow) activeRow.classList.remove("cs-active");
+  activeRow = row;
+  row.classList.add("cs-active");
+}
+
+function showDetail(obj) {
+  detailEl.innerHTML = "";
+  const h2 = document.createElement("h2");
+  h2.textContent = obj.name;
+  detailEl.appendChild(h2);
+
+  const fields = obj.type === "star"
+    ? [
+        ["Type",           `${obj.data.spectralType}-type Star`],
+        ["Luminosity",     `${obj.data.luminosity?.toFixed(2) ?? "—"} L☉`],
+        ["Habitable zone", `${obj.data.habitableZoneAU?.toFixed(2) ?? "—"} AU`],
+        ["Mass",           `${obj.data.mass?.toFixed(2) ?? "—"} M☉`],
+        ["Radius",         `${obj.data.radius?.toFixed(2) ?? "—"} R☉`],
+      ]
+    : [
+        ["Type",           obj.type],
+        ["Radius",         obj.data.radius?.toFixed(2) ?? "—"],
+        ["Mass",           obj.data.mass?.toFixed(2) ?? "—"],
+        ["Orbit radius",   `${obj.data.orbitRadius?.toFixed(3) ?? "—"} AU`],
+        ["Orbit period",   `${obj.data.orbitPeriod?.toFixed(1) ?? "—"} days`],
+        ["Eccentricity",   obj.data.eccentricity?.toFixed(3) ?? "—"],
+        ["Settlement cap", obj.data.settlementCap ?? "—"],
+        ["Rotation",       `${obj.data.rotationPeriodDays?.toFixed(2) ?? "—"} days`],
+        ["Tidal lock",     obj.data.tidallyLocked ? "Yes" : "No"],
+      ];
+
+  for (const [label, value] of fields) {
+    const row = document.createElement("div");
+    row.className = "cs-field";
+    const l = document.createElement("span");
+    l.textContent = label;
+    const v = document.createElement("span");
+    v.textContent = value;
+    row.append(l, v);
+    detailEl.appendChild(row);
+  }
+}
+
 export function buildCanvasPanel(seed, animObjects, callbacks) {
   clearCanvasPanel();
   panelCallbacks = callbacks;
@@ -172,9 +269,9 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   speedRow.append(speedLabel, slider, speedVal);
   controls.append(playRow, speedRow);
 
-  // Body list placeholder (populated in Task 8)
   listEl = document.createElement("ul");
   listEl.id = "cs-list";
+  buildList(seed, animObjects);
 
   contentEl.append(detailEl, controls, listEl);
   sheetEl.append(handle, peek, contentEl);
@@ -209,10 +306,21 @@ export function clearCanvasPanel() {
   bodySelectedController = null;
 }
 
-// onBodySelected stub — replaced in Task 8
 function onBodySelected(obj) {
+  // Update peek bar
   peekDot.style.display = "inline-block";
   peekDot.style.background = TYPE_HEX[obj.type] ?? "#fff";
   peekName.textContent = obj.name;
+
+  // Highlight the matching list row by name
+  const rows = listEl.querySelectorAll(".cs-row-item");
+  for (const row of rows) {
+    if (row.querySelector("span:last-child")?.textContent === obj.name) {
+      setActiveRow(row);
+      break;
+    }
+  }
+
+  showDetail(obj);
   setState(STATE.HALF);
 }
