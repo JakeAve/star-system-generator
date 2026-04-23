@@ -256,6 +256,7 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   speedRow.className = "cs-row";
   const speedLabel = document.createElement("label");
   speedLabel.textContent = "Speed";
+  speedLabel.htmlFor = "cs-slider";
   speedLabel.style.cssText = "color:#888;font-size:11px";
   slider = document.createElement("input");
   slider.id = "cs-slider";

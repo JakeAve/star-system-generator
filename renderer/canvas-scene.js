@@ -116,7 +116,7 @@ canvas.addEventListener("wheel", e => {
   e.preventDefault();
   const factor = e.deltaY < 0 ? 1.1 : 0.909;
   const before = screenToWorld(e.clientX, e.clientY);
-  cam.scale = Math.max(0.01, cam.scale * factor);
+  cam.scale = Math.max(0.01, Math.min(500, cam.scale * factor));
   const after = screenToWorld(e.clientX, e.clientY);
   cam.x += before.x - after.x;
   cam.y += before.y - after.y;
@@ -149,7 +149,7 @@ canvas.addEventListener("touchmove", e => {
   const pts = Object.values(touchCache);
   if (pts.length === 2 && pinchStartDist !== null) {
     const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
-    cam.scale = Math.max(0.01, pinchStartScale * dist / pinchStartDist);
+    cam.scale = Math.max(0.01, Math.min(500, pinchStartScale * dist / pinchStartDist));
     // Keep pinch midpoint fixed in world space
     const mx = (pts[0].x + pts[1].x) / 2;
     const my = (pts[0].y + pts[1].y) / 2;
