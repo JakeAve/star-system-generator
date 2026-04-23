@@ -15,14 +15,13 @@
         background: #000;
         color: #ccc;
         font-family: monospace;
+        height: 100%;
       }
-      html {
-        scroll-snap-type: y mandatory;
+      #scroll-container {
         height: 100dvh;
         overflow-y: scroll;
-      }
-      body {
-        height: 100%;
+        scroll-snap-type: y mandatory;
+        -webkit-overflow-scrolling: touch;
       }
       .section {
         height: 100dvh;
@@ -176,6 +175,7 @@
     </style>
   </head>
   <body>
+    <div id="scroll-container">
     <section id="generator" class="section">
       <div id="box">
         <div id="title">STAR SYSTEM GENERATOR</div>
@@ -192,14 +192,15 @@
         <button class="btn" id="generate-btn">GENERATE</button>
         <div id="error"></div>
       </div>
-      <a href="#library" id="to-library" class="scroll-btn">↓ SAVED SEEDS</a>
+      <button id="to-library" class="scroll-btn">↓ SAVED SEEDS</button>
     </section>
 
     <section id="library" class="section">
-      <a href="#generator" id="to-generator" class="scroll-btn">↑ GENERATOR</a>
+      <button id="to-generator" class="scroll-btn">↑ GENERATOR</button>
       <h1>SAVED SEEDS</h1>
       <div id="list" class="seed-list"></div>
     </section>
+    </div>
 
     <script type="module">
       import { generateSolarSystem } from "./generator.bundle.js";
@@ -232,6 +233,13 @@
 
       seedInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") generateBtn.click();
+      });
+
+      document.getElementById("to-library").addEventListener("click", () => {
+        document.getElementById("library").scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      document.getElementById("to-generator").addEventListener("click", () => {
+        document.getElementById("generator").scrollIntoView({ behavior: "smooth", block: "start" });
       });
 
       const listEl = document.getElementById("list");

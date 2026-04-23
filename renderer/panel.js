@@ -22,7 +22,7 @@ const STYLES = `
 }
 #cs-handle {
   cursor: grab; touch-action: none;
-  padding: 10px 0 8px;
+  padding: 18px 0 16px;
   display: flex; justify-content: center;
 }
 #cs-handle:active { cursor: grabbing; }
@@ -30,6 +30,8 @@ const STYLES = `
   content: ""; width: 40px; height: 4px; border-radius: 2px; background: #444;
   pointer-events: none;
 }
+#cs-sheet.cs-peek #cs-content > *:not(#cs-detail) { pointer-events: none; }
+#cs-sheet.cs-peek #cs-detail > *:not(#cs-handle) { pointer-events: none; }
 #cs-detail-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin-bottom: 8px;
@@ -103,7 +105,7 @@ function colorFor(obj) {
   return TYPE_HEX[obj?.type] ?? "#fff";
 }
 
-const PEEK_PX = 48;
+const PEEK_PX = 56;
 const OPEN_FRACTION_ON_CLICK = 0.6;
 const CLICK_SLOP_PX = 5;
 const TRANSITION = "height 0.3s ease";
@@ -129,11 +131,13 @@ function setHeight(h, animate = true) {
   if (isDesktop()) {
     sheetEl.style.transition = "";
     sheetEl.style.height = "";
+    sheetEl.classList.remove("cs-peek");
     return;
   }
   currentHeight = Math.max(PEEK_PX, Math.min(maxHeightPx(), h));
   sheetEl.style.transition = animate ? TRANSITION : "none";
   sheetEl.style.height = `${currentHeight}px`;
+  sheetEl.classList.toggle("cs-peek", currentHeight <= PEEK_PX + 5);
 }
 
 function toggle() {
@@ -236,20 +240,9 @@ function setActiveRow(row) {
 }
 
 function renderDetailPlaceholder() {
-  // Clear everything except the drag handle.
   for (const child of [...detailEl.children]) {
     if (child.id !== "cs-handle") child.remove();
   }
-  const head = document.createElement("div");
-  head.id = "cs-detail-head";
-  const left = document.createElement("div");
-  left.id = "cs-detail-head-left";
-  const h2 = document.createElement("h2");
-  h2.className = "placeholder";
-  h2.textContent = "Tap a body to inspect";
-  left.append(h2);
-  head.appendChild(left);
-  detailEl.appendChild(head);
 }
 
 function showDetail(obj) {
