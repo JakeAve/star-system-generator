@@ -1,15 +1,13 @@
 const STYLES = `
 #playback-widget {
-  position: fixed; top: 16px; right: 16px; z-index: 15;
+  width: 100%; max-width: 200px;
   display: flex; align-items: center; gap: 8px;
   padding: 6px 10px; background: rgba(0,0,0,0.75);
   border: 1px solid #2a2a3a; border-radius: 4px;
   color: #ccc; font-family: monospace; font-size: 11px;
-  user-select: none;
+  user-select: none; pointer-events: auto;
 }
-#playback-widget label { color: #888; }
-#playback-widget input[type=range] { width: 140px; accent-color: #6ab0d4; }
-#playback-widget .speed-val { color: #aaa; min-width: 42px; text-align: right; }
+#playback-widget input[type=range] { flex: 1; accent-color: #6ab0d4; }
 #playback-widget .play-btn {
   background: #1a1a2a; border: 1px solid #333; color: #ccc;
   cursor: pointer; border-radius: 3px; padding: 2px 9px;
@@ -41,28 +39,23 @@ export function buildPlaybackWidget({ onTimeScale, onPause, onResume }) {
     playing ? onResume() : onPause();
   });
 
-  const label = document.createElement("label");
-  label.textContent = "Speed";
-
   const slider = document.createElement("input");
   slider.type = "range";
   slider.min = "0";
   slider.max = "100";
   slider.value = "1";
-
-  const val = document.createElement("span");
-  val.className = "speed-val";
+  slider.setAttribute("aria-label", "Speed");
 
   function apply(v) {
     const ts = 0.1 * Math.pow(5000, v / 100);
-    val.textContent = ts < 10 ? `${ts.toFixed(1)}×` : `${Math.round(ts)}×`;
+    slider.setAttribute("aria-valuenow", ts < 10 ? ts.toFixed(1) : Math.round(ts));
     onTimeScale(ts);
   }
   apply(Number(slider.value));
   slider.addEventListener("input", () => apply(Number(slider.value)));
 
-  widgetEl.append(playBtn, label, slider, val);
-  document.body.appendChild(widgetEl);
+  widgetEl.append(playBtn, slider);
+  (document.getElementById("top-bar") ?? document.body).appendChild(widgetEl);
 }
 
 export function clearPlaybackWidget() {

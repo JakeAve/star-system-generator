@@ -15,9 +15,14 @@
         background: #000; color: #888;
         font-family: monospace; font-size: 0.85rem; letter-spacing: 0.1em;
       }
+      #top-bar {
+        position: fixed; top: 0; left: 0; right: 0;
+        padding: 16px; display: flex; flex-direction: column;
+        align-items: flex-start; gap: 8px; z-index: 15; pointer-events: none;
+      }
       #nav-links {
-        position: fixed; top: 16px; left: 16px; z-index: 10;
         display: flex; gap: 6px;
+        flex-shrink: 0; pointer-events: auto;
       }
       .nav-link {
         padding: 6px 10px; background: rgba(0,0,0,0.75);
@@ -39,6 +44,9 @@
       if (isNaN(numericId)) {
         location.href = "./index.html";
       } else {
+        const topBar = document.createElement("div");
+        topBar.id = "top-bar";
+
         const nav = document.createElement("div");
         nav.id = "nav-links";
 
@@ -53,7 +61,8 @@
         viewLink.textContent = "⇄ 3D VIEW";
 
         nav.append(genLink, viewLink);
-        document.body.appendChild(nav);
+        topBar.appendChild(nav);
+        document.body.appendChild(topBar);
 
         const loadingEl = document.getElementById("loading");
         let data = loadSystem(numericId);
