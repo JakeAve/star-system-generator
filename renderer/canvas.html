@@ -15,14 +15,17 @@
         background: #000; color: #888;
         font-family: monospace; font-size: 0.85rem; letter-spacing: 0.1em;
       }
-      #view-link {
+      #nav-links {
         position: fixed; top: 16px; left: 16px; z-index: 10;
+        display: flex; gap: 6px;
+      }
+      .nav-link {
         padding: 6px 10px; background: rgba(0,0,0,0.75);
         border: 1px solid #2a2a3a; border-radius: 4px;
         color: #ccc; font-family: monospace; font-size: 11px;
         letter-spacing: 0.05em; text-decoration: none;
       }
-      #view-link:hover { border-color: #555; color: #fff; }
+      .nav-link:hover { border-color: #555; color: #fff; }
     </style>
   </head>
   <body>
@@ -36,11 +39,21 @@
       if (isNaN(numericId)) {
         location.href = "./seeds.html";
       } else {
-        const link = document.createElement("a");
-        link.id = "view-link";
-        link.href = `./seed.html#${numericId}`;
-        link.textContent = "→ 3D VIEW";
-        document.body.appendChild(link);
+        const nav = document.createElement("div");
+        nav.id = "nav-links";
+
+        const genLink = document.createElement("a");
+        genLink.className = "nav-link";
+        genLink.href = "./index.html";
+        genLink.textContent = "+ NEW";
+
+        const viewLink = document.createElement("a");
+        viewLink.className = "nav-link";
+        viewLink.href = `./seed.html#${numericId}`;
+        viewLink.textContent = "→ 3D VIEW";
+
+        nav.append(genLink, viewLink);
+        document.body.appendChild(nav);
 
         const loadingEl = document.getElementById("loading");
         let data = loadSystem(numericId);
