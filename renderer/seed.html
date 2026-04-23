@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Seed Viewer</title>
-    <link rel="icon" href="/favicon.ico">
+    <link rel="icon" href="./favicon.ico">
     <style>
       * {
         margin: 0;
@@ -62,17 +62,17 @@
   <body>
     <div id="loading">LOADING...</div>
     <script type="module">
-      import { buildSystem } from "/scene.js";
-      import { loadSystem, saveSystem } from "/storage.js";
+      import { generateSolarSystem } from "./generator.bundle.js";
+      import { buildSystem } from "./scene.js";
+      import { loadSystem, saveSystem } from "./storage.js";
 
-      const parts = window.location.pathname.split("/");
-      const numericId = parseInt(parts[2], 10);
-      if (!parts[2] || isNaN(numericId)) {
-        location.href = "/seeds";
+      const numericId = parseInt(location.hash.slice(1), 10);
+      if (isNaN(numericId)) {
+        location.href = "./seeds.html";
       } else {
         const link = document.createElement("a");
         link.id = "view-link";
-        link.href = `/canvas/${numericId}`;
+        link.href = `./canvas.html#${numericId}`;
         link.textContent = "→ 2D VIEW";
         document.body.appendChild(link);
 
@@ -80,9 +80,7 @@
         let data = loadSystem(numericId);
         if (!data) {
           try {
-            const res = await fetch(`/generate?seed=${numericId}`);
-            if (!res.ok) throw new Error(await res.text());
-            data = await res.json();
+            data = generateSolarSystem({ seed: numericId });
             saveSystem(data);
           } catch (err) {
             loadingEl.textContent = `Error: ${err.message}`;
@@ -95,7 +93,7 @@
       }
     </script>
     <script>
-      const _sse = new EventSource("/sse");
+      const _sse = new EventSource("./sse");
       _sse.onmessage = () => location.reload();
       _sse.onerror = () => _sse.close();
     </script>
