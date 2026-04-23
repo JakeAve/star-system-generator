@@ -7,18 +7,18 @@ const STYLES = `
   display: flex; flex-direction: column;
   transform: translateY(100%);
 }
-#cs-handle {
-  width: 100%; padding: 10px 0 6px; flex-shrink: 0;
-  cursor: grab; touch-action: none; display: flex; justify-content: center;
+#cs-header {
+  flex-shrink: 0; cursor: grab; touch-action: none;
+  padding: 10px 16px 10px;
 }
-#cs-handle:active { cursor: grabbing; }
+#cs-header:active { cursor: grabbing; }
+#cs-header * { pointer-events: none; }
 #cs-handle-bar {
   width: 40px; height: 4px; border-radius: 2px; background: #444;
-  pointer-events: none;
+  margin: 0 auto 10px;
 }
 #cs-peek {
   display: flex; align-items: center; gap: 8px;
-  padding: 6px 16px 10px; flex-shrink: 0;
 }
 #cs-peek-name { font-size: 12px; color: #aaa; letter-spacing: 0.05em; }
 #cs-peek-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -128,7 +128,6 @@ function buildList(seed, animObjects) {
     const starObj = animObjects.find(o => o.type === "star");
     panelCallbacks.onFocus(starObj);
     showDetail(starObj);
-    setOffset(openOffset());
   });
   listEl.appendChild(starRow);
 
@@ -141,7 +140,6 @@ function buildList(seed, animObjects) {
       setActiveRow(row);
       panelCallbacks.onFocus(planetAnimObj);
       showDetail(planetAnimObj);
-      setOffset(openOffset());
     });
     listEl.appendChild(row);
 
@@ -153,7 +151,6 @@ function buildList(seed, animObjects) {
         setActiveRow(moonRow);
         panelCallbacks.onFocus(moonAnimObj);
         showDetail(moonAnimObj);
-        setOffset(openOffset());
       });
       listEl.appendChild(moonRow);
     }
@@ -229,12 +226,10 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   sheetEl = document.createElement("div");
   sheetEl.id = "cs-sheet";
 
-  const handle = document.createElement("div");
-  handle.id = "cs-handle";
+  const header = document.createElement("div");
+  header.id = "cs-header";
   const handleBar = document.createElement("div");
   handleBar.id = "cs-handle-bar";
-  handle.appendChild(handleBar);
-  initHandle(handle);
 
   const peek = document.createElement("div");
   peek.id = "cs-peek";
@@ -245,6 +240,9 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   peekName.id = "cs-peek-name";
   peekName.textContent = "Tap a body to inspect";
   peek.append(peekDot, peekName);
+
+  header.append(handleBar, peek);
+  initHandle(header);
 
   contentEl = document.createElement("div");
   contentEl.id = "cs-content";
@@ -257,7 +255,7 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   buildList(seed, animObjects);
 
   contentEl.append(detailEl, listEl);
-  sheetEl.append(handle, peek, contentEl);
+  sheetEl.append(header, contentEl);
   document.body.appendChild(sheetEl);
 
   // Start collapsed; use rAF so the sheet height is measurable.
@@ -288,5 +286,4 @@ function onBodySelected(obj) {
   if (row) setActiveRow(row);
 
   showDetail(obj);
-  setOffset(openOffset());
 }
