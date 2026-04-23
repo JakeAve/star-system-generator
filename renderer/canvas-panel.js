@@ -72,6 +72,7 @@ let currentState = STATE.COLLAPSED;
 let activeRow = null;
 let playing = true;
 let panelCallbacks = {};
+let bodySelectedController = null;
 
 function setState(state) {
   currentState = state;
@@ -190,8 +191,9 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   document.body.appendChild(expandBtn);
 
   // Listen for bodySelected from canvas-scene
-  document.addEventListener("bodySelected", e => {
-    onBodySelected(e.detail);
+  bodySelectedController = new AbortController();
+  document.addEventListener("bodySelected", e => onBodySelected(e.detail), {
+    signal: bodySelectedController.signal,
   });
 }
 
@@ -203,6 +205,8 @@ export function clearCanvasPanel() {
   activeRow = null;
   currentState = STATE.COLLAPSED;
   playing = true;
+  bodySelectedController?.abort();
+  bodySelectedController = null;
 }
 
 // onBodySelected stub — replaced in Task 8
