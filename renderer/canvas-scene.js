@@ -111,6 +111,7 @@ canvas.addEventListener("mouseup", e => {
   }
   dragStart = null;
 });
+canvas.addEventListener("mouseleave", () => { dragStart = null; });
 canvas.addEventListener("wheel", e => {
   e.preventDefault();
   const factor = e.deltaY < 0 ? 1.1 : 0.909;
@@ -172,8 +173,14 @@ canvas.addEventListener("touchend", e => {
         Math.abs(t.clientY - dragStart.y) < 10) {
       handleTap(t.clientX, t.clientY);
     }
-    dragStart = null;
   }
+  if (Object.keys(touchCache).length === 0) dragStart = null;
+});
+
+canvas.addEventListener("touchcancel", e => {
+  for (const t of e.changedTouches) delete touchCache[t.identifier];
+  pinchStartDist = null;
+  dragStart = null;
 });
 
 function visualRadius(r) {
@@ -382,6 +389,12 @@ function clearScene() {
   paused = false;
   timeScale = 1;
   flyState = null;
+  dragStart = null;
+  camAtDrag = null;
+  touchCache = {};
+  pinchStartDist = null;
+  pinchStartScale = null;
+  pinchMidWorld = null;
 }
 
 export function buildSystem(seed) {
