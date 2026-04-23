@@ -106,6 +106,11 @@ const server = Deno.serve({ port: PORT }, async (req) => {
     if (!id) return Response.redirect("/seeds", 302);
     return serveStatic("/seed.html");
   }
+  if (url.pathname.startsWith("/canvas/")) {
+    const id = url.pathname.slice(8);
+    if (!id) return Response.redirect("/seeds", 302);
+    return serveStatic("/canvas.html");
+  }
   return serveStatic(url.pathname);
 });
 
