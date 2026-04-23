@@ -2,7 +2,10 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { saveSystem } from "./storage.js";
 import { buildPanel, clearActive, clearPanel } from "./panel.js";
-import { buildSpeedWidget, clearSpeedWidget } from "./speed-widget.js";
+import {
+  buildPlaybackWidget,
+  clearPlaybackWidget,
+} from "./playback-widget.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AU_SCALE = 100; // Three.js units per 1 AU (planet orbits)
@@ -210,7 +213,7 @@ function handleFocus(animObj) {
 
 function clearSystem() {
   clearPanel();
-  clearSpeedWidget();
+  clearPlaybackWidget();
   lockedTarget = null;
   flyState = null;
   paused = false;
@@ -290,14 +293,16 @@ export function buildSystem(seed) {
   }
   buildPanel(seed, animObjects, {
     onFocus: handleFocus,
+  });
+  buildPlaybackWidget({
+    onTimeScale: (ts) => {
+      timeScale = ts;
+    },
     onPause: () => {
       paused = true;
     },
     onResume: () => {
       paused = false;
     },
-  });
-  buildSpeedWidget((ts) => {
-    timeScale = ts;
   });
 }

@@ -23,12 +23,6 @@ const STYLES = `
 .cs-field { display: flex; justify-content: space-between; padding: 3px 0;
   border-bottom: 1px solid #1a1a2a; font-size: 12px; }
 .cs-field span:first-child { color: #888; }
-#cs-controls { display: flex; flex-direction: column; gap: 8px;
-  padding: 10px 0 12px; border-bottom: 1px solid #2a2a3a; }
-.cs-row { display: flex; align-items: center; gap: 8px; }
-#cs-play { background: #1a1a2a; border: 1px solid #333; color: #ccc;
-  cursor: pointer; border-radius: 3px; padding: 3px 10px;
-  font-family: monospace; font-size: 13px; }
 #cs-list { list-style: none; padding: 12px 0 0; margin: 0; }
 .cs-row-item { display: flex; align-items: center; gap: 8px; padding: 6px 0;
   cursor: pointer; border-bottom: 1px solid #111; }
@@ -65,10 +59,9 @@ const STATE_TRANSFORM = {
 };
 
 let sheetEl = null, styleEl = null, expandBtn = null;
-let peekName, peekDot, contentEl, detailEl, listEl, playBtn;
+let peekName, peekDot, contentEl, detailEl, listEl;
 let currentState = STATE.COLLAPSED;
 let activeRow = null;
-let playing = true;
 let panelCallbacks = {};
 let bodySelectedController = null;
 
@@ -235,27 +228,11 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   detailEl = document.createElement("div");
   detailEl.id = "cs-detail";
 
-  // Speed controls
-  const controls = document.createElement("div");
-  controls.id = "cs-controls";
-  const playRow = document.createElement("div");
-  playRow.className = "cs-row";
-  playBtn = document.createElement("button");
-  playBtn.id = "cs-play";
-  playBtn.textContent = "⏸";
-  playBtn.addEventListener("click", () => {
-    playing = !playing;
-    playBtn.textContent = playing ? "⏸" : "▶";
-    playing ? callbacks.onResume() : callbacks.onPause();
-  });
-  playRow.append(playBtn);
-  controls.append(playRow);
-
   listEl = document.createElement("ul");
   listEl.id = "cs-list";
   buildList(seed, animObjects);
 
-  contentEl.append(detailEl, controls, listEl);
+  contentEl.append(detailEl, listEl);
   sheetEl.append(handle, peek, contentEl);
   document.body.appendChild(sheetEl);
 
@@ -283,7 +260,6 @@ export function clearCanvasPanel() {
   sheetEl = styleEl = expandBtn = null;
   activeRow = null;
   currentState = STATE.COLLAPSED;
-  playing = true;
   bodySelectedController?.abort();
   bodySelectedController = null;
 }

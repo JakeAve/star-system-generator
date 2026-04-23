@@ -1,5 +1,5 @@
 import { buildCanvasPanel } from "./canvas-panel.js";
-import { buildSpeedWidget } from "./speed-widget.js";
+import { buildPlaybackWidget } from "./playback-widget.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const AU_SCALE = 100;
@@ -435,10 +435,12 @@ export function buildSystem(seed) {
 
   buildCanvasPanel(seed, animObjects, {
     onFocus: obj => { if (obj) selectBody(obj.id); },
+  });
+  buildPlaybackWidget({
+    onTimeScale: ts => { timeScale = ts; },
     onPause:     () => { paused = true; },
     onResume:    () => { paused = false; },
   });
-  buildSpeedWidget(ts => { timeScale = ts; });
 
   rafId = requestAnimationFrame(animate);
 }

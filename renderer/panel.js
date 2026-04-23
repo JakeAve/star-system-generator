@@ -10,15 +10,6 @@ const STYLES = `
 .ph span { font-size:11px; letter-spacing:1px; color:#aaa; }
 .ph button { background:none; border:none; color:#888; cursor:pointer;
   font-size:16px; padding:0; line-height:1; }
-.pc { padding:10px 12px; border-bottom:1px solid #1a1a2a;
-  display:flex; flex-direction:column; gap:8px; }
-.pc-row { display:flex; align-items:center; gap:8px; }
-.pc button { background:#1a1a2a; border:1px solid #333; color:#ccc;
-  cursor:pointer; border-radius:3px; padding:3px 10px;
-  font-family:monospace; font-size:13px; }
-.pc button:hover { border-color:#555; }
-.pc input[type=range] { flex:1; accent-color:#6ab0d4; }
-.pc label { color:#888; font-size:11px; white-space:nowrap; }
 .po { max-height:60vh; overflow-y:auto; padding:4px 0; }
 .pr { padding:5px 12px; cursor:pointer; display:flex; align-items:center;
   gap:8px; overflow:hidden; }
@@ -44,7 +35,7 @@ let styleEl = null;
 let activeRow = null;
 
 export function buildPanel(seed, animObjects, callbacks) {
-  // callbacks: { onFocus(animObj|null), onPause(), onResume(), onTimeScale(ts) }
+  // callbacks: { onFocus(animObj|null) }
   clearPanel();
 
   styleEl = document.createElement("style");
@@ -72,24 +63,6 @@ export function buildPanel(seed, animObjects, callbacks) {
     body.style.display = collapsed ? "" : "none";
     chevron.textContent = collapsed ? "▾" : "▸";
   });
-
-  // ── Controls ─────────────────────────────────────────────────────────────────
-  const ctrl = document.createElement("div");
-  ctrl.className = "pc";
-
-  const playRow = document.createElement("div");
-  playRow.className = "pc-row";
-  const playBtn = document.createElement("button");
-  playBtn.textContent = "⏸";
-  let playing = true;
-  playBtn.addEventListener("click", () => {
-    playing = !playing;
-    playBtn.textContent = playing ? "⏸" : "▶";
-    playing ? callbacks.onResume() : callbacks.onPause();
-  });
-  playRow.append(playBtn);
-
-  ctrl.append(playRow);
 
   // ── Object list ───────────────────────────────────────────────────────────────
   const list = document.createElement("div");
@@ -129,7 +102,7 @@ export function buildPanel(seed, animObjects, callbacks) {
     }
   }
 
-  body.append(ctrl, list);
+  body.append(list);
   panelEl.append(header, body);
   document.body.appendChild(panelEl);
 }
