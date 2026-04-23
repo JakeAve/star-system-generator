@@ -30,6 +30,25 @@
         font-size: 0.85rem;
         letter-spacing: 0.1em;
       }
+      #view-link {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        z-index: 10;
+        padding: 6px 10px;
+        background: rgba(0, 0, 0, 0.75);
+        border: 1px solid #2a2a3a;
+        border-radius: 4px;
+        color: #ccc;
+        font-family: monospace;
+        font-size: 11px;
+        letter-spacing: 0.05em;
+        text-decoration: none;
+      }
+      #view-link:hover {
+        border-color: #555;
+        color: #fff;
+      }
     </style>
     <script type="importmap">
       {
@@ -51,6 +70,12 @@
       if (!parts[2] || isNaN(numericId)) {
         location.href = "/seeds";
       } else {
+        const link = document.createElement("a");
+        link.id = "view-link";
+        link.href = `/canvas/${numericId}`;
+        link.textContent = "→ 2D VIEW";
+        document.body.appendChild(link);
+
         const loadingEl = document.getElementById("loading");
         let data = loadSystem(numericId);
         if (!data) {

@@ -17,7 +17,7 @@ const STYLES = `
 }
 #cs-peek-name { font-size: 12px; color: #aaa; letter-spacing: 0.05em; }
 #cs-peek-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-#cs-content { flex: 1; overflow-y: auto; padding: 0 16px 16px; display: none; }
+#cs-content { flex: 1; overflow-y: auto; padding: 0 16px 40vh; display: none; }
 #cs-detail { margin-bottom: 12px; }
 #cs-detail h2 { font-size: 14px; color: #fff; margin-bottom: 8px; }
 .cs-field { display: flex; justify-content: space-between; padding: 3px 0;
