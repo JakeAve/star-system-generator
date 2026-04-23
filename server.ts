@@ -1,7 +1,8 @@
-import { generateSolarSystem } from "./seeder/generator.ts";
+import { build } from "./build.ts";
 
 const PORT = Number(Deno.env.get("PORT") ?? "8080");
 const RENDERER_DIR = "./renderer";
+const SEEDER_DIR = "./seeder";
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -54,63 +55,46 @@ function handleSSE(): Response {
   });
 }
 
-async function handleGenerate(url: URL): Promise<Response> {
-  const raw = url.searchParams.get("seed");
-  let seed: number;
-  if (raw && raw !== "") {
-    seed = parseInt(raw, 10);
-    if (isNaN(seed)) return new Response("Invalid seed", { status: 400 });
-  } else {
-    const buf = new Uint32Array(1);
-    crypto.getRandomValues(buf);
-    seed = buf[0];
+function notifyReload(): void {
+  const msg = enc.encode("data: reload\n\n");
+  for (const client of sseClients) {
+    try {
+      client.enqueue(msg);
+    } catch {
+      sseClients.delete(client);
+    }
   }
-
-  const system = generateSolarSystem({ seed });
-  const json = JSON.stringify(system, null, 2);
-  await Deno.mkdir("./seeds", { recursive: true });
-  await Deno.writeTextFile(`./seeds/system-${seed}.json`, json);
-
-  return new Response(json, {
-    headers: { "Content-Type": "application/json" },
-  });
 }
 
-async function watchFiles(): Promise<void> {
+async function watchRenderer(): Promise<void> {
   let debounce: number | null = null;
   for await (const _event of Deno.watchFs(RENDERER_DIR)) {
     if (debounce !== null) clearTimeout(debounce);
-    debounce = setTimeout(() => {
-      const msg = enc.encode("data: reload\n\n");
-      for (const client of sseClients) {
-        try {
-          client.enqueue(msg);
-        } catch {
-          sseClients.delete(client);
-        }
-      }
-    }, 50);
+    debounce = setTimeout(notifyReload, 50);
   }
 }
 
-watchFiles();
+async function watchSeeder(): Promise<void> {
+  let debounce: number | null = null;
+  for await (const _event of Deno.watchFs(SEEDER_DIR)) {
+    if (debounce !== null) clearTimeout(debounce);
+    debounce = setTimeout(async () => {
+      try {
+        await build();
+        notifyReload();
+      } catch (err) {
+        console.error("Rebuild failed:", err);
+      }
+    }, 100);
+  }
+}
+
+watchRenderer();
+watchSeeder();
 
 const server = Deno.serve({ port: PORT }, async (req) => {
   const url = new URL(req.url);
   if (url.pathname === "/sse") return handleSSE();
-  if (url.pathname === "/generate") return await handleGenerate(url);
-  if (url.pathname === "/seeds") return serveStatic("/seeds.html");
-  if (url.pathname === "/seed") return Response.redirect("/seeds", 302);
-  if (url.pathname.startsWith("/seed/")) {
-    const id = url.pathname.slice(6);
-    if (!id) return Response.redirect("/seeds", 302);
-    return serveStatic("/seed.html");
-  }
-  if (url.pathname.startsWith("/canvas/")) {
-    const id = url.pathname.slice(8);
-    if (!id) return Response.redirect("/seeds", 302);
-    return serveStatic("/canvas.html");
-  }
   return serveStatic(url.pathname);
 });
 
