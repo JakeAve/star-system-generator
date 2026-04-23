@@ -7,17 +7,6 @@ const STYLES = `
   font-size: 13px; z-index: 10; user-select: none;
   display: flex; flex-direction: column;
 }
-@media (min-width: 900px) {
-  #cs-sheet {
-    top: 64px; right: 16px; bottom: 16px; left: auto;
-    width: 320px; height: auto !important; max-height: none;
-    border: 1px solid #2a2a3a; border-radius: 8px;
-  }
-  #cs-header { cursor: default; padding-top: 12px; }
-  #cs-header:active { cursor: default; }
-  #cs-handle-bar { display: none; }
-  #cs-content { display: block; }
-}
 #cs-header {
   flex-shrink: 0; cursor: grab; touch-action: none;
   padding: 10px 16px 10px;
@@ -58,6 +47,18 @@ const STYLES = `
 .cs-row-item.cs-moon { padding-left: 28px; font-size: 11px; color: #777; }
 .cs-row-item.cs-moon.cs-active { color: #ccc; }
 .cs-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+@media (min-width: 900px) {
+  #cs-sheet {
+    top: 64px; right: 16px; bottom: 16px; left: auto;
+    width: 320px; height: auto !important; max-height: none;
+    border: 1px solid #2a2a3a; border-radius: 8px;
+  }
+  #cs-header { cursor: default; padding-top: 12px; }
+  #cs-header:active { cursor: default; }
+  #cs-handle-bar { display: none; }
+  #cs-content { display: block; }
+}
 `;
 
 const TYPE_HEX = {
