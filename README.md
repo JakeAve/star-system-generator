@@ -1,117 +1,107 @@
 # Star System Seeder
 
-A procedural solar system generator and browser-based renderer for a space
-colonization game.
+A procedural solar system generator and browser-based renderer for a space colonization game. Runs entirely client-side — the deployed site on GitHub Pages is a static bundle.
 
 ## Overview
 
 Two components:
 
-- **Seeder** — a Deno CLI that procedurally generates solar systems and writes
-  them as JSON seed files
-- **Renderer** — a Deno HTTP server + vanilla JS frontend for viewing, browsing,
-  and generating systems in the browser
+- **Seeder** — pure TypeScript that procedurally generates solar systems. Runs in the browser (bundled via esbuild) and as a Deno CLI for writing JSON seed files to disk.
+- **Renderer** — vanilla JS + HTML pages for generating, browsing, and viewing systems (2D canvas and 3D Three.js).
 
 ---
 
-## Seeder
+## Local development
 
-The seeder generates deterministic solar systems from an integer seed. Each
-system includes a star, orbital objects (rocky planets, gas giants, ice giants,
-asteroids, dwarf planets, moons), resource deposits, and settlement slot counts.
-
-```
-deno task seed [seed] [--json [folder]]
-```
-
-- Without arguments: generates a random system and prints stats
-- With an integer argument: generates the system for that seed (reproducible)
-- `--json`: exports the system to JSON (default folder: `seeds/`)
-- `--json <folder>`: exports to the specified folder, creating it if it doesn't
-  exist
-
-Examples:
-
-```
-deno task seed                        # random system, stats only
-deno task seed 42                     # fixed seed, stats only
-deno task seed --json                 # random system, write to seeds/
-deno task seed 42 --json              # fixed seed, write to seeds/
-deno task seed 42 --json ./exports    # fixed seed, write to ./exports/
-```
-
-### What gets generated
-
-- **Star** — spectral type (F/G/K/M), luminosity, mass, radius, habitable zone
-  AU
-- **Orbital objects** — type, orbit radius (AU), orbit period, eccentricity,
-  radius, mass, settlement cap, resource deposits, orbital phase, rotation
-  period, tidal lock status
-- **Moons** — same fields as orbital objects, plus parent ID and captured-moon
-  flag
-- **Migration archetype** — system history affecting planet placement (e.g. Hot
-  Jupiter Migration, Grand Tack)
-- **Resource deposits** — per-object list of resources with abundance and
-  confidence values
-
-### Architecture
-
-| File                  | Role                                                        |
-| --------------------- | ----------------------------------------------------------- |
-| `seeder/main.ts`      | CLI entry point — parses args, calls generator, writes JSON |
-| `seeder/generator.ts` | Core generation logic — star, planets, moons, deposits      |
-| `seeder/config.ts`    | Default config, archetype weights, settlement config        |
-| `seeder/rng.ts`       | Seeded PRNG, name generator                                 |
-| `seeder/types.ts`     | Shared TypeScript types                                     |
-
----
-
-## Renderer
-
-A local dev server serving a multi-page browser app. Generates and browses solar
-systems without touching the CLI.
+Requires [Deno](https://deno.com/) v2+.
 
 ```
 deno task renderer
 ```
 
-Opens `http://localhost:8080` automatically.
+This builds the browser bundle (`renderer/generator.bundle.js`), starts a dev server at `http://localhost:8080`, opens your browser, and watches:
 
-### Pages
+- `renderer/` → triggers a browser reload on change.
+- `seeder/` → rebuilds the bundle, then triggers a reload.
 
-| Route          | Page                                                                              |
-| -------------- | --------------------------------------------------------------------------------- |
-| `/`            | Generator — enter a seed or generate random, view system summary                  |
-| `/seeds`       | Library — list all saved seed files with star type, object count, and slot totals |
-| `/seed/<seed>` | Detail — full orrery view of a specific system with the system panel              |
+### CLI seeder (local only)
 
-### API
+```
+deno task seed [seed] [--json [folder]]
+```
 
-| Endpoint                 | Description                                                          |
-| ------------------------ | -------------------------------------------------------------------- |
-| `GET /generate?seed=<n>` | Generate a system (random if no seed), save to `seeds/`, return JSON |
-| `GET /sse`               | Server-sent events for live reload on renderer file changes          |
+- Without arguments: generates a random system and prints stats.
+- With an integer: generates that seed deterministically.
+- `--json`: exports to `seeds/` (or a folder you name).
 
-### Architecture
+Examples:
 
-| File                  | Role                                                                |
-| --------------------- | ------------------------------------------------------------------- |
-| `server.ts`           | Deno HTTP server — static file serving, `/generate`, SSE hot reload |
-| `renderer/index.html` | Generator page                                                      |
-| `renderer/seeds.html` | Seeds library page                                                  |
-| `renderer/seed.html`  | Single system detail page                                           |
-| `renderer/scene.js`   | Orrery canvas renderer                                              |
-| `renderer/panel.js`   | System info panel                                                   |
-| `renderer/storage.js` | Client-side seed list fetching and rendering                        |
+```
+deno task seed
+deno task seed 42
+deno task seed 42 --json
+deno task seed 42 --json ./exports
+```
+
+### Tests
+
+```
+deno task test
+```
+
+### One-shot build
+
+```
+deno task build
+```
+
+Produces `renderer/generator.bundle.js`. Rarely needed manually — the renderer task handles it.
 
 ---
 
-## Requirements
+## Deployment (GitHub Pages)
 
-- [Deno](https://deno.com/) v2+
+The site is deployed automatically on every push to `main` by `.github/workflows/pages.yml`.
+
+One-time setup on a new repo: in **Settings → Pages**, set **Source: GitHub Actions**.
+
+The deployed site is fully client-side:
+
+- All system generation runs in the browser using the bundled seeder.
+- Seeds are persisted to `localStorage` per origin. (The localhost origin and the `github.io` origin maintain separate libraries.)
+- Routes are hash-based: `seed.html#<seed>`, `canvas.html#<seed>`. Sharing a seed URL is enough to reproduce the system — generation is deterministic from the seed.
+- No server runs in production. The `./sse` hot-reload endpoint fails silently there, which is intentional.
+
+---
+
+## Pages
+
+| Page | Purpose |
+| --- | --- |
+| `index.html` | Generator — enter a seed or generate random, navigate to the viewer |
+| `seeds.html` | Library — list of seeds saved in `localStorage` |
+| `seed.html#<seed>` | 3D orrery view |
+| `canvas.html#<seed>` | 2D canvas view |
+
+## Architecture
+
+| File | Role |
+| --- | --- |
+| `seeder/generator.ts` | Core generation logic — star, planets, moons, deposits |
+| `seeder/config.ts` | Default config, archetype weights, settlement config |
+| `seeder/rng.ts` | Seeded PRNG, name generator |
+| `seeder/types.ts` | Shared TypeScript types |
+| `seeder/main.ts` | CLI entry point (Deno only) |
+| `seeder/browser-entry.ts` | Bundle entry — re-exports pure functions for the browser |
+| `build.ts` | esbuild bundler, builds `renderer/generator.bundle.js` |
+| `server.ts` | Local dev server (static + SSE + rebuild on seeder changes) |
+| `renderer/*.html` | Page views |
+| `renderer/scene.js` | 3D orrery (Three.js) |
+| `renderer/canvas-scene.js` | 2D canvas orrery |
+| `renderer/panel.js`, `canvas-panel.js` | System info panels |
+| `renderer/storage.js` | `localStorage` wrapper |
+| `.github/workflows/pages.yml` | CI: build + deploy to GitHub Pages |
 
 ## Seed files
 
-Generated seeds are written to `seeds/` by default and are gitignored
-(`seeds/*.json`). The folder itself is tracked via `.gitkeep`. Commit specific
-seed files manually if you want to share them.
+The CLI writes to `seeds/` by default; `seeds/*.json` is gitignored (the folder itself is tracked via `.gitkeep`). Commit specific files manually if you want to share them. The deployed site does not read these — only localStorage.
