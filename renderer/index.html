@@ -223,7 +223,7 @@
           const seed = raw ? parseInt(raw, 10) : undefined;
           const data = generateSolarSystem(seed !== undefined ? { seed } : {});
           saveSystem(data);
-          location.href = `./seed.html#${data.seed}`;
+          location.href = `./3d.html#${data.seed}`;
         } catch (err) {
           errorEl.textContent = `Error: ${err.message}`;
           generateBtn.textContent = "GENERATE";
@@ -296,7 +296,7 @@
 
           const a = document.createElement("a");
           a.className = "seed-row";
-          a.href = `./seed.html#${sys.seed}`;
+          a.href = `./3d.html#${sys.seed}`;
 
           const numSpan = document.createElement("span");
           numSpan.className = "seed-num";
