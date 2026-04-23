@@ -1,17 +1,17 @@
 const STYLES = `
 #playback-widget {
-  width: 100%; max-width: 200px;
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 10px; background: rgba(0,0,0,0.75);
-  border: 1px solid #2a2a3a; border-radius: 4px;
-  color: #ccc; font-family: monospace; font-size: 11px;
+  width: 100%; max-width: 12.5rem;
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.375rem 0.625rem; background: rgba(0,0,0,0.75);
+  border: 1px solid #2a2a3a; border-radius: 0.25rem;
+  color: #ccc; font-family: monospace; font-size: 0.6875rem;
   user-select: none; pointer-events: auto;
 }
 #playback-widget input[type=range] { flex: 1; accent-color: #6ab0d4; }
 #playback-widget .play-btn {
   background: #1a1a2a; border: 1px solid #333; color: #ccc;
-  cursor: pointer; border-radius: 3px; padding: 2px 9px;
-  font-family: monospace; font-size: 13px; line-height: 1;
+  cursor: pointer; border-radius: 3px; padding: 0.125rem 0.5625rem;
+  font-family: monospace; font-size: 0.8125rem; line-height: 1;
 }
 #playback-widget .play-btn:hover { border-color: #555; color: #fff; }
 `;

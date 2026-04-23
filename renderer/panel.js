@@ -3,82 +3,82 @@ const STYLES = `
   position: fixed; bottom: 0; left: 0; right: 0; height: 0;
   max-height: 100vh;
   background: rgba(0,0,0,0.92); border-top: 1px solid #2a2a3a;
-  border-radius: 12px 12px 0 0; color: #ccc; font-family: monospace;
-  font-size: 13px; z-index: 10; user-select: none;
+  border-radius: 0.75rem 0.75rem 0 0; color: #ccc; font-family: monospace;
+  font-size: 0.8125rem; z-index: 10; user-select: none;
   display: flex; flex-direction: column;
 }
 #cs-content {
   flex: 1 1 0; min-height: 0; overflow-y: auto;
-  padding: 0 16px 24px;
+  padding: 0 1rem 1.5rem;
 }
 #cs-detail {
   position: sticky; top: 0; z-index: 1;
   background: rgba(0,0,0,0.92);
-  padding-bottom: 12px;
-  margin: 0 -16px 4px;
-  padding-left: 16px; padding-right: 16px;
+  padding-bottom: 0.75rem;
+  margin: 0 -1rem 0.25rem;
+  padding-left: 1rem; padding-right: 1rem;
   border-bottom: 1px solid #1a1a2a;
   transition: padding 0.2s ease;
 }
 #cs-handle {
   cursor: grab; touch-action: none;
-  padding: 18px 0 16px;
+  padding: 1.125rem 0 1rem;
   display: flex; justify-content: center;
 }
 #cs-handle:active { cursor: grabbing; }
 #cs-handle::before {
-  content: ""; width: 40px; height: 4px; border-radius: 2px; background: #444;
+  content: ""; width: 2.5rem; height: 0.25rem; border-radius: 2px; background: #444;
   pointer-events: none;
 }
 #cs-sheet.cs-peek #cs-content > *:not(#cs-detail) { pointer-events: none; }
 #cs-sheet.cs-peek #cs-detail > *:not(#cs-handle) { pointer-events: none; }
 #cs-detail-head {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; margin-bottom: 8px;
+  gap: 0.75rem; margin-bottom: 0.5rem;
   transition: margin-bottom 0.2s ease;
 }
 #cs-detail-head-left {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 0.5rem;
   min-width: 0; flex: 1 1 auto;
 }
 #cs-detail-head h2 {
-  font-size: 14px; color: #fff; margin: 0;
+  font-size: 0.875rem; color: #fff; margin: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   transition: font-size 0.2s ease;
 }
-#cs-detail-head h2.placeholder { color: #888; font-weight: normal; font-size: 12px; letter-spacing: 0.05em; }
+#cs-detail-head h2.placeholder { color: #888; font-weight: normal; font-size: 0.75rem; letter-spacing: 0.05em; }
 #cs-flyto {
   flex-shrink: 0;
   background: #1a1a2a; border: 1px solid #333; color: #ccc;
-  cursor: pointer; border-radius: 3px; padding: 4px 12px;
-  font-family: monospace; font-size: 12px; letter-spacing: 0.05em;
+  cursor: pointer; border-radius: 3px; padding: 0.25rem 0.75rem;
+  font-family: monospace; font-size: 0.75rem; letter-spacing: 0.05em;
 }
 #cs-flyto:hover { border-color: #6ab0d4; color: #fff; }
-#cs-detail.cs-detail-compact { padding-bottom: 6px; }
+#cs-detail.cs-detail-compact { padding-bottom: 0.375rem; }
 #cs-detail.cs-detail-compact #cs-detail-head { margin-bottom: 0; }
-#cs-detail.cs-detail-compact #cs-detail-head h2 { font-size: 12px; }
+#cs-detail.cs-detail-compact #cs-detail-head h2 { font-size: 0.75rem; }
 #cs-detail.cs-detail-compact .cs-field { display: none; }
-.cs-field { display: flex; justify-content: space-between; padding: 3px 0;
-  border-bottom: 1px solid #1a1a2a; font-size: 12px; }
+.cs-field { display: flex; justify-content: space-between; padding: 0.1875rem 0;
+  border-bottom: 1px solid #1a1a2a; font-size: 0.75rem; }
 .cs-field span:first-child { color: #888; }
-#cs-list { list-style: none; padding: 12px 0 0; margin: 0; }
-.cs-row-item { display: flex; align-items: center; gap: 8px; padding: 6px 0;
+#cs-list { list-style: none; padding: 0.75rem 0 0; margin: 0; }
+.cs-row-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0;
   cursor: pointer; border-bottom: 1px solid #111; }
 .cs-row-item:hover { background: rgba(255,255,255,0.04); }
-.cs-row-item.cs-active { color: #fff; box-shadow: inset 2px 0 0 #6ab0d4; padding-left: 6px; }
-.cs-row-item.cs-moon { padding-left: 28px; font-size: 11px; color: #777; }
+.cs-row-item.cs-active { color: #fff; box-shadow: inset 2px 0 0 #6ab0d4; padding-left: 0.375rem; }
+.cs-row-item.cs-moon { padding-left: 1.75rem; font-size: 0.6875rem; color: #777; }
 .cs-row-item.cs-moon.cs-active { color: #ccc; }
-.cs-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.cs-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; flex-shrink: 0; }
 
 @media (min-width: 900px) {
   #cs-sheet {
-    top: 64px; right: 16px; bottom: 16px; left: auto;
-    width: 320px; height: auto !important; max-height: none;
-    border: 1px solid #2a2a3a; border-radius: 8px;
+    top: 4rem; right: 1rem; bottom: 1rem; left: auto;
+    width: 20rem; height: auto !important; max-height: none;
+    border: 1px solid #2a2a3a; border-radius: 0.5rem;
   }
   #cs-handle { display: none; }
-  #cs-content { padding-top: 14px; }
-  #cs-detail { top: -14px; }
+  #cs-content { padding-top: 0.875rem; }
+  #cs-detail { top: -0.875rem; }
 }
 `;
 
