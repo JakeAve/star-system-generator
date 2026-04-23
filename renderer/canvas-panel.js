@@ -4,12 +4,17 @@ const STYLES = `
   background: rgba(0,0,0,0.92); border-top: 1px solid #2a2a3a;
   border-radius: 12px 12px 0 0; color: #ccc; font-family: monospace;
   font-size: 13px; z-index: 10; user-select: none;
-  transform: translateY(calc(100% - 48px));
-  transition: transform 0.3s ease; display: flex; flex-direction: column;
+  display: flex; flex-direction: column;
+  transform: translateY(100%);
 }
 #cs-handle {
+  width: 100%; padding: 10px 0 6px; flex-shrink: 0;
+  cursor: grab; touch-action: none; display: flex; justify-content: center;
+}
+#cs-handle:active { cursor: grabbing; }
+#cs-handle-bar {
   width: 40px; height: 4px; border-radius: 2px; background: #444;
-  margin: 10px auto 0; flex-shrink: 0; cursor: grab;
+  pointer-events: none;
 }
 #cs-peek {
   display: flex; align-items: center; gap: 8px;
@@ -31,13 +36,6 @@ const STYLES = `
 .cs-row-item.cs-moon { padding-left: 28px; font-size: 11px; color: #777; }
 .cs-row-item.cs-moon.cs-active { color: #ccc; }
 .cs-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-#cs-expand {
-  position: fixed; bottom: 56px; right: 16px; z-index: 11;
-  background: #1a1a2a; border: 1px solid #2a2a3a; color: #ccc;
-  border-radius: 50%; width: 40px; height: 40px; font-size: 20px;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  font-family: monospace; line-height: 1;
-}
 `;
 
 const TYPE_HEX = {
@@ -51,62 +49,89 @@ const TYPE_HEX = {
   comet:       "#88aacc",
 };
 
-const STATE = { COLLAPSED: "collapsed", HALF: "half", FULL: "full" };
-const STATE_TRANSFORM = {
-  [STATE.COLLAPSED]: "translateY(calc(100% - 48px))",
-  [STATE.HALF]:      "translateY(40%)",
-  [STATE.FULL]:      "translateY(0)",
-};
+const PEEK_PX = 48;                  // visible height when collapsed
+const OPEN_FRACTION_ON_CLICK = 0.6;  // how much of the sheet opens on click (60%)
+const CLICK_SLOP_PX = 5;             // drag distance under which release is a click
+const TRANSITION = "transform 0.3s ease";
 
-let sheetEl = null, styleEl = null, expandBtn = null;
+let sheetEl = null, styleEl = null;
 let peekName, peekDot, contentEl, detailEl, listEl;
-let currentState = STATE.COLLAPSED;
 let activeRow = null;
 let panelCallbacks = {};
 let bodySelectedController = null;
+let currentOffset = 0;               // translateY px: 0 = fully open, max = collapsed
 
-function setState(state) {
-  currentState = state;
-  sheetEl.style.transform = STATE_TRANSFORM[state];
-  contentEl.style.display = state === STATE.COLLAPSED ? "none" : "block";
+function sheetHeight() {
+  return sheetEl.getBoundingClientRect().height;
+}
+function collapsedOffset() {
+  return Math.max(0, sheetHeight() - PEEK_PX);
+}
+function openOffset() {
+  return sheetHeight() * (1 - OPEN_FRACTION_ON_CLICK);
 }
 
-function initDragHandle(handle) {
-  let dragY = null;
-  handle.addEventListener("touchstart", e => {
-    dragY = e.touches[0].clientY;
-    e.stopPropagation();
-  }, { passive: true });
-  handle.addEventListener("touchend", e => {
-    if (dragY === null) return;
-    const dy = e.changedTouches[0].clientY - dragY;
-    dragY = null;
-    if (dy < -30) {
-      if (currentState === STATE.COLLAPSED) setState(STATE.HALF);
-      else if (currentState === STATE.HALF) setState(STATE.FULL);
-    } else if (dy > 30) {
-      if (currentState === STATE.FULL) setState(STATE.HALF);
-      else if (currentState === STATE.HALF) setState(STATE.COLLAPSED);
+function setOffset(offset, animate = true) {
+  const max = collapsedOffset();
+  currentOffset = Math.max(0, Math.min(max, offset));
+  sheetEl.style.transition = animate ? TRANSITION : "none";
+  sheetEl.style.transform = `translateY(${currentOffset}px)`;
+  contentEl.style.display = currentOffset < max - 10 ? "block" : "none";
+}
+
+function toggle() {
+  const max = collapsedOffset();
+  setOffset(currentOffset >= max - 5 ? openOffset() : max);
+}
+
+function initHandle(handle) {
+  let startY = null;
+  let startOffset = 0;
+  let moved = false;
+
+  handle.addEventListener("pointerdown", (e) => {
+    startY = e.clientY;
+    startOffset = currentOffset;
+    moved = false;
+    handle.setPointerCapture(e.pointerId);
+    sheetEl.style.transition = "none";
+    e.preventDefault();
+  });
+
+  handle.addEventListener("pointermove", (e) => {
+    if (startY === null) return;
+    const dy = e.clientY - startY;
+    if (Math.abs(dy) > CLICK_SLOP_PX) moved = true;
+    setOffset(startOffset + dy, false);
+  });
+
+  const finish = (e) => {
+    if (startY === null) return;
+    const wasClick = !moved;
+    startY = null;
+    if (handle.hasPointerCapture(e.pointerId)) {
+      handle.releasePointerCapture(e.pointerId);
     }
-    e.stopPropagation();
-  }, { passive: true });
+    if (wasClick) toggle();
+    else sheetEl.style.transition = TRANSITION;
+  };
+  handle.addEventListener("pointerup", finish);
+  handle.addEventListener("pointercancel", finish);
 }
 
 function buildList(seed, animObjects) {
   listEl.innerHTML = "";
 
-  // Star row
   const starRow = makeListRow("star", `${seed.star.spectralType}-type Star`, false, "star");
   starRow.addEventListener("click", () => {
     setActiveRow(starRow);
     const starObj = animObjects.find(o => o.type === "star");
     panelCallbacks.onFocus(starObj);
     showDetail(starObj);
-    setState(STATE.HALF);
+    setOffset(openOffset());
   });
   listEl.appendChild(starRow);
 
-  // Planets sorted by orbitRadius, each followed by their moons
   const sorted = [...seed.objects].sort((a, b) => a.orbitRadius - b.orbitRadius);
   for (const obj of sorted) {
     const planetAnimObj = animObjects.find(o => o.id === obj.id);
@@ -116,7 +141,7 @@ function buildList(seed, animObjects) {
       setActiveRow(row);
       panelCallbacks.onFocus(planetAnimObj);
       showDetail(planetAnimObj);
-      setState(STATE.HALF);
+      setOffset(openOffset());
     });
     listEl.appendChild(row);
 
@@ -128,7 +153,7 @@ function buildList(seed, animObjects) {
         setActiveRow(moonRow);
         panelCallbacks.onFocus(moonAnimObj);
         showDetail(moonAnimObj);
-        setState(STATE.HALF);
+        setOffset(openOffset());
       });
       listEl.appendChild(moonRow);
     }
@@ -204,12 +229,13 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   sheetEl = document.createElement("div");
   sheetEl.id = "cs-sheet";
 
-  // Handle
   const handle = document.createElement("div");
   handle.id = "cs-handle";
-  initDragHandle(handle);
+  const handleBar = document.createElement("div");
+  handleBar.id = "cs-handle-bar";
+  handle.appendChild(handleBar);
+  initHandle(handle);
 
-  // Peek bar
   const peek = document.createElement("div");
   peek.id = "cs-peek";
   peekDot = document.createElement("span");
@@ -220,11 +246,9 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   peekName.textContent = "Tap a body to inspect";
   peek.append(peekDot, peekName);
 
-  // Content area
   contentEl = document.createElement("div");
   contentEl.id = "cs-content";
 
-  // Detail section
   detailEl = document.createElement("div");
   detailEl.id = "cs-detail";
 
@@ -236,17 +260,9 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
   sheetEl.append(handle, peek, contentEl);
   document.body.appendChild(sheetEl);
 
-  // Expand button
-  expandBtn = document.createElement("button");
-  expandBtn.id = "cs-expand";
-  expandBtn.textContent = "⊕";
-  expandBtn.title = "Expand panel";
-  expandBtn.addEventListener("click", () => {
-    setState(currentState === STATE.COLLAPSED ? STATE.HALF : STATE.COLLAPSED);
-  });
-  document.body.appendChild(expandBtn);
+  // Start collapsed; use rAF so the sheet height is measurable.
+  requestAnimationFrame(() => setOffset(collapsedOffset(), false));
 
-  // Listen for bodySelected from canvas-scene
   bodySelectedController = new AbortController();
   document.addEventListener("bodySelected", e => onBodySelected(e.detail), {
     signal: bodySelectedController.signal,
@@ -256,24 +272,21 @@ export function buildCanvasPanel(seed, animObjects, callbacks) {
 export function clearCanvasPanel() {
   sheetEl?.remove();
   styleEl?.remove();
-  expandBtn?.remove();
-  sheetEl = styleEl = expandBtn = null;
+  sheetEl = styleEl = null;
   activeRow = null;
-  currentState = STATE.COLLAPSED;
+  currentOffset = 0;
   bodySelectedController?.abort();
   bodySelectedController = null;
 }
 
 function onBodySelected(obj) {
-  // Update peek bar
   peekDot.style.display = "inline-block";
   peekDot.style.background = TYPE_HEX[obj.type] ?? "#fff";
   peekName.textContent = obj.name;
 
-  // Highlight the matching list row by id
   const row = listEl.querySelector(`[data-body-id="${obj.id}"]`);
   if (row) setActiveRow(row);
 
   showDetail(obj);
-  setState(STATE.HALF);
+  setOffset(openOffset());
 }
