@@ -6,7 +6,7 @@ assets.json
 .claude
 .DS_Store
 .vscode
-renderer/generator.bundle.js
+app/*.bundle.js
 
 # Don't commit claude superpowers in the repo
 docs

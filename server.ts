@@ -1,8 +1,8 @@
 import { build } from "./build.ts";
 
 const PORT = Number(Deno.env.get("PORT") ?? "8080");
-const RENDERER_DIR = "./renderer";
-const SEEDER_DIR = "./seeder";
+const RENDERER_DIR = "./app";
+const SEEDER_DIR = "./src";
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",

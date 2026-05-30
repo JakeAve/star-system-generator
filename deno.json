@@ -1,11 +1,19 @@
 {
+  "name": "@jakeave/star-seeder",
+  "version": "0.1.0",
+  "exports": {
+    ".": "./mod.ts",
+    "./orrery-3d": "./src/orrery-3d/engine.ts",
+    "./orrery-2d": "./src/orrery-2d/engine.ts"
+  },
   "tasks": {
-    "seed": "deno run --allow-write seeder/main.ts",
+    "seed": "deno run --allow-write src/core/main.ts",
     "build": "deno run --allow-read --allow-write --allow-env --allow-run --allow-net build.ts",
     "renderer": "deno task build && deno run --allow-net --allow-read --allow-write --allow-run --allow-env server.ts",
     "test": "deno test --allow-read --allow-write --allow-env --allow-run --allow-net"
   },
   "imports": {
-    "@std/assert": "jsr:@std/assert@1"
+    "@std/assert": "jsr:@std/assert@1",
+    "three": "npm:three@0.165.0"
   }
 }

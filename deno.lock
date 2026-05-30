@@ -3,7 +3,8 @@
   "specifiers": {
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.12",
-    "npm:esbuild@0.23.1": "0.23.1"
+    "npm:esbuild@0.23.1": "0.23.1",
+    "npm:three@0.165.0": "0.165.0"
   },
   "jsr": {
     "@std/assert@1.0.19": {
@@ -167,6 +168,9 @@
       ],
       "scripts": true,
       "bin": true
+    },
+    "three@0.165.0": {
+      "integrity": "sha512-cc96IlVYGydeceu0e5xq70H8/yoVT/tXBxV/W8A/U6uOq7DXc4/s1Mkmnu6SqoYGhSRWWYFOhVwvq6V0VtbplA=="
     }
   },
   "remote": {
@@ -206,7 +210,8 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@std/assert@1"
+      "jsr:@std/assert@1",
+      "npm:three@0.165.0"
     ]
   }
 }

@@ -1,19 +1,30 @@
 import * as esbuild from "npm:esbuild@0.23.1";
 
-const OUT = "renderer/generator.bundle.js";
+const BUNDLES: Array<{ entry: string; out: string; external: string[] }> = [
+  { entry: "mod.ts", out: "app/star-seeder.bundle.js", external: [] },
+  {
+    entry: "src/orrery-3d/engine.ts",
+    out: "app/orrery-3d.bundle.js",
+    external: ["three", "three/addons/*"],
+  },
+  { entry: "src/orrery-2d/engine.ts", out: "app/orrery-2d.bundle.js", external: [] },
+];
 
 export async function build(): Promise<void> {
-  await esbuild.build({
-    entryPoints: ["seeder/browser-entry.ts"],
-    bundle: true,
-    format: "esm",
-    outfile: OUT,
-    target: "es2022",
-    platform: "browser",
-    logLevel: "info",
-  });
+  for (const b of BUNDLES) {
+    await esbuild.build({
+      entryPoints: [b.entry],
+      bundle: true,
+      format: "esm",
+      outfile: b.out,
+      target: "es2022",
+      platform: "browser",
+      external: b.external,
+      logLevel: "info",
+    });
+  }
   await esbuild.stop();
-  console.log(`Built ${OUT}`);
+  console.log(`Built ${BUNDLES.length} bundles into app/`);
 }
 
 if (import.meta.main) {
