@@ -1,6 +1,7 @@
 {
   "name": "@jakeave/star-seeder",
   "version": "0.1.0",
+  "license": "MIT",
   "exports": {
     ".": "./mod.ts",
     "./orrery-3d": "./src/orrery-3d/engine.ts",
