@@ -1,4 +1,3 @@
-/// <reference lib="dom" />
 import type { SolarSystem } from "../core/types.ts";
 import {
   angleAtTime,
