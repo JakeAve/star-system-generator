@@ -1,14 +1,14 @@
 // Layer 2 — plain-data "what to draw" for a system at a moment in time.
 // No Three.js, no DOM. Engines consume this and render in their own space.
 
-import { CelestialObject, SolarSystem } from "./types.ts";
+import { CelestialObject, SolarSystem } from "../core/types.ts";
 import {
   angleAtTime,
   orbitParams,
   orbitPosition,
   SOLAR_TO_EARTH_RADII,
   visualRadius,
-} from "./kinematics.ts";
+} from "../core/kinematics.ts";
 
 export interface ViewBody {
   id: string;

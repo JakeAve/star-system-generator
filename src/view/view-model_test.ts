@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { generateSolarSystem } from "./generator.ts";
+import { generateSolarSystem } from "../core/generator.ts";
 import { buildViewModel } from "./view-model.ts";
 
 Deno.test("buildViewModel returns a star body first", () => {
