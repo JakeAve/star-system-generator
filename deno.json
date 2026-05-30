@@ -1,6 +1,7 @@
 {
-  "name": "@jakeave/star-seeder",
+  "name": "@jakeave/star-system-seeder",
   "version": "0.1.0",
+  "description": "Procedural solar system generator and renderer.",
   "license": "MIT",
   "exports": {
     ".": "./mod.ts",
