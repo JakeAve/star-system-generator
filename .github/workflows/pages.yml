@@ -34,7 +34,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: renderer
+          path: app
 
       - id: deployment
         uses: actions/deploy-pages@v4
