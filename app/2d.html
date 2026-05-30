@@ -36,9 +36,11 @@
   <body>
     <div id="loading">LOADING...</div>
     <script type="module">
-      import { generateSolarSystem } from "./generator.bundle.js";
-      import { buildSystem } from "./canvas-scene.js";
+      import { generateSolarSystem, buildViewModel } from "./star-seeder.bundle.js";
+      import { createCanvasOrrery } from "./orrery-2d.bundle.js";
       import { loadSystem, saveSystem } from "./storage.js";
+      import { buildPanel } from "./panel.js";
+      import { buildPlaybackWidget } from "./playback-widget.js";
 
       const numericId = parseInt(location.hash.slice(1), 10);
       if (isNaN(numericId)) {
@@ -67,16 +69,29 @@
         const loadingEl = document.getElementById("loading");
         let data = loadSystem(numericId);
         if (!data) {
-          try {
-            data = generateSolarSystem({ seed: numericId });
-            saveSystem(data);
-          } catch (err) {
-            loadingEl.textContent = `Error: ${err.message}`;
-          }
+          try { data = generateSolarSystem({ seed: numericId }); saveSystem(data); }
+          catch (err) { if (loadingEl) loadingEl.textContent = `Error: ${err.message}`; }
         }
         if (data) {
-          loadingEl.remove();
-          buildSystem(data);
+          if (loadingEl) loadingEl.remove();
+          const animObjects = buildViewModel(data, 0);
+          const orrery = createCanvasOrrery(document.body, {
+            onPick: (id) => {
+              orrery.focus(id);
+              const obj = animObjects.find(o => o.id === id);
+              if (obj) document.dispatchEvent(new CustomEvent("bodySelected", { detail: obj }));
+            },
+          });
+          orrery.setSystem(data);
+          buildPanel(data, animObjects, {
+            onFocus: (b) => orrery.focus(b ? b.id : "star"),
+            onFlyTo: (b) => orrery.focus(b ? b.id : "star"),
+          });
+          buildPlaybackWidget({
+            onTimeScale: (ts) => orrery.setTimeScale(ts),
+            onPause: () => orrery.pause(),
+            onResume: () => orrery.resume(),
+          });
         }
       }
     </script>

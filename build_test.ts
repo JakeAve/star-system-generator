@@ -4,7 +4,7 @@ import { build } from "./build.ts";
 Deno.test("bundle builds and produces deterministic system", async () => {
   await build();
 
-  const bundleUrl = new URL("./renderer/generator.bundle.js", import.meta.url);
+  const bundleUrl = new URL("./app/star-seeder.bundle.js", import.meta.url);
   const mod = await import(bundleUrl.href);
 
   assertExists(mod.generateSolarSystem);
