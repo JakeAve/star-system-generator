@@ -136,6 +136,12 @@ export interface ArchetypeProfile {
   slots: GenerationSlot[];
 }
 
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends Array<infer U> ? Array<U>
+    : T[P] extends object ? DeepPartial<T[P]>
+    : T[P];
+};
+
 export interface GeneratorConfig {
   seed?: number;
   depositsPerObject: { min: number; max: number };

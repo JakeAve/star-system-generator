@@ -2,6 +2,7 @@
 
 import {
   CelestialObject,
+  DeepPartial,
   GeneratorConfig,
   MigrationArchetype,
   ObjectType,
@@ -13,7 +14,8 @@ import {
   Star,
 } from "./types.ts";
 import { generateName, resetNameCounter, RNG } from "./rng.ts";
-import { DEFAULT_CONFIG, pickArchetypeWeights } from "./config.ts";
+import { pickArchetypeWeights } from "./config.ts";
+import { resolveConfig } from "./config-merge.ts";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -481,14 +483,14 @@ function pickArchetype(
 // ── Main generator ────────────────────────────────────────────────────────────
 
 export function generateSolarSystem(
-  config: Partial<GeneratorConfig> = {},
+  config: DeepPartial<GeneratorConfig> = {},
 ): SolarSystem {
   let _idCounter = 0;
   const nextId = (): string => `obj_${++_idCounter}`;
 
   resetNameCounter();
 
-  const cfg = { ...DEFAULT_CONFIG, ...config };
+  const cfg = resolveConfig(config);
   const seed = cfg.seed ?? Math.floor(Math.random() * 0xFFFFFFFF);
   const rng = new RNG(seed);
   const star = generateStar(rng, cfg);
