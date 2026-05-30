@@ -16,6 +16,9 @@
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext", "deno.ns"]
   },
+  "publish": {
+    "exclude": ["build_test.ts", "build.ts", "server.ts", "app/"]
+  },
   "imports": {
     "@std/assert": "jsr:@std/assert@1",
     "three": "npm:three@0.165.0"
