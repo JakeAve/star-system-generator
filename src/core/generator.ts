@@ -12,6 +12,7 @@ import {
   SolarSystem,
   SpectralType,
   Star,
+  SystemBody,
 } from "./types.ts";
 import { generateName, resetNameCounter, RNG } from "./rng.ts";
 import { pickArchetypeWeights } from "./config.ts";
@@ -624,10 +625,12 @@ export function generateSolarSystem(
 
 // ── Query helpers ─────────────────────────────────────────────────────────────
 
-export function allObjects(system: SolarSystem): CelestialObject[] {
-  return system.objects.flatMap((obj) => [obj, ...obj.moons]);
+export function allObjects(system: SolarSystem): SystemBody[] {
+  return [system.star, ...system.objects.flatMap((obj) => [obj, ...obj.moons])];
 }
 
 export function knownObjects(system: SolarSystem): CelestialObject[] {
-  return allObjects(system).filter((o) => o.knownAtStart);
+  return allObjects(system)
+    .filter((o): o is CelestialObject => "knownAtStart" in o)
+    .filter((o) => o.knownAtStart);
 }

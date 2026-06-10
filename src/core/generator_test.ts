@@ -23,7 +23,7 @@ Deno.test("RNG: different seeds produce different sequences", () => {
 });
 
 import { DEFAULT_CONFIG } from "./config.ts";
-import { MigrationArchetype, ObjectType, Resource } from "./types.ts";
+import { CelestialObject, MigrationArchetype, ObjectType, Resource } from "./types.ts";
 
 Deno.test("config: all ObjectTypes have resource weights", () => {
   for (const type of Object.values(ObjectType)) {
@@ -304,6 +304,7 @@ Deno.test("generateSolarSystem: all deposits use new Resource enum values", () =
   for (let seed = 0; seed < 10; seed++) {
     const system = generateSolarSystem({ seed });
     for (const obj of allObjects(system)) {
+      if (!("type" in obj)) continue;
       for (const dep of obj.deposits) {
         assert(
           validResources.has(dep.resource),
@@ -318,6 +319,7 @@ Deno.test("generateSolarSystem: no IcePlanet objects (only IceGiant)", () => {
   for (let seed = 0; seed < 20; seed++) {
     const system = generateSolarSystem({ seed });
     for (const obj of allObjects(system)) {
+      if (!("type" in obj)) continue;
       assert(
         (obj.type as string) !== "icePlanet",
         `Found deprecated icePlanet type in seed ${seed}`,
@@ -329,7 +331,8 @@ Deno.test("generateSolarSystem: no IcePlanet objects (only IceGiant)", () => {
 Deno.test("allObjects: includes nested moons", () => {
   const system = generateSolarSystem({ seed: 1 });
   const all = allObjects(system);
-  const moons = all.filter((o) => o.type === ObjectType.Moon);
+  const celestials = all.filter((o): o is CelestialObject => "type" in o);
+  const moons = celestials.filter((o) => o.type === ObjectType.Moon);
   // All moons must have a parentId
   assert(moons.every((m) => m.parentId !== undefined), "Moon without parentId");
   // allObjects count >= top-level count
@@ -366,6 +369,7 @@ Deno.test("generateSolarSystem: HotJupiter has primary gas giant < 0.15 AU", () 
 Deno.test("orbitalPhase is between 0 and 1", () => {
   const system = generateSolarSystem({ seed: 1 });
   for (const obj of allObjects(system)) {
+    if (!("type" in obj)) continue;
     assert(
       obj.orbitalPhase >= 0 && obj.orbitalPhase <= 1,
       `${obj.id} orbitalPhase ${obj.orbitalPhase} out of range`,
@@ -378,6 +382,7 @@ Deno.test("tidally locked planets have rotationPeriodDays === orbitPeriod", () =
   for (let seed = 0; seed < 20; seed++) {
     const system = generateSolarSystem({ seed });
     for (const obj of allObjects(system)) {
+      if (!("type" in obj)) continue;
       if (obj.tidallyLocked) {
         assertEquals(
           obj.rotationPeriodDays,
@@ -410,6 +415,7 @@ Deno.test("non-locked bodies have rotationPeriodDays within config range", () =>
   for (let seed = 0; seed < 10; seed++) {
     const system = generateSolarSystem({ seed });
     for (const obj of allObjects(system)) {
+      if (!("type" in obj)) continue;
       if (obj.tidallyLocked) continue;
       const entry = typeRanges.find(([t]) => t === obj.type);
       if (!entry) continue;
@@ -526,7 +532,7 @@ Deno.test("generateSolarSystem: star has an obj_N id", () => {
 
 Deno.test("generateSolarSystem: all IDs are unique including the star", () => {
   const system = generateSolarSystem({ seed: 42 });
-  const ids = [system.star.id, ...allObjects(system).map((o) => o.id)];
+  const ids = allObjects(system).map((o) => o.id);
   const unique = new Set(ids);
   assertEquals(unique.size, ids.length, "Duplicate IDs found in system");
 });
@@ -534,4 +540,15 @@ Deno.test("generateSolarSystem: all IDs are unique including the star", () => {
 Deno.test("generateSolarSystem: star gets obj_1 (first nextId call)", () => {
   const system = generateSolarSystem({ seed: 42 });
   assertEquals(system.star.id, "obj_1");
+});
+
+Deno.test("allObjects: star is first element", () => {
+  const system = generateSolarSystem({ seed: 42 });
+  assertEquals(allObjects(system)[0], system.star);
+});
+
+Deno.test("allObjects: count includes star", () => {
+  const system = generateSolarSystem({ seed: 42 });
+  const celestialCount = system.objects.flatMap((o) => [o, ...o.moons]).length;
+  assertEquals(allObjects(system).length, celestialCount + 1);
 });

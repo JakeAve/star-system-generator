@@ -83,6 +83,8 @@ export interface Star {
   radius: number; // solar radii
 }
 
+export type SystemBody = Star | CelestialObject;
+
 export interface SolarSystem {
   seed: number;
   star: Star;

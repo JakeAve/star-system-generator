@@ -38,9 +38,10 @@ console.log(
   )} AU`,
 );
 console.log(`  History:  ${system.migrationHistory}`);
+const celestialCount = all.length - 1; // exclude star
 console.log(
-  `  Objects:  ${all.length} total (${system.objects.length} top-level, ${
-    all.length - system.objects.length
+  `  Objects:  ${celestialCount} total (${system.objects.length} top-level, ${
+    celestialCount - system.objects.length
   } moons)`,
 );
 console.log(`  Known:    ${known.length}`);
