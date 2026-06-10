@@ -265,7 +265,7 @@ export function createCanvasOrrery(
   function buildAnimObjects(system: SolarSystem): AnimObj[] {
     const objs: AnimObj[] = [];
     objs.push({
-      id: "star", type: "star", data: system.star as unknown as Record<string, unknown>,
+      id: system.star.id, type: "star", data: system.star as unknown as Record<string, unknown>,
       worldX: 0, worldY: 0, visualR: visualRadius(system.star.radius * SOLAR_TO_EARTH_RADII),
       a: 0, b: 0, c: 0, initialAngle: 0, orbitPeriod: 1, parentId: null,
     });
