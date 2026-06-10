@@ -517,3 +517,21 @@ Deno.test("generateSolarSystem: comets appear across seeds", () => {
   }
   assert(cometCount > 0, "No comets found in 50 systems");
 });
+
+Deno.test("generateSolarSystem: star has an obj_N id", () => {
+  const system = generateSolarSystem({ seed: 42 });
+  assert(typeof system.star.id === "string", "star.id should be a string");
+  assert(/^obj_\d+$/.test(system.star.id), `star.id "${system.star.id}" does not match obj_N format`);
+});
+
+Deno.test("generateSolarSystem: all IDs are unique including the star", () => {
+  const system = generateSolarSystem({ seed: 42 });
+  const ids = [system.star.id, ...allObjects(system).map((o) => o.id)];
+  const unique = new Set(ids);
+  assertEquals(unique.size, ids.length, "Duplicate IDs found in system");
+});
+
+Deno.test("generateSolarSystem: star gets obj_1 (first nextId call)", () => {
+  const system = generateSolarSystem({ seed: 42 });
+  assertEquals(system.star.id, "obj_1");
+});

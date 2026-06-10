@@ -73,6 +73,7 @@ export interface CelestialObject {
 }
 
 export interface Star {
+  id: string;
   spectralType: SpectralType;
   /** Relative to Sol */
   luminosity: number;

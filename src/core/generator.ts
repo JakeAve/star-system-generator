@@ -112,13 +112,14 @@ export function generateDeposits(
 
 // ── Star generator ────────────────────────────────────────────────────────────
 
-function generateStar(rng: RNG, config: GeneratorConfig): Star {
+function generateStar(rng: RNG, config: GeneratorConfig, nextId: () => string): Star {
   const type = rng.weightedPick(config.starWeights);
   const [luMin, luMax] = config.starLuminosity[type];
   const [mMin, mMax] = config.starMass[type];
   const [rMin, rMax] = config.starRadius[type];
   const luminosity = rng.float(luMin, luMax);
   return {
+    id: nextId(),
     spectralType: type,
     luminosity: r2(luminosity),
     habitableZoneAU: r2(Math.sqrt(luminosity)),
@@ -493,7 +494,7 @@ export function generateSolarSystem(
   const cfg = resolveConfig(config);
   const seed = cfg.seed ?? Math.floor(Math.random() * 0xFFFFFFFF);
   const rng = new RNG(seed);
-  const star = generateStar(rng, cfg);
+  const star = generateStar(rng, cfg, nextId);
   const archetype = pickArchetype(rng, star.spectralType);
   const profile = cfg.archetypeProfiles[archetype];
   const frostLineAU = star.habitableZoneAU * cfg.frostLineAUFactor;
