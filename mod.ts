@@ -24,7 +24,6 @@ export type {
   ResourceDeposit,
   SolarSystem,
   Star,
-  SystemBody,
 } from "./src/core/types.ts";
 export {
   MigrationArchetype,

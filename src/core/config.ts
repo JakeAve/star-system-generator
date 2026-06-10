@@ -11,6 +11,14 @@ import {
 // ── Resource weights (base probabilities before frost-line scaling) ────────────
 
 export const RESOURCE_WEIGHTS: Record<ObjectType, ResourceWeights> = {
+  [ObjectType.Star]: {
+    [Resource.Water]: 0,
+    [Resource.Organics]: 0,
+    [Resource.Silicates]: 0,
+    [Resource.Metals]: 0,
+    [Resource.HeavyMetals]: 0,
+    [Resource.Volatiles]: 0,
+  },
   [ObjectType.RockyPlanet]: {
     [Resource.Water]: 0.3,
     [Resource.Organics]: 0.2,
@@ -132,6 +140,7 @@ export const ECCENTRICITY_DEFAULTS: Record<
   ObjectType,
   { min: number; max: number }
 > = {
+  [ObjectType.Star]: { min: 0.0, max: 0.0 },
   [ObjectType.RockyPlanet]: { min: 0.0, max: 0.1 },
   [ObjectType.GasGiant]: { min: 0.0, max: 0.1 },
   [ObjectType.IceGiant]: { min: 0.0, max: 0.08 },

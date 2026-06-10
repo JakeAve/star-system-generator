@@ -182,7 +182,7 @@ export function createOrrery(
     systemRoot = new THREE.Group();
     scene.add(systemRoot);
 
-    const spectralType = system.star.spectralType ?? "G";
+    const spectralType = system.star.spectralType;
     pointLight.color.set(SPECTRAL_LIGHT_COLOR[spectralType] ?? SPECTRAL_LIGHT_COLOR.G);
 
     const vm = buildViewModel(system, 0);

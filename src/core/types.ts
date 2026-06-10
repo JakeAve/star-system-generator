@@ -10,6 +10,7 @@ export enum Resource {
 }
 
 export enum ObjectType {
+  Star = "star",
   RockyPlanet = "rockyPlanet",
   GasGiant = "gasGiant",
   IceGiant = "iceGiant",
@@ -49,6 +50,12 @@ export interface CelestialObject {
   id: string;
   name: string;
   type: ObjectType;
+  /** Defined when type === ObjectType.Star */
+  spectralType?: SpectralType;
+  /** Relative to Sol. Defined when type === ObjectType.Star */
+  luminosity?: number;
+  /** Hz centre in AU. Defined when type === ObjectType.Star */
+  habitableZoneAU?: number;
   /** AU from star (moons: AU from parent) */
   orbitRadius: number;
   /** Days for full orbit */
@@ -72,18 +79,12 @@ export interface CelestialObject {
   tidallyLocked: boolean;
 }
 
-export interface Star {
-  id: string;
+export type Star = CelestialObject & {
+  type: ObjectType.Star;
   spectralType: SpectralType;
-  /** Relative to Sol */
   luminosity: number;
-  /** Hz centre in AU */
   habitableZoneAU: number;
-  mass: number; // solar masses
-  radius: number; // solar radii
-}
-
-export type SystemBody = Star | CelestialObject;
+};
 
 export interface SolarSystem {
   seed: number;

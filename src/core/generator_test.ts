@@ -23,7 +23,7 @@ Deno.test("RNG: different seeds produce different sequences", () => {
 });
 
 import { DEFAULT_CONFIG } from "./config.ts";
-import { CelestialObject, MigrationArchetype, ObjectType, Resource } from "./types.ts";
+import { MigrationArchetype, ObjectType, Resource } from "./types.ts";
 
 Deno.test("config: all ObjectTypes have resource weights", () => {
   for (const type of Object.values(ObjectType)) {
@@ -304,7 +304,6 @@ Deno.test("generateSolarSystem: all deposits use new Resource enum values", () =
   for (let seed = 0; seed < 10; seed++) {
     const system = generateSolarSystem({ seed });
     for (const obj of allObjects(system)) {
-      if (!("type" in obj)) continue;
       for (const dep of obj.deposits) {
         assert(
           validResources.has(dep.resource),
@@ -319,7 +318,6 @@ Deno.test("generateSolarSystem: no IcePlanet objects (only IceGiant)", () => {
   for (let seed = 0; seed < 20; seed++) {
     const system = generateSolarSystem({ seed });
     for (const obj of allObjects(system)) {
-      if (!("type" in obj)) continue;
       assert(
         (obj.type as string) !== "icePlanet",
         `Found deprecated icePlanet type in seed ${seed}`,
@@ -331,8 +329,7 @@ Deno.test("generateSolarSystem: no IcePlanet objects (only IceGiant)", () => {
 Deno.test("allObjects: includes nested moons", () => {
   const system = generateSolarSystem({ seed: 1 });
   const all = allObjects(system);
-  const celestials = all.filter((o): o is CelestialObject => "type" in o);
-  const moons = celestials.filter((o) => o.type === ObjectType.Moon);
+  const moons = all.filter((o) => o.type === ObjectType.Moon);
   // All moons must have a parentId
   assert(moons.every((m) => m.parentId !== undefined), "Moon without parentId");
   // allObjects count >= top-level count
@@ -369,7 +366,6 @@ Deno.test("generateSolarSystem: HotJupiter has primary gas giant < 0.15 AU", () 
 Deno.test("orbitalPhase is between 0 and 1", () => {
   const system = generateSolarSystem({ seed: 1 });
   for (const obj of allObjects(system)) {
-    if (!("type" in obj)) continue;
     assert(
       obj.orbitalPhase >= 0 && obj.orbitalPhase <= 1,
       `${obj.id} orbitalPhase ${obj.orbitalPhase} out of range`,
@@ -382,7 +378,6 @@ Deno.test("tidally locked planets have rotationPeriodDays === orbitPeriod", () =
   for (let seed = 0; seed < 20; seed++) {
     const system = generateSolarSystem({ seed });
     for (const obj of allObjects(system)) {
-      if (!("type" in obj)) continue;
       if (obj.tidallyLocked) {
         assertEquals(
           obj.rotationPeriodDays,
@@ -415,7 +410,6 @@ Deno.test("non-locked bodies have rotationPeriodDays within config range", () =>
   for (let seed = 0; seed < 10; seed++) {
     const system = generateSolarSystem({ seed });
     for (const obj of allObjects(system)) {
-      if (!("type" in obj)) continue;
       if (obj.tidallyLocked) continue;
       const entry = typeRanges.find(([t]) => t === obj.type);
       if (!entry) continue;

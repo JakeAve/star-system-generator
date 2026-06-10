@@ -12,7 +12,6 @@ import {
   SolarSystem,
   SpectralType,
   Star,
-  SystemBody,
 } from "./types.ts";
 import { generateName, resetNameCounter, RNG } from "./rng.ts";
 import { pickArchetypeWeights } from "./config.ts";
@@ -114,18 +113,30 @@ export function generateDeposits(
 // ── Star generator ────────────────────────────────────────────────────────────
 
 function generateStar(rng: RNG, config: GeneratorConfig, nextId: () => string): Star {
-  const type = rng.weightedPick(config.starWeights);
-  const [luMin, luMax] = config.starLuminosity[type];
-  const [mMin, mMax] = config.starMass[type];
-  const [rMin, rMax] = config.starRadius[type];
+  const spectralType = rng.weightedPick(config.starWeights);
+  const [luMin, luMax] = config.starLuminosity[spectralType];
+  const [mMin, mMax] = config.starMass[spectralType];
+  const [rMin, rMax] = config.starRadius[spectralType];
   const luminosity = rng.float(luMin, luMax);
   return {
     id: nextId(),
-    spectralType: type,
+    type: ObjectType.Star,
+    name: `${spectralType}-type Star`,
+    spectralType,
     luminosity: r2(luminosity),
     habitableZoneAU: r2(Math.sqrt(luminosity)),
     mass: r2(rng.float(mMin, mMax)),
     radius: r2(rng.float(rMin, rMax)),
+    orbitRadius: 0,
+    orbitPeriod: 0,
+    eccentricity: 0,
+    orbitalPhase: 0,
+    rotationPeriodDays: 0,
+    tidallyLocked: false,
+    settlementCap: 0,
+    deposits: [],
+    moons: [],
+    knownAtStart: true,
   };
 }
 
@@ -625,12 +636,10 @@ export function generateSolarSystem(
 
 // ── Query helpers ─────────────────────────────────────────────────────────────
 
-export function allObjects(system: SolarSystem): SystemBody[] {
+export function allObjects(system: SolarSystem): CelestialObject[] {
   return [system.star, ...system.objects.flatMap((obj) => [obj, ...obj.moons])];
 }
 
 export function knownObjects(system: SolarSystem): CelestialObject[] {
-  return allObjects(system)
-    .filter((o): o is CelestialObject => "knownAtStart" in o)
-    .filter((o) => o.knownAtStart);
+  return allObjects(system).filter((o) => o.knownAtStart);
 }
