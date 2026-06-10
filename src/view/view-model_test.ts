@@ -32,3 +32,10 @@ Deno.test("buildViewModel: moon world position is relative to its parent", () =>
     assertEquals(moon.position.x !== parent.position.x || moon.position.y !== parent.position.y, true);
   }
 });
+
+Deno.test("buildViewModel: star body id matches system.star.id", () => {
+  const system = generateSolarSystem({ seed: 42 });
+  const vm = buildViewModel(system, 0);
+  const starBody = vm.find((b) => b.type === "star");
+  assertEquals(starBody?.id, system.star.id);
+});

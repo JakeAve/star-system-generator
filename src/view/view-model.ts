@@ -55,7 +55,7 @@ export function buildViewModel(
   const bodies: ViewBody[] = [];
 
   bodies.push({
-    id: "star",
+    id: system.star.id,
     name: `${system.star.spectralType}-type Star`,
     type: "star",
     parentId: null,
