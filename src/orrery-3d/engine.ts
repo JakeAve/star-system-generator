@@ -28,7 +28,7 @@ const SPECTRAL_LIGHT_COLOR: Record<string, number> = {
 };
 
 export interface OrreryOptions {
-  /** Fired with a body id (or "star") when the user clicks a body. */
+  /** Fired with a body id (e.g. system.star.id or a CelestialObject id) when the user clicks a body. */
   onPick?: (id: string) => void;
 }
 
@@ -38,7 +38,7 @@ export interface OrreryHandle {
   setTimeScale(scale: number): void;
   pause(): void;
   resume(): void;
-  /** Fly the camera to a body id (or "star"). */
+  /** Fly the camera to a body id (e.g. system.star.id or a CelestialObject id). */
   focus(id: string): void;
   /** Attach an arbitrary mesh as an overlay child of a body (e.g. settlement marker). */
   addOverlay(bodyId: string, object: THREE.Object3D): void;
@@ -193,11 +193,11 @@ export function createOrrery(
       new THREE.SphereGeometry(starBody.visualR, 32, 32),
       new THREE.MeshBasicMaterial({ color: SPECTRAL_STAR_COLOR[spectralType] ?? SPECTRAL_STAR_COLOR.G }),
     );
-    starMesh.userData.id = "star";
+    starMesh.userData.id = system.star.id;
     systemRoot.add(starMesh);
-    meshById["star"] = starMesh;
+    meshById[system.star.id] = starMesh;
     animObjects.push({
-      id: "star", type: "star", mesh: starMesh,
+      id: system.star.id, type: "star", mesh: starMesh,
       a: 0, b: 0, c: 0, initialAngle: 0, orbitPeriod: 1, flyOffset: starFlyOffset,
     });
 
