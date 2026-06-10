@@ -1,6 +1,7 @@
 import type { SolarSystem } from "../core/types.ts";
 import {
   angleAtTime,
+  AU_SCALE,
   orbitParams,
   orbitPosition,
   SOLAR_TO_EARTH_RADII,
@@ -23,6 +24,7 @@ const SPECTRAL_STAR_COLOR: Record<string, string> = {
 
 export interface CanvasOrreryOptions {
   onPick?: (id: string) => void;
+  onSpacePick?: (au: number, phase: number) => void;
 }
 
 interface AnimObj {
@@ -98,7 +100,14 @@ export function createCanvasOrrery(
       const hitR = Math.max(MIN_HIT, obj.visualR);
       if (d < hitR && d < bestDist) { best = obj; bestDist = d; }
     }
-    if (best) { focus(best.id); opts.onPick?.(best.id); }
+    if (best) {
+      focus(best.id);
+      opts.onPick?.(best.id);
+    } else {
+      const au = Math.hypot(wx, wy) / AU_SCALE;
+      const phase = ((Math.atan2(wy, wx) / (2 * Math.PI)) + 1) % 1;
+      opts.onSpacePick?.(au, phase);
+    }
   }
 
   const onMouseDown = (e: MouseEvent) => {
