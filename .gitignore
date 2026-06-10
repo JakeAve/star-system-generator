@@ -10,3 +10,4 @@ app/*.bundle.js
 
 # Don't commit claude superpowers in the repo
 docs
+publish-debug.sh
