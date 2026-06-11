@@ -1,6 +1,6 @@
 import { assertAlmostEquals, assertEquals } from "@std/assert";
 import { findDirectRoutes } from "./search.ts";
-import { muStar } from "./units.ts";
+import { muBody, muStar } from "./units.ts";
 import { EndState, RankMode } from "./types.ts";
 
 const MU = muStar(1);
@@ -93,5 +93,26 @@ Deno.test("findDirectRoutes: pareto set is Δv-sorted and non-dominated", () => 
     if (routes[i].duration >= routes[i - 1].duration) {
       throw new Error("not non-dominated");
     }
+  }
+});
+
+Deno.test("findDirectRoutes: planetocentric grid is scaled to the central mass (finds the Hohmann-energy transfer)", () => {
+  const muPlanet = muBody(300); // ~gas-giant central body
+  const moonA = {
+    id: "mA",
+    elements: { orbitRadiusAu: 0.10, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 },
+    endpoint: { mu: muBody(0.02), radiusM: 1.7e6 },
+  };
+  const moonB = {
+    id: "mB",
+    elements: { orbitRadiusAu: 0.16, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.4 },
+    endpoint: { mu: muBody(0.02), radiusM: 1.7e6 },
+  };
+  const routes = findDirectRoutes(moonA, moonB, EndState.Orbit, EndState.Orbit, muPlanet, "planet", {});
+  if (routes.length === 0) throw new Error("expected routes");
+  assertEquals(routes[0].legs[0].centralBodyId, "planet");
+  const a = routes[0].legs[0].transfer.a;
+  if (!(a > 0.09 && a < 0.17)) {
+    throw new Error(`leg semi-major axis ${a} AU is not Hohmann-scale; grid likely mis-scaled`);
   }
 });

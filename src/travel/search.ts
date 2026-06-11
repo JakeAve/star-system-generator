@@ -9,6 +9,7 @@ import {
   RouteNodeKind,
   type TravelOptions,
 } from "./types.ts";
+import { AU_M, DAY_S } from "./units.ts";
 
 export interface BodyRef {
   id: string;
@@ -22,9 +23,11 @@ const CODE: Record<EndState, string> = {
   [EndState.Intercept]: "i",
 };
 
-function defaultSweepOpts(fromAu: number, toAu: number) {
-  const outer = Math.max(fromAu, toAu);
-  const periodDays = Math.sqrt(outer ** 3) * 365.25;
+function defaultSweepOpts(fromAu: number, toAu: number, mu: number) {
+  const outerM = Math.max(fromAu, toAu) * AU_M;
+  // Orbital period at the outer radius about a body of parameter mu: T = 2π√(a³/μ).
+  const periodDays = (2 * Math.PI * Math.sqrt((outerM * outerM * outerM) / mu)) /
+    DAY_S;
   return {
     departHorizonDays: periodDays,
     departSamples: 36,
@@ -125,7 +128,7 @@ export function findDirectRoutes(
     from.elements,
     to.elements,
     mu,
-    defaultSweepOpts(from.elements.orbitRadiusAu, to.elements.orbitRadiusAu),
+    defaultSweepOpts(from.elements.orbitRadiusAu, to.elements.orbitRadiusAu, mu),
   );
   const routes = cands.map((c) =>
     toRoute(from, to, fromState, toState, centralId, c)
