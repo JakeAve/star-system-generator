@@ -19,6 +19,11 @@ Deno.test("rsig: preserves very small values (no zero-collapse)", () => {
   assertEquals(rsig(2.4e-10), 2.4e-10);
 });
 
+Deno.test("rsig: honors the sig parameter", () => {
+  assertEquals(rsig(94.041, 2), 94);
+  assertEquals(rsig(94.041, 6), 94.041);
+});
+
 Deno.test("rsig: maps zero to zero", () => {
   assertEquals(rsig(0), 0);
 });
@@ -27,17 +32,22 @@ Deno.test("massFromRadiusDensity: Earth-unit point gives 1 M⊕", () => {
   assertEquals(massFromRadiusDensity(1.0, 1.0), 1);
 });
 
+Deno.test("massFromRadiusDensity: zero radius or density gives zero", () => {
+  assertEquals(massFromRadiusDensity(0, 1.0), 0);
+  assertEquals(massFromRadiusDensity(1.0, 0), 0);
+});
+
 Deno.test("massFromRadiusDensity: Jupiter-scale gives hundreds of M⊕", () => {
   // radius 11.2 R⊕, density 0.24 rel => ~337 M⊕
   const m = massFromRadiusDensity(11.2, 0.24);
-  assertEquals(m > 300 && m < 360, true);
+  assert(m > 300 && m < 360, `expected ~337 M⊕, got ${m}`);
 });
 
 Deno.test("massFromRadiusDensity: comet-scale stays nonzero", () => {
   // radius 0.0002 R⊕, density 0.05 rel => ~4e-13 M⊕
   const m = massFromRadiusDensity(0.0002, 0.05);
-  assertEquals(m > 0, true);
-  assertEquals(Number.isFinite(m), true);
+  assertEquals(m, 4e-13);
+  assert(Number.isFinite(m), `expected finite, got ${m}`);
 });
 
 Deno.test("RNG: same seed produces same sequence", () => {
