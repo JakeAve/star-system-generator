@@ -486,8 +486,7 @@ export const DEFAULT_CONFIG: GeneratorConfig = {
   starMass: STAR_MASS,
   starRadius: STAR_RADIUS,
   starWeights: STAR_WEIGHTS,
-  moonOrbitFraction: { min: 0.02, max: 0.1 },
-  moonOrbitPeriodDays: { min: 3, max: 120 },
+  moonHillSphereRange: { min: 0.05, max: 0.4 },
   tidalLockThresholdDays: { planet: 10, moon: 80 },
   rotationPeriodDays: {
     gasGiant: { min: 0.3, max: 1.5 },

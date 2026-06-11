@@ -50,6 +50,9 @@ export function massFromRadiusDensity(radius: number, density: number): number {
   return rsig(density * radius ** 3);
 }
 
+/** M⊕ expressed in M☉ — used for moon Kepler calculations. */
+const M_EARTH_IN_SOLAR = 3.003e-6;
+
 // ── Settlement cap ────────────────────────────────────────────────────────────
 
 export function settlementCap(
@@ -170,6 +173,8 @@ function makeMoon(
   index: number,
   parentId: string,
   parentOrbitAU: number,
+  parentMass: number,
+  starMass: number,
   config: GeneratorConfig,
   frostLineAU: number,
   captured: boolean,
@@ -181,10 +186,14 @@ function makeMoon(
   const eccRange = captured
     ? config.capturedMoonEccentricity
     : config.eccentricityDefaults[ObjectType.Moon];
-  const moonOrbitAU = parentOrbitAU *
-    rng.float(config.moonOrbitFraction.min, config.moonOrbitFraction.max);
+  // Hill sphere radius in AU; moons are stable within ~0.5 r_H
+  const hillSphereAU = parentOrbitAU *
+    Math.cbrt((parentMass * M_EARTH_IN_SOLAR) / (3 * starMass));
+  const moonOrbitAU = hillSphereAU *
+    rng.float(config.moonHillSphereRange.min, config.moonHillSphereRange.max);
+  // Kepler's third law for moon orbiting parent planet
   const orbitPeriod = Math.max(1, Math.round(
-    rng.float(config.moonOrbitPeriodDays.min, config.moonOrbitPeriodDays.max),
+    Math.sqrt(moonOrbitAU ** 3 / (parentMass * M_EARTH_IN_SOLAR)) * 365.25,
   ));
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.moon;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
@@ -283,7 +292,7 @@ function makeRockyPlanet(
     moons: Array.from(
       { length: moonCount },
       (_, i) =>
-        makeMoon(rng, nextId, i, id, orbitAU, config, frostLineAU, false),
+        makeMoon(rng, nextId, i, id, orbitAU, mass, starMass, config, frostLineAU, false),
     ),
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
@@ -353,6 +362,8 @@ function makeGasGiant(
           i,
           id,
           orbitAU,
+          mass,
+          starMass,
           config,
           frostLineAU,
           capturedMoons,
@@ -419,7 +430,7 @@ function makeIceGiant(
     moons: Array.from(
       { length: moonCount },
       (_, i) =>
-        makeMoon(rng, nextId, i, id, orbitAU, config, frostLineAU, false),
+        makeMoon(rng, nextId, i, id, orbitAU, mass, starMass, config, frostLineAU, false),
     ),
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),

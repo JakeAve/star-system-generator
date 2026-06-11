@@ -206,8 +206,7 @@ export interface GeneratorConfig {
   starMass: Record<SpectralType, [number, number]>;
   starRadius: Record<SpectralType, [number, number]>;
   starWeights: Array<{ value: SpectralType; weight: number }>;
-  moonOrbitFraction: { min: number; max: number };
-  moonOrbitPeriodDays: { min: number; max: number };
+  moonHillSphereRange: { min: number; max: number };
   tidalLockThresholdDays: { planet: number; moon: number };
   rotationPeriodDays: {
     gasGiant: { min: number; max: number };
