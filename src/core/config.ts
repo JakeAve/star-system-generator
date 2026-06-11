@@ -101,7 +101,7 @@ export const SETTLEMENT_CONFIG: GeneratorConfig["settlementConfig"] = {
   iceGiant: { cap: 0 },
   asteroid: { cap: 1 },
   // Caps scale with radius (R⊕): cap = max(min, floor(radius × radiusMultiplier)).
-  // Resulting bands — rockyPlanet 1–3, moonInner 1–2, moonOuter 2, dwarfPlanet 2.
+  // Resulting bands — rockyPlanet/super-Earth 1–3, moonInner 1–2, moonOuter 2, dwarfPlanet 2.
   // moonOuter: moons whose parent is beyond the frost line — richer, more viable.
   moonInner: { min: 1, radiusMultiplier: 7 },
   moonOuter: { min: 2, radiusMultiplier: 7 },
