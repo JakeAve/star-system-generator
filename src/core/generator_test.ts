@@ -5,6 +5,40 @@ import {
   assertEquals,
 } from "@std/assert";
 import { RNG } from "./rng.ts";
+import { massFromRadiusDensity, rsig } from "./generator.ts";
+
+Deno.test("rsig: rounds to 4 significant figures at any magnitude", () => {
+  assertEquals(rsig(94.041), 94.04);
+  assertEquals(rsig(527.31), 527.3);
+  assertEquals(rsig(0.054321), 0.05432);
+  assertEquals(rsig(0.0002), 0.0002);
+});
+
+Deno.test("rsig: preserves very small values (no zero-collapse)", () => {
+  assertEquals(rsig(4e-13), 4e-13);
+  assertEquals(rsig(2.4e-10), 2.4e-10);
+});
+
+Deno.test("rsig: maps zero to zero", () => {
+  assertEquals(rsig(0), 0);
+});
+
+Deno.test("massFromRadiusDensity: Earth-unit point gives 1 M⊕", () => {
+  assertEquals(massFromRadiusDensity(1.0, 1.0), 1);
+});
+
+Deno.test("massFromRadiusDensity: Jupiter-scale gives hundreds of M⊕", () => {
+  // radius 11.2 R⊕, density 0.24 rel => ~337 M⊕
+  const m = massFromRadiusDensity(11.2, 0.24);
+  assertEquals(m > 300 && m < 360, true);
+});
+
+Deno.test("massFromRadiusDensity: comet-scale stays nonzero", () => {
+  // radius 0.0002 R⊕, density 0.05 rel => ~4e-13 M⊕
+  const m = massFromRadiusDensity(0.0002, 0.05);
+  assertEquals(m > 0, true);
+  assertEquals(Number.isFinite(m), true);
+});
 
 Deno.test("RNG: same seed produces same sequence", () => {
   const r1 = new RNG(12345);

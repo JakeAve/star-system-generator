@@ -29,6 +29,20 @@ function r3(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
+/**
+ * Round to `sig` significant figures at any magnitude (scale-invariant; 0 → 0).
+ * Used for radius and derived mass, which span ~1e-13 to ~530; fixed-decimal
+ * rounding (r2/r3) would flatten small bodies to zero.
+ */
+export function rsig(n: number, sig = 4): number {
+  return n === 0 ? 0 : Number(n.toPrecision(sig));
+}
+
+/** Earth-relative mass (M⊕) from Earth radii (R⊕) and Earth-relative density. */
+export function massFromRadiusDensity(radius: number, density: number): number {
+  return rsig(density * radius ** 3);
+}
+
 // ── Settlement cap ────────────────────────────────────────────────────────────
 
 export function settlementCap(
