@@ -51,11 +51,27 @@ export function travelOptions(
   const t = index.get(to.obj);
   if (!f) throw new Error(`unknown body: ${from.obj}`);
   if (!t) throw new Error(`unknown body: ${to.obj}`);
-  if (f.isMoon || t.isMoon) {
-    throw new Error("moon endpoints are not supported until Phase 1b");
-  }
   if (f.obj.type === ObjectType.Star || t.obj.type === ObjectType.Star) {
     throw new Error("the star cannot be a travel endpoint");
+  }
+  if (f.isMoon || t.isMoon) {
+    // Phase 1b supports only same-parent moon→moon (one planetocentric leg).
+    if (f.isMoon && t.isMoon && f.obj.parentId === t.obj.parentId) {
+      const parent = index.get(f.obj.parentId!);
+      if (!parent) throw new Error(`unknown parent body: ${f.obj.parentId}`);
+      return findDirectRoutes(
+        bodyRefOf(f.obj),
+        bodyRefOf(t.obj),
+        from.type,
+        to.type,
+        muBody(parent.obj.mass),
+        parent.obj.id,
+        options,
+      );
+    }
+    throw new Error(
+      "moon endpoints are only supported for same-parent moon→moon until Phase 1c",
+    );
   }
   return findDirectRoutes(
     bodyRefOf(f.obj),

@@ -55,3 +55,31 @@ Deno.test("travelOptions: determinism — identical inputs give identical output
   });
   assertEquals(JSON.stringify(r1), JSON.stringify(r2));
 });
+
+// Seed 42 has a gas giant (obj_28) with several moons — used for same-parent routing.
+const sys42 = generateSolarSystem({ seed: 42 });
+const giant42 = sys42.objects.find((o) => o.moons.length >= 2);
+
+Deno.test("travelOptions: same-parent moon→moon returns a planetocentric route", () => {
+  if (!giant42) throw new Error("seed 42 expected to have a planet with >= 2 moons");
+  const m1 = giant42.moons[0].id;
+  const m2 = giant42.moons[1].id;
+  const routes = travelOptions(sys42, { obj: m1, type: EndState.Orbit }, { obj: m2, type: EndState.Orbit });
+  if (routes.length === 0) throw new Error("expected routes");
+  assertEquals(routes[0].bodies, [m1, m2]);
+  assertEquals(routes[0].legs.length, 1);
+  assertEquals(routes[0].legs[0].centralBodyId, giant42.id);
+  if (!(routes[0].totalDeltaV > 0)) throw new Error("expected positive Δv");
+  if (!(routes[0].duration > 0)) throw new Error("expected positive duration");
+});
+
+Deno.test("travelOptions: moon → non-sibling planet still throws (Phase 1c)", () => {
+  if (!giant42) throw new Error("seed 42 expected to have a planet with >= 2 moons");
+  const m1 = giant42.moons[0].id;
+  const planet = sys42.objects[0].id; // a top-level planet, not the moon's parent
+  assertThrows(
+    () => travelOptions(sys42, { obj: m1, type: EndState.Orbit }, { obj: planet, type: EndState.Orbit }),
+    Error,
+    "Phase 1c",
+  );
+});
