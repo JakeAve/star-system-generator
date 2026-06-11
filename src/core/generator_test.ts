@@ -565,3 +565,69 @@ Deno.test("allObjects: count includes star", () => {
   const celestialCount = system.objects.flatMap((o) => [o, ...o.moons]).length;
   assertEquals(allObjects(system).length, celestialCount + 1);
 });
+
+// Flatten every non-star body (top-level + moons) across many seeds.
+function allNonStarBodies(seedCount: number) {
+  const out: import("./types.ts").CelestialObject[] = [];
+  for (let seed = 1; seed <= seedCount; seed++) {
+    const sys = generateSolarSystem({ seed });
+    for (const obj of sys.objects) {
+      out.push(obj);
+      for (const moon of obj.moons) out.push(moon);
+    }
+  }
+  return out;
+}
+
+Deno.test("generator: no non-star body has zero/non-finite radius or mass", () => {
+  for (const b of allNonStarBodies(50)) {
+    assert(b.radius > 0 && Number.isFinite(b.radius), `${b.type} radius ${b.radius}`);
+    assert(b.mass > 0 && Number.isFinite(b.mass), `${b.type} mass ${b.mass}`);
+  }
+});
+
+Deno.test("generator: recomputed density (mass / radius³) lands in the type's band", () => {
+  const d = DEFAULT_CONFIG.densityRanges;
+  const bandFor = (type: string) => {
+    switch (type) {
+      case ObjectType.RockyPlanet:
+        // covers rocky + super-Earth (both ObjectType.RockyPlanet); widen upper bound
+        return { min: d.rockyPlanet.min, max: d.superEarth.max };
+      case ObjectType.GasGiant:
+        return d.gasGiant;
+      case ObjectType.IceGiant:
+        return d.iceGiant;
+      case ObjectType.Moon:
+        return d.moon;
+      case ObjectType.Asteroid:
+        return d.asteroid;
+      case ObjectType.DwarfPlanet:
+        return d.dwarfPlanet;
+      case ObjectType.Comet:
+        return d.comet;
+      default:
+        return null;
+    }
+  };
+  for (const b of allNonStarBodies(50)) {
+    const band = bandFor(b.type);
+    if (!band) continue;
+    const recomputed = b.mass / b.radius ** 3;
+    const lo = band.min * 0.97;
+    const hi = band.max * 1.03;
+    assert(
+      recomputed >= lo && recomputed <= hi,
+      `${b.type} density ${recomputed} outside [${lo}, ${hi}] (r=${b.radius}, m=${b.mass})`,
+    );
+  }
+});
+
+Deno.test("generator: gas giants are tens-to-hundreds of M⊕, ice giants low tens", () => {
+  const bodies = allNonStarBodies(50);
+  for (const g of bodies.filter((b) => b.type === ObjectType.GasGiant)) {
+    assert(g.mass > 50, `gas giant mass ${g.mass}`);
+  }
+  for (const i of bodies.filter((b) => b.type === ObjectType.IceGiant)) {
+    assert(i.mass > 8 && i.mass < 40, `ice giant mass ${i.mass}`);
+  }
+});
