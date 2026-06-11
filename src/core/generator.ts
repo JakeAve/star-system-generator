@@ -207,7 +207,7 @@ function makeMoon(
     id: nextId(),
     name: generateName(rng, ObjectType.Moon, index),
     type: ObjectType.Moon,
-    orbitRadius: r3(moonOrbitAU),
+    orbitRadius: rsig(moonOrbitAU),
     orbitPeriod,
     eccentricity: r3(drawEccentricity(rng, eccRange)),
     radius,
