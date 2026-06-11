@@ -1,5 +1,5 @@
 import { assertAlmostEquals, assertEquals } from "@std/assert";
-import { buildTerminal } from "./terminal.ts";
+import { buildTerminal, oberthBurn } from "./terminal.ts";
 import { EndState } from "./types.ts";
 import { muBody, R_EARTH_M } from "./units.ts";
 
@@ -39,4 +39,12 @@ Deno.test("buildTerminal: depart phase emits ascent then escape for surface", ()
   const t = buildTerminal(body, EndState.Surface, vInf, "depart");
   assertEquals(t.phase, "depart");
   assertEquals(t.stages.map((s) => s.kind), ["ascent", "escape"]);
+});
+
+Deno.test("oberthBurn: hyperbolic→circular burn is positive and grows with v∞", () => {
+  const body = { mu: 1.2e8, radiusM: 6.0e7 }; // giant-ish, m³/s² and m
+  const slow = oberthBurn(body, 1000); // 1 km/s excess
+  const fast = oberthBurn(body, 8000); // 8 km/s excess
+  if (!(slow > 0)) throw new Error("expected positive burn");
+  if (!(fast > slow)) throw new Error("higher v∞ must cost more");
 });

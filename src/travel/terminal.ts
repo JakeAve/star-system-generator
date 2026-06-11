@@ -12,7 +12,7 @@ export interface EndpointBody {
 }
 
 /** Oberth-effective burn (m/s) to capture from / escape to hyperbolic excess vInf. */
-function captureBurn(body: EndpointBody, vInf: number): number {
+export function oberthBurn(body: EndpointBody, vInf: number): number {
   const vHyp = Math.sqrt(vInf * vInf + 2 * body.mu / body.radiusM);
   const vCirc = Math.sqrt(body.mu / body.radiusM);
   return vHyp - vCirc;
@@ -38,7 +38,7 @@ export function buildTerminal(
   }
   const soiBurn: TerminalStage = {
     kind: phase === "arrive" ? "capture" : "escape",
-    deltaV: mpsToKmps(captureBurn(body, vInf)),
+    deltaV: mpsToKmps(oberthBurn(body, vInf)),
     vInfinity: mpsToKmps(vInf),
   };
   const surface: TerminalStage = {
