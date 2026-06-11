@@ -72,3 +72,17 @@ Deno.test("sweepTransfers: produces only finite candidates", () => {
     }
   }
 });
+
+Deno.test("sweepTransfers: discards physically-absurd v∞ artifacts", () => {
+  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 };
+  const to = { orbitRadiusAu: 5.2, eccentricity: 0.05, periapsisAngle: 0.3, orbitalPhase: 0.25 };
+  const cands = sweepTransfers(from, to, MU, {
+    departHorizonDays: 4000, departSamples: 60, tofMinDays: 50, tofMaxDays: 5000, tofSamples: 60,
+  });
+  if (cands.length === 0) throw new Error("expected candidates");
+  for (const c of cands) {
+    if (c.vInfDepart > 1e6 || c.vInfArrive > 1e6) {
+      throw new Error(`absurd v∞ leaked: ${c.vInfDepart}, ${c.vInfArrive}`);
+    }
+  }
+});

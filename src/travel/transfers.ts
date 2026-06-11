@@ -47,6 +47,10 @@ export interface SweepOpts {
  * where the Lambert formulation is singular and can return a wrong-but-finite result. */
 const COLLINEAR_EPS = 1e-6;
 
+/** Absolute v∞ ceiling (m/s). Real interplanetary transfers are tens of km/s; anything
+ * above this is a near-singular Lambert artifact (finite but garbage) and is discarded. */
+const MAX_VINF_MPS = 1e6; // 1000 km/s
+
 /**
  * Porkchop sweep: for each (departDay, tof) on the grid, solve Lambert and record the
  * heliocentric departure/arrival velocities and the v∞ relative to the endpoint bodies.
@@ -92,6 +96,7 @@ export function sweepTransfers(
         v2.x - sTo.velocity.x,
         v2.y - sTo.velocity.y,
       );
+      if (vInfDepart > MAX_VINF_MPS || vInfArrive > MAX_VINF_MPS) continue;
       const c = conic(sFrom.position, v1, mu);
       if (!Number.isFinite(c.aAu) || !Number.isFinite(c.e)) continue;
       out.push({
