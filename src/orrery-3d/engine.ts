@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { SolarSystem } from "../core/types.ts";
-import { visualRadius } from "../core/kinematics.ts";
+import { eccentricAngleAtTime, visualRadius } from "../core/kinematics.ts";
 import { buildViewModel, ViewBody } from "../view/view-model.ts";
 
 const SOLAR_TO_EARTH_RADII = 109;
@@ -175,7 +175,11 @@ export function createOrrery(
     const mat = new THREE.MeshStandardMaterial({ color: TYPE_COLORS[body.type] ?? 0xffffff });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.userData.id = body.id;
-    mesh.position.copy(orbitPos(a, b, c, initialAngle, periapsisAngle));
+    mesh.position.copy(orbitPos(
+      a, b, c,
+      eccentricAngleAtTime(initialAngle, (body.data as { orbitPeriod?: number }).orbitPeriod || 1, 0, a > 0 ? c / a : 0),
+      periapsisAngle,
+    ));
     parent.add(mesh);
     meshById[body.id] = mesh;
     animObjects.push({
@@ -276,7 +280,12 @@ export function createOrrery(
       if (!paused) elapsedDays += delta * timeScale;
       for (const obj of animObjects) {
         if (obj.type === "star") continue;
-        const angle = obj.initialAngle + ((Math.PI * 2) / obj.orbitPeriod) * elapsedDays;
+        const angle = eccentricAngleAtTime(
+          obj.initialAngle,
+          obj.orbitPeriod,
+          elapsedDays,
+          obj.a > 0 ? obj.c / obj.a : 0,
+        );
         obj.mesh.position.copy(orbitPos(obj.a, obj.b, obj.c, angle, obj.periapsisAngle));
       }
       if (flyState !== null) {

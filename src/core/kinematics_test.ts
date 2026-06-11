@@ -2,8 +2,10 @@ import { assertEquals, assertAlmostEquals } from "@std/assert";
 import {
   AU_SCALE,
   angleAtTime,
+  eccentricAngleAtTime,
   orbitParams,
   orbitPosition,
+  solveKepler,
   visualRadius,
 } from "./kinematics.ts";
 
@@ -55,6 +57,48 @@ Deno.test("orbitPosition: periapsisAngle defaults to no rotation", () => {
 Deno.test("angleAtTime advances by 2π over one period", () => {
   assertAlmostEquals(angleAtTime(0, 365, 365), Math.PI * 2);
   assertAlmostEquals(angleAtTime(0.5, 10, 0), 0.5);
+});
+
+Deno.test("solveKepler: e=0 returns the mean anomaly unchanged", () => {
+  assertEquals(solveKepler(0, 0), 0);
+  assertEquals(solveKepler(1.234, 0), 1.234);
+  assertEquals(solveKepler(-2.5, 0), -2.5);
+});
+
+Deno.test("solveKepler: result satisfies Kepler's equation M = E - e*sin(E)", () => {
+  for (const e of [0.1, 0.3, 0.6, 0.9]) {
+    for (const M of [-2.0, -0.5, 0.3, 1.7, 3.0]) {
+      const E = solveKepler(M, e);
+      const recovered = E - e * Math.sin(E);
+      const twoPi = Math.PI * 2;
+      let m = ((M % twoPi) + twoPi) % twoPi;
+      if (m > Math.PI) m -= twoPi;
+      assertAlmostEquals(recovered, m, 1e-9);
+    }
+  }
+});
+
+Deno.test("solveKepler: known value (M=π/2, e=0.5) ~ 2.0210", () => {
+  assertAlmostEquals(solveKepler(Math.PI / 2, 0.5), 2.020980, 1e-5);
+});
+
+Deno.test("solveKepler: converges for high eccentricity", () => {
+  const e = 0.95;
+  const E = solveKepler(0.05, e);
+  assertAlmostEquals(E - e * Math.sin(E), 0.05, 1e-9);
+});
+
+Deno.test("eccentricAngleAtTime: e=0 equals angleAtTime exactly", () => {
+  assertEquals(
+    eccentricAngleAtTime(0.5, 365, 100, 0),
+    angleAtTime(0.5, 365, 100),
+  );
+});
+
+Deno.test("eccentricAngleAtTime: applies Kepler solve for e>0", () => {
+  const e = 0.4;
+  const mean = angleAtTime(0.2, 365, 90);
+  assertEquals(eccentricAngleAtTime(0.2, 365, 90, e), solveKepler(mean, e));
 });
 
 Deno.test("visualRadius floors at MIN and is pure", () => {

@@ -3,7 +3,7 @@
 
 import { CelestialObject, SolarSystem } from "../core/types.ts";
 import {
-  angleAtTime,
+  eccentricAngleAtTime,
   orbitParams,
   orbitPosition,
   SOLAR_TO_EARTH_RADII,
@@ -73,10 +73,11 @@ export function buildViewModel(
   for (const body of bodies) {
     byId[body.id] = body;
     if (body.type === "star") continue;
-    const angle = angleAtTime(
+    const angle = eccentricAngleAtTime(
       ((body.data as CelestialObject).orbitalPhase ?? 0) * Math.PI * 2,
       (body.data as CelestialObject).orbitPeriod || 1,
       elapsedDays,
+      (body.data as CelestialObject).eccentricity ?? 0,
     );
     const local = orbitPosition(
       body.ellipse.a,

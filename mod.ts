@@ -6,11 +6,13 @@ export {
   AU_SCALE,
   angleAtTime,
   BODY_SCALE,
+  eccentricAngleAtTime,
   MIN_VISUAL_RADIUS,
   MOON_ORBIT_SCALE,
   orbitParams,
   orbitPosition,
   SOLAR_TO_EARTH_RADII,
+  solveKepler,
   visualRadius,
 } from "./src/core/kinematics.ts";
 export { buildViewModel } from "./src/view/view-model.ts";

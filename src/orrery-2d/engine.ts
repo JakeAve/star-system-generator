@@ -1,7 +1,7 @@
 import type { SolarSystem } from "../core/types.ts";
 import {
-  angleAtTime,
   AU_SCALE,
+  eccentricAngleAtTime,
   orbitParams,
   orbitPosition,
   SOLAR_TO_EARTH_RADII,
@@ -309,7 +309,12 @@ export function createCanvasOrrery(
   function updatePositions() {
     for (const obj of animObjects) {
       if (obj.type === "star") continue;
-      const angle = angleAtTime(obj.initialAngle, obj.orbitPeriod, elapsedDays);
+      const angle = eccentricAngleAtTime(
+        obj.initialAngle,
+        obj.orbitPeriod,
+        elapsedDays,
+        obj.a > 0 ? obj.c / obj.a : 0,
+      );
       const pos = orbitPosition(obj.a, obj.b, obj.c, angle, obj.periapsisAngle);
       if (obj.parentId === null) { obj.worldX = pos.x; obj.worldY = pos.y; }
       else {
