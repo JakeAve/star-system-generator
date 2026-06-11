@@ -29,7 +29,7 @@ export function orbitParams(
 ): OrbitParams {
   const scale = isMoon ? AU_SCALE * MOON_ORBIT_SCALE : AU_SCALE;
   const a = orbitRadius * scale;
-  const e = Math.min(eccentricity ?? 0, 0.999);
+  const e = Math.min(Math.max(eccentricity ?? 0, 0), 0.999);
   const b = a * Math.sqrt(1 - e * e);
   const c = a * e;
   return { a, b, c };
@@ -42,8 +42,10 @@ export function orbitPosition(
   angle: number,
   periapsisAngle = 0,
 ): { x: number; y: number } {
-  // Ellipse in its perifocal frame (major axis along +x, parent at the focus).
-  const px = c + a * Math.cos(angle);
+  // Ellipse in its perifocal frame: parent at the focus (origin), periapsis on +x
+  // at angle (eccentric anomaly) 0. Standard form x = a·cos E − c, so the body moves
+  // fastest at periapsis when E is advanced via the mean-anomaly Kepler solve.
+  const px = a * Math.cos(angle) - c;
   const py = b * Math.sin(angle);
   if (periapsisAngle === 0) return { x: px, y: py };
   // Rotate about the focus (origin) by the argument of periapsis.

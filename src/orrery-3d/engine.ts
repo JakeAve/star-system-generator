@@ -134,7 +134,7 @@ export function createOrrery(
     for (let i = 0; i <= 128; i++) {
       const t = (i / 128) * Math.PI * 2;
       // Perifocal point, then rotate about the focus (Y axis) by periapsisAngle.
-      const x = c + a * Math.cos(t);
+      const x = a * Math.cos(t) - c;
       const z = b * Math.sin(t);
       pts.push(new THREE.Vector3(x * cos - z * sin, 0, x * sin + z * cos));
     }
@@ -231,7 +231,7 @@ export function createOrrery(
   }
 
   function orbitPos(a: number, b: number, c: number, angle: number, periapsisAngle = 0) {
-    const x = c + a * Math.cos(angle);
+    const x = a * Math.cos(angle) - c;
     const z = b * Math.sin(angle);
     const cos = Math.cos(periapsisAngle);
     const sin = Math.sin(periapsisAngle);

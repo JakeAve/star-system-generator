@@ -242,7 +242,7 @@ export function createCanvasOrrery(
       ctx.translate(px, py);
       ctx.rotate(obj.periapsisAngle);
       ctx.beginPath();
-      ctx.ellipse(obj.c, 0, obj.a, obj.b, 0, 0, Math.PI * 2);
+      ctx.ellipse(-obj.c, 0, obj.a, obj.b, 0, 0, Math.PI * 2);
       ctx.strokeStyle = obj.parentId ? "#0a2a2a" : "#1a3a6a";
       ctx.stroke();
       ctx.restore();

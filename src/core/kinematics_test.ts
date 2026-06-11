@@ -28,23 +28,50 @@ Deno.test("orbitParams: moon uses moon scale", () => {
   assertEquals(moon.a, planet.a);
 });
 
-Deno.test("orbitPosition: angle 0 sits at (c+a, 0)", () => {
+Deno.test("orbitPosition: angle 0 sits at periapsis (a-c, 0)", () => {
   const pos = orbitPosition(10, 8, 2, 0);
-  assertAlmostEquals(pos.x, 12);
+  assertAlmostEquals(pos.x, 8);
   assertAlmostEquals(pos.y, 0);
 });
 
-Deno.test("orbitPosition: quarter turn sits at (c, b)", () => {
+Deno.test("orbitPosition: quarter turn sits at (-c, b)", () => {
   const pos = orbitPosition(10, 8, 2, Math.PI / 2);
-  assertAlmostEquals(pos.x, 2);
+  assertAlmostEquals(pos.x, -2);
   assertAlmostEquals(pos.y, 8);
 });
 
 Deno.test("orbitPosition: periapsisAngle rotates the orbit about the focus", () => {
-  // Unrotated point (c+a, 0) = (12, 0); rotating by +π/2 → (0, 12).
+  // Unrotated periapsis (a-c, 0) = (8, 0); rotating by +π/2 → (0, 8).
   const pos = orbitPosition(10, 8, 2, 0, Math.PI / 2);
   assertAlmostEquals(pos.x, 0, 1e-9);
-  assertAlmostEquals(pos.y, 12);
+  assertAlmostEquals(pos.y, 8);
+});
+
+Deno.test("orbital motion: closer AND faster at periapsis than apoapsis (Kepler's 2nd law)", () => {
+  const e = 0.6;
+  const { a, b, c } = orbitParams(1, e, false);
+  const period = 100;
+  const dt = 0.5;
+  // orbitalPhase 0 → mean anomaly 0 → E=0 → periapsis at t=0; apoapsis at half a period.
+  const sample = (t: number) => {
+    const e0 = eccentricAngleAtTime(0, period, t, e);
+    const e1 = eccentricAngleAtTime(0, period, t + dt, e);
+    const p0 = orbitPosition(a, b, c, e0, 0);
+    const p1 = orbitPosition(a, b, c, e1, 0);
+    return {
+      radius: Math.hypot(p0.x, p0.y),
+      speed: Math.hypot(p1.x - p0.x, p1.y - p0.y),
+    };
+  };
+  const peri = sample(0);
+  const apo = sample(period / 2);
+  // Distances: periapsis = a(1-e), apoapsis = a(1+e).
+  assertAlmostEquals(peri.radius, a * (1 - e), 1e-6);
+  assertAlmostEquals(apo.radius, a * (1 + e), 1e-6);
+  // Speed must be greater at periapsis (guards against the apse/speed inversion).
+  if (!(peri.speed > apo.speed)) {
+    throw new Error(`periapsis speed ${peri.speed} must exceed apoapsis speed ${apo.speed}`);
+  }
 });
 
 Deno.test("orbitPosition: periapsisAngle defaults to no rotation", () => {

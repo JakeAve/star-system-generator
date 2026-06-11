@@ -176,9 +176,9 @@ function makeMoon(
     : config.eccentricityDefaults[ObjectType.Moon];
   const moonOrbitAU = parentOrbitAU *
     rng.float(config.moonOrbitFraction.min, config.moonOrbitFraction.max);
-  const orbitPeriod = Math.round(
+  const orbitPeriod = Math.max(1, Math.round(
     rng.float(config.moonOrbitPeriodDays.min, config.moonOrbitPeriodDays.max),
-  );
+  ));
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.moon;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
     rng.float(
@@ -240,7 +240,7 @@ function makeRockyPlanet(
   const id = nextId();
   const radius = rsig(rng.float(radiusRange.min, radiusRange.max));
   const mass = massFromRadiusDensity(radius, rng.float(densityRange.min, densityRange.max));
-  const orbitPeriod = Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365);
+  const orbitPeriod = Math.max(1, Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365));
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.planet;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
     rng.float(
@@ -305,7 +305,7 @@ function makeGasGiant(
   const dr = config.densityRanges.gasGiant;
   const radius = rsig(rng.float(rr.min, rr.max));
   const mass = massFromRadiusDensity(radius, rng.float(dr.min, dr.max));
-  const orbitPeriod = Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365);
+  const orbitPeriod = Math.max(1, Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365));
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.planet;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
     rng.float(
@@ -377,7 +377,7 @@ function makeIceGiant(
   const dr = config.densityRanges.iceGiant;
   const radius = rsig(rng.float(rr.min, rr.max));
   const mass = massFromRadiusDensity(radius, rng.float(dr.min, dr.max));
-  const orbitPeriod = Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365);
+  const orbitPeriod = Math.max(1, Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365));
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.planet;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
     rng.float(
@@ -452,7 +452,7 @@ function makeAsteroid(
     name: generateName(rng, type, index),
     type,
     orbitRadius: r2(orbitAU),
-    orbitPeriod: Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365),
+    orbitPeriod: Math.max(1, Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365)),
     eccentricity,
     radius,
     mass,
@@ -490,7 +490,7 @@ function makeComet(
     name: generateName(rng, ObjectType.Comet, index),
     type: ObjectType.Comet,
     orbitRadius: r2(orbitAU),
-    orbitPeriod: Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365),
+    orbitPeriod: Math.max(1, Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365)),
     eccentricity,
     radius,
     mass,
