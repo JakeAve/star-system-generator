@@ -33,3 +33,13 @@ export {
   Resource,
   SpectralType,
 } from "./src/core/types.ts";
+export { travelOptions } from "./src/travel/index.ts";
+export type {
+  Route,
+  RouteLeg,
+  RouteNode,
+  TerminalTransfer,
+  TravelOptions,
+  Waypoint,
+} from "./src/travel/types.ts";
+export { EndState, RankMode, RouteNodeKind } from "./src/travel/types.ts";
