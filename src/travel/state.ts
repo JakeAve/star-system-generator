@@ -18,7 +18,11 @@ export interface StateVector {
  * State vector at elapsed time `tDays`. Physical mean motion n = √(μ/a³) (vis-viva
  * consistent); standard perifocal frame (periapsis on +x at E=0), rotated by periapsisAngle.
  */
-export function stateAt(el: OrbitElements, muCentral: number, tDays: number): StateVector {
+export function stateAt(
+  el: OrbitElements,
+  muCentral: number,
+  tDays: number,
+): StateVector {
   const a = el.orbitRadiusAu * AU_M;
   const e = Math.min(Math.max(el.eccentricity, 0), 0.999);
   const n = Math.sqrt(muCentral / (a * a * a)); // rad/s

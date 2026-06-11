@@ -35,7 +35,12 @@ Deno.test("stateAt: speed matches vis-viva at an arbitrary later time", () => {
   const a = 2, e = 0.25;
   const periodDays = Math.sqrt(a ** 3) * 365.25;
   const s = stateAt(
-    { orbitRadiusAu: a, eccentricity: e, periapsisAngle: 0.7, orbitalPhase: 0.1 },
+    {
+      orbitRadiusAu: a,
+      eccentricity: e,
+      periapsisAngle: 0.7,
+      orbitalPhase: 0.1,
+    },
     MU,
     periodDays * 0.37,
   );
@@ -48,7 +53,12 @@ Deno.test("stateAt: speed matches vis-viva at an arbitrary later time", () => {
 Deno.test("conic: recovers a and e from a state vector", () => {
   const a = 1.8, e = 0.4;
   const s = stateAt(
-    { orbitRadiusAu: a, eccentricity: e, periapsisAngle: 1.1, orbitalPhase: 0.22 },
+    {
+      orbitRadiusAu: a,
+      eccentricity: e,
+      periapsisAngle: 1.1,
+      orbitalPhase: 0.22,
+    },
     MU,
     123,
   );

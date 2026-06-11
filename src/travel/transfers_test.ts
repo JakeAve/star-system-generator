@@ -11,8 +11,18 @@ Deno.test("hohmann: 1 AU → 1.524 AU burns ≈ 2.94 / 2.65 km/s", () => {
 });
 
 Deno.test("sweepTransfers: cheapest candidate ≈ Hohmann total for circular coplanar orbits", () => {
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 };
-  const to = { orbitRadiusAu: 1.524, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.5 };
+  const from = {
+    orbitRadiusAu: 1,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0,
+  };
+  const to = {
+    orbitRadiusAu: 1.524,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.5,
+  };
   const cands = sweepTransfers(from, to, MU, {
     departHorizonDays: 800,
     departSamples: 40,
@@ -25,14 +35,32 @@ Deno.test("sweepTransfers: cheapest candidate ≈ Hohmann total for circular cop
   const best = cands.reduce((m, c) =>
     c.vInfDepart + c.vInfArrive < m.vInfDepart + m.vInfArrive ? c : m
   );
-  assertAlmostEquals((best.vInfDepart + best.vInfArrive) / 1000, hohmannTotalKmps, 0.3);
+  assertAlmostEquals(
+    (best.vInfDepart + best.vInfArrive) / 1000,
+    hohmannTotalKmps,
+    0.3,
+  );
 });
 
 Deno.test("sweepTransfers: produces only finite candidates", () => {
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 };
-  const to = { orbitRadiusAu: 1.524, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.5 };
+  const from = {
+    orbitRadiusAu: 1,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0,
+  };
+  const to = {
+    orbitRadiusAu: 1.524,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.5,
+  };
   const cands = sweepTransfers(from, to, MU, {
-    departHorizonDays: 800, departSamples: 30, tofMinDays: 100, tofMaxDays: 700, tofSamples: 30,
+    departHorizonDays: 800,
+    departSamples: 30,
+    tofMinDays: 100,
+    tofMaxDays: 700,
+    tofSamples: 30,
   });
   if (cands.length === 0) throw new Error("expected candidates");
   for (const c of cands) {

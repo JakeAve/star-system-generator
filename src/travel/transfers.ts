@@ -60,7 +60,8 @@ export function sweepTransfers(
 ): TransferCandidate[] {
   const out: TransferCandidate[] = [];
   const dStep = opts.departHorizonDays / Math.max(1, opts.departSamples - 1);
-  const tStep = (opts.tofMaxDays - opts.tofMinDays) / Math.max(1, opts.tofSamples - 1);
+  const tStep = (opts.tofMaxDays - opts.tofMinDays) /
+    Math.max(1, opts.tofSamples - 1);
   for (let i = 0; i < opts.departSamples; i++) {
     const departDay = i * dStep;
     const sFrom = stateAt(from, mu, departDay);
@@ -71,16 +72,39 @@ export function sweepTransfers(
       const arriveDay = departDay + tofDays;
       const sTo = stateAt(to, mu, arriveDay);
       // Skip near-collinear geometry (transfer angle ≈ 0 or π): singular Lambert.
-      const crossZ = sFrom.position.x * sTo.position.y - sFrom.position.y * sTo.position.x;
+      const crossZ = sFrom.position.x * sTo.position.y -
+        sFrom.position.y * sTo.position.x;
       const r2 = Math.hypot(sTo.position.x, sTo.position.y);
       if (Math.abs(crossZ) < COLLINEAR_EPS * r1 * r2) continue;
-      const { v1, v2 } = solveLambert(sFrom.position, sTo.position, tofDays * DAY_S, mu, true);
+      const { v1, v2 } = solveLambert(
+        sFrom.position,
+        sTo.position,
+        tofDays * DAY_S,
+        mu,
+        true,
+      );
       if (!Number.isFinite(v1.x) || !Number.isFinite(v2.x)) continue;
-      const vInfDepart = Math.hypot(v1.x - sFrom.velocity.x, v1.y - sFrom.velocity.y);
-      const vInfArrive = Math.hypot(v2.x - sTo.velocity.x, v2.y - sTo.velocity.y);
+      const vInfDepart = Math.hypot(
+        v1.x - sFrom.velocity.x,
+        v1.y - sFrom.velocity.y,
+      );
+      const vInfArrive = Math.hypot(
+        v2.x - sTo.velocity.x,
+        v2.y - sTo.velocity.y,
+      );
       const c = conic(sFrom.position, v1, mu);
       if (!Number.isFinite(c.aAu) || !Number.isFinite(c.e)) continue;
-      out.push({ departDay, tofDays, arriveDay, v1, v2, vInfDepart, vInfArrive, aAu: c.aAu, e: c.e });
+      out.push({
+        departDay,
+        tofDays,
+        arriveDay,
+        v1,
+        v2,
+        vInfDepart,
+        vInfArrive,
+        aAu: c.aAu,
+        e: c.e,
+      });
     }
   }
   return out;

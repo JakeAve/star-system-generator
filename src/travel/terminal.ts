@@ -1,5 +1,9 @@
 // src/travel/terminal.ts
-import { EndState, type TerminalStage, type TerminalTransfer } from "./types.ts";
+import {
+  EndState,
+  type TerminalStage,
+  type TerminalTransfer,
+} from "./types.ts";
 import { mpsToKmps } from "./units.ts";
 
 export interface EndpointBody {

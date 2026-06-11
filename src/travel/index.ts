@@ -4,7 +4,7 @@ import { ObjectType } from "../core/types.ts";
 import { type BodyRef, findDirectRoutes } from "./search.ts";
 import { muBody, muStar, R_EARTH_M } from "./units.ts";
 import type { OrbitElements } from "./state.ts";
-import { type Route, type TravelOptions, type Waypoint } from "./types.ts";
+import type { Route, TravelOptions, Waypoint } from "./types.ts";
 
 function elementsOf(o: CelestialObject): OrbitElements {
   return {
@@ -24,7 +24,9 @@ function bodyRefOf(o: CelestialObject): BodyRef {
 }
 
 /** Flatten a system into id → {object, isMoon}. IDs are globally unique. */
-function flatten(system: SolarSystem): Map<string, { obj: CelestialObject; isMoon: boolean }> {
+function flatten(
+  system: SolarSystem,
+): Map<string, { obj: CelestialObject; isMoon: boolean }> {
   const map = new Map<string, { obj: CelestialObject; isMoon: boolean }>();
   map.set(system.star.id, { obj: system.star, isMoon: false });
   for (const o of system.objects) {
@@ -49,7 +51,9 @@ export function travelOptions(
   const t = index.get(to.obj);
   if (!f) throw new Error(`unknown body: ${from.obj}`);
   if (!t) throw new Error(`unknown body: ${to.obj}`);
-  if (f.isMoon || t.isMoon) throw new Error("moon endpoints are not supported until Phase 1b");
+  if (f.isMoon || t.isMoon) {
+    throw new Error("moon endpoints are not supported until Phase 1b");
+  }
   if (f.obj.type === ObjectType.Star || t.obj.type === ObjectType.Star) {
     throw new Error("the star cannot be a travel endpoint");
   }

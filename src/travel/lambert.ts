@@ -50,7 +50,8 @@ export function solveLambert(
   const Fof = (z: number): number => {
     const yz = yOf(z);
     const c = stumpffC(z);
-    return Math.pow(yz / c, 1.5) * stumpffS(z) + A * Math.sqrt(yz) - Math.sqrt(mu) * tof;
+    return Math.pow(yz / c, 1.5) * stumpffS(z) + A * Math.sqrt(yz) -
+      Math.sqrt(mu) * tof;
   };
 
   // Newton iteration on z with a numerical derivative (robust for game-grade accuracy).

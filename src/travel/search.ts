@@ -1,5 +1,5 @@
 // src/travel/search.ts
-import { type OrbitElements } from "./state.ts";
+import type { OrbitElements } from "./state.ts";
 import { sweepTransfers, type TransferCandidate } from "./transfers.ts";
 import { buildTerminal, type EndpointBody } from "./terminal.ts";
 import {
@@ -43,8 +43,18 @@ function toRoute(
   centralId: string,
   c: TransferCandidate,
 ): Route {
-  const departTerminal = buildTerminal(from.endpoint, fromState, c.vInfDepart, "depart");
-  const arriveTerminal = buildTerminal(to.endpoint, toState, c.vInfArrive, "arrive");
+  const departTerminal = buildTerminal(
+    from.endpoint,
+    fromState,
+    c.vInfDepart,
+    "depart",
+  );
+  const arriveTerminal = buildTerminal(
+    to.endpoint,
+    toState,
+    c.vInfArrive,
+    "arrive",
+  );
   const departAt = c.departDay;
   const legDepart = departAt + departTerminal.duration;
   const legArrive = legDepart + c.tofDays;
@@ -53,8 +63,20 @@ function toRoute(
   return {
     bodies: [from.id, to.id],
     nodes: [
-      { bodyId: from.id, time: departAt, kind: RouteNodeKind.Depart, deltaV: 0, terminal: departTerminal },
-      { bodyId: to.id, time: arriveTime, kind: RouteNodeKind.Arrive, deltaV: 0, terminal: arriveTerminal },
+      {
+        bodyId: from.id,
+        time: departAt,
+        kind: RouteNodeKind.Depart,
+        deltaV: 0,
+        terminal: departTerminal,
+      },
+      {
+        bodyId: to.id,
+        time: arriveTime,
+        kind: RouteNodeKind.Arrive,
+        deltaV: 0,
+        terminal: arriveTerminal,
+      },
     ],
     legs: [{
       fromBodyId: from.id,
@@ -64,7 +86,7 @@ function toRoute(
       arriveTime: legArrive,
       timeOfFlight: c.tofDays,
       transfer: { a: c.aAu, e: c.e },
-      deltaV: 0,
+      deltaV: 0, // Phase 1: leg energy lives in the terminals; per-leg burns added in later phases
     }],
     departAt,
     duration: arriveTime - departAt,
@@ -105,13 +127,18 @@ export function findDirectRoutes(
     mu,
     defaultSweepOpts(from.elements.orbitRadiusAu, to.elements.orbitRadiusAu),
   );
-  const routes = cands.map((c) => toRoute(from, to, fromState, toState, centralId, c));
+  const routes = cands.map((c) =>
+    toRoute(from, to, fromState, toState, centralId, c)
+  );
   const rank = options.rank ?? RankMode.Pareto;
   if (rank === RankMode.All) return routes;
   if (rank === RankMode.TopN) {
     const w = options.weights ?? { time: 1, deltaV: 1 };
     const score = (r: Route) => w.deltaV * r.totalDeltaV + w.time * r.duration;
-    return [...routes].sort((a, b) => score(a) - score(b)).slice(0, options.topN ?? 5);
+    return [...routes].sort((a, b) => score(a) - score(b)).slice(
+      0,
+      options.topN ?? 5,
+    );
   }
   return pareto(routes);
 }

@@ -25,7 +25,11 @@ export function muBody(massEarth: number): number {
 }
 
 /** Sphere-of-influence radius (m): a·(m_body/m_central)^(2/5). Masses in any consistent unit. */
-export function sphereOfInfluence(aM: number, mBody: number, mCentral: number): number {
+export function sphereOfInfluence(
+  aM: number,
+  mBody: number,
+  mCentral: number,
+): number {
   return aM * Math.pow(mBody / mCentral, 2 / 5);
 }
 

@@ -24,7 +24,9 @@ Deno.test("buildTerminal: surface > orbit > intercept in Δv", () => {
   const i = buildTerminal(body, EndState.Intercept, vInf, "arrive").totalDeltaV;
   const o = buildTerminal(body, EndState.Orbit, vInf, "arrive").totalDeltaV;
   const s = buildTerminal(body, EndState.Surface, vInf, "arrive").totalDeltaV;
-  if (!(s > o && o > i)) throw new Error(`expected surface>orbit>intercept, got ${s},${o},${i}`);
+  if (!(s > o && o > i)) {
+    throw new Error(`expected surface>orbit>intercept, got ${s},${o},${i}`);
+  }
 });
 
 Deno.test("buildTerminal: near-massless body → capture Δv ≈ vInf (rendezvous)", () => {

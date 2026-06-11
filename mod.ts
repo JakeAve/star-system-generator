@@ -1,10 +1,14 @@
 // @jakeave/star-seeder — main entry (core generator + config + kinematics + view-model)
-export { allObjects, generateSolarSystem, knownObjects } from "./src/core/generator.ts";
+export {
+  allObjects,
+  generateSolarSystem,
+  knownObjects,
+} from "./src/core/generator.ts";
 export { DEFAULT_CONFIG, pickArchetypeWeights } from "./src/core/config.ts";
 export { deepMerge, resolveConfig } from "./src/core/config-merge.ts";
 export {
-  AU_SCALE,
   angleAtTime,
+  AU_SCALE,
   BODY_SCALE,
   eccentricAngleAtTime,
   MIN_VISUAL_RADIUS,

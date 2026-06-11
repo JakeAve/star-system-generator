@@ -1,5 +1,12 @@
 import { assertAlmostEquals } from "@std/assert";
-import { AU_M, auToM, dayToS, muBody, muStar, sphereOfInfluence } from "./units.ts";
+import {
+  AU_M,
+  auToM,
+  dayToS,
+  muBody,
+  muStar,
+  sphereOfInfluence,
+} from "./units.ts";
 
 Deno.test("muStar: 1 solar mass ≈ 1.327e20 m³/s²", () => {
   assertAlmostEquals(muStar(1), 1.327e20, 5e17);
