@@ -38,6 +38,20 @@ Deno.test("orbitPosition: quarter turn sits at (c, b)", () => {
   assertAlmostEquals(pos.y, 8);
 });
 
+Deno.test("orbitPosition: periapsisAngle rotates the orbit about the focus", () => {
+  // Unrotated point (c+a, 0) = (12, 0); rotating by +π/2 → (0, 12).
+  const pos = orbitPosition(10, 8, 2, 0, Math.PI / 2);
+  assertAlmostEquals(pos.x, 0, 1e-9);
+  assertAlmostEquals(pos.y, 12);
+});
+
+Deno.test("orbitPosition: periapsisAngle defaults to no rotation", () => {
+  const rotated = orbitPosition(10, 8, 2, Math.PI / 3, 0);
+  const plain = orbitPosition(10, 8, 2, Math.PI / 3);
+  assertAlmostEquals(rotated.x, plain.x);
+  assertAlmostEquals(rotated.y, plain.y);
+});
+
 Deno.test("angleAtTime advances by 2π over one period", () => {
   assertAlmostEquals(angleAtTime(0, 365, 365), Math.PI * 2);
   assertAlmostEquals(angleAtTime(0.5, 10, 0), 0.5);

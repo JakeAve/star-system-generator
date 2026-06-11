@@ -75,6 +75,8 @@ export interface CelestialObject {
   knownAtStart: boolean;
   capturedMoon?: boolean;
   orbitalPhase: number;
+  /** Argument of periapsis (radians, 0–2π): rotates the orbit's major axis. */
+  periapsisAngle: number;
   rotationPeriodDays: number;
   tidallyLocked: boolean;
 }

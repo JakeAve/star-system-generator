@@ -40,8 +40,16 @@ export function orbitPosition(
   b: number,
   c: number,
   angle: number,
+  periapsisAngle = 0,
 ): { x: number; y: number } {
-  return { x: c + a * Math.cos(angle), y: b * Math.sin(angle) };
+  // Ellipse in its perifocal frame (major axis along +x, parent at the focus).
+  const px = c + a * Math.cos(angle);
+  const py = b * Math.sin(angle);
+  if (periapsisAngle === 0) return { x: px, y: py };
+  // Rotate about the focus (origin) by the argument of periapsis.
+  const cos = Math.cos(periapsisAngle);
+  const sin = Math.sin(periapsisAngle);
+  return { x: px * cos - py * sin, y: px * sin + py * cos };
 }
 
 /** Orbital angle at a given elapsed time (days). */

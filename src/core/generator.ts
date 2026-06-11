@@ -145,6 +145,7 @@ function generateStar(rng: RNG, config: GeneratorConfig, nextId: () => string): 
     orbitPeriod: 0,
     eccentricity: 0,
     orbitalPhase: 0,
+    periapsisAngle: 0,
     rotationPeriodDays: 0,
     tidallyLocked: false,
     settlementCap: 0,
@@ -214,6 +215,7 @@ function makeMoon(
     knownAtStart: false,
     capturedMoon: captured || undefined,
     orbitalPhase: r2(rng.float(0, 1)),
+    periapsisAngle: r3(rng.float(0, Math.PI * 2)),
     rotationPeriodDays,
     tidallyLocked,
   };
@@ -278,6 +280,7 @@ function makeRockyPlanet(
     ),
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
+    periapsisAngle: r3(rng.float(0, Math.PI * 2)),
     rotationPeriodDays,
     tidallyLocked,
   };
@@ -350,6 +353,7 @@ function makeGasGiant(
     ),
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
+    periapsisAngle: r3(rng.float(0, Math.PI * 2)),
     rotationPeriodDays,
     tidallyLocked,
   };
@@ -412,6 +416,7 @@ function makeIceGiant(
     ),
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
+    periapsisAngle: r3(rng.float(0, Math.PI * 2)),
     rotationPeriodDays,
     tidallyLocked,
   };
@@ -456,6 +461,7 @@ function makeAsteroid(
     moons: [],
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
+    periapsisAngle: r3(rng.float(0, Math.PI * 2)),
     rotationPeriodDays: r2(rng.float(rotRange.min, rotRange.max)),
     tidallyLocked: false,
   };
@@ -496,6 +502,7 @@ function makeComet(
     moons: [],
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
+    periapsisAngle: r3(rng.float(0, Math.PI * 2)),
     rotationPeriodDays: r2(rng.float(rotRange.min, rotRange.max)),
     tidallyLocked: false,
   };

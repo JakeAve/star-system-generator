@@ -52,6 +52,7 @@ interface AnimObj {
   a: number;
   b: number;
   c: number;
+  periapsisAngle: number;
   initialAngle: number;
   orbitPeriod: number;
   flyOffset: number;
@@ -120,11 +121,22 @@ export function createOrrery(
   const lockedPrevPos = new THREE.Vector3();
   const lockDelta = new THREE.Vector3();
 
-  function buildOrbitLine(a: number, b: number, c: number, isMoon: boolean) {
+  function buildOrbitLine(
+    a: number,
+    b: number,
+    c: number,
+    periapsisAngle: number,
+    isMoon: boolean,
+  ) {
+    const cos = Math.cos(periapsisAngle);
+    const sin = Math.sin(periapsisAngle);
     const pts: THREE.Vector3[] = [];
     for (let i = 0; i <= 128; i++) {
       const t = (i / 128) * Math.PI * 2;
-      pts.push(new THREE.Vector3(c + a * Math.cos(t), 0, b * Math.sin(t)));
+      // Perifocal point, then rotate about the focus (Y axis) by periapsisAngle.
+      const x = c + a * Math.cos(t);
+      const z = b * Math.sin(t);
+      pts.push(new THREE.Vector3(x * cos - z * sin, 0, x * sin + z * cos));
     }
     const geo = new THREE.BufferGeometry().setFromPoints(pts);
     const mat = new THREE.LineBasicMaterial({
@@ -157,12 +169,13 @@ export function createOrrery(
   function addBody(body: ViewBody, parent: THREE.Object3D, isMoon: boolean) {
     const { a, b, c } = body.ellipse;
     const initialAngle = ((body.data as { orbitalPhase?: number }).orbitalPhase ?? 0) * Math.PI * 2;
-    parent.add(buildOrbitLine(a, b, c, isMoon));
+    const periapsisAngle = (body.data as { periapsisAngle?: number }).periapsisAngle ?? 0;
+    parent.add(buildOrbitLine(a, b, c, periapsisAngle, isMoon));
     const geo = new THREE.SphereGeometry(body.visualR, 16, 16);
     const mat = new THREE.MeshStandardMaterial({ color: TYPE_COLORS[body.type] ?? 0xffffff });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.userData.id = body.id;
-    mesh.position.set(c + a * Math.cos(initialAngle), 0, b * Math.sin(initialAngle));
+    mesh.position.copy(orbitPos(a, b, c, initialAngle, periapsisAngle));
     parent.add(mesh);
     meshById[body.id] = mesh;
     animObjects.push({
@@ -170,6 +183,7 @@ export function createOrrery(
       type: body.type,
       mesh,
       a, b, c,
+      periapsisAngle,
       initialAngle,
       orbitPeriod: (body.data as { orbitPeriod?: number }).orbitPeriod || 1,
       flyOffset: Math.max(FLY_OFFSET_MIN, body.visualR * FLY_OFFSET_FACTOR),
@@ -198,7 +212,7 @@ export function createOrrery(
     meshById[system.star.id] = starMesh;
     animObjects.push({
       id: system.star.id, type: "star", mesh: starMesh,
-      a: 0, b: 0, c: 0, initialAngle: 0, orbitPeriod: 1, flyOffset: starFlyOffset,
+      a: 0, b: 0, c: 0, periapsisAngle: 0, initialAngle: 0, orbitPeriod: 1, flyOffset: starFlyOffset,
     });
 
     const sorted = [...system.objects].sort((a, b) => a.orbitRadius - b.orbitRadius);
@@ -212,8 +226,12 @@ export function createOrrery(
     }
   }
 
-  function orbitPos(a: number, b: number, c: number, angle: number) {
-    return tmpVec.set(c + a * Math.cos(angle), 0, b * Math.sin(angle));
+  function orbitPos(a: number, b: number, c: number, angle: number, periapsisAngle = 0) {
+    const x = c + a * Math.cos(angle);
+    const z = b * Math.sin(angle);
+    const cos = Math.cos(periapsisAngle);
+    const sin = Math.sin(periapsisAngle);
+    return tmpVec.set(x * cos - z * sin, 0, x * sin + z * cos);
   }
 
   function easeInOutCubic(t: number) {
@@ -259,7 +277,7 @@ export function createOrrery(
       for (const obj of animObjects) {
         if (obj.type === "star") continue;
         const angle = obj.initialAngle + ((Math.PI * 2) / obj.orbitPeriod) * elapsedDays;
-        obj.mesh.position.copy(orbitPos(obj.a, obj.b, obj.c, angle));
+        obj.mesh.position.copy(orbitPos(obj.a, obj.b, obj.c, angle, obj.periapsisAngle));
       }
       if (flyState !== null) {
         flyState.progress = Math.min(flyState.progress + delta / flyState.duration, 1);

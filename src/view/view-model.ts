@@ -78,7 +78,13 @@ export function buildViewModel(
       (body.data as CelestialObject).orbitPeriod || 1,
       elapsedDays,
     );
-    const local = orbitPosition(body.ellipse.a, body.ellipse.b, body.ellipse.c, angle);
+    const local = orbitPosition(
+      body.ellipse.a,
+      body.ellipse.b,
+      body.ellipse.c,
+      angle,
+      (body.data as CelestialObject).periapsisAngle ?? 0,
+    );
     if (body.parentId === null) {
       body.position = local;
     } else {

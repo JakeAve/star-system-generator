@@ -32,6 +32,7 @@ interface AnimObj {
   type: string;
   data: Record<string, unknown>;
   a: number; b: number; c: number;
+  periapsisAngle: number;
   initialAngle: number;
   orbitPeriod: number;
   parentId: string | null;
@@ -239,6 +240,7 @@ export function createCanvasOrrery(
       const py = parent ? parent.worldY : 0;
       ctx.save();
       ctx.translate(px, py);
+      ctx.rotate(obj.periapsisAngle);
       ctx.beginPath();
       ctx.ellipse(obj.c, 0, obj.a, obj.b, 0, 0, Math.PI * 2);
       ctx.strokeStyle = obj.parentId ? "#0a2a2a" : "#1a3a6a";
@@ -276,7 +278,7 @@ export function createCanvasOrrery(
     objs.push({
       id: system.star.id, type: "star", data: system.star as unknown as Record<string, unknown>,
       worldX: 0, worldY: 0, visualR: visualRadius(system.star.radius * SOLAR_TO_EARTH_RADII),
-      a: 0, b: 0, c: 0, initialAngle: 0, orbitPeriod: 1, parentId: null,
+      a: 0, b: 0, c: 0, periapsisAngle: 0, initialAngle: 0, orbitPeriod: 1, parentId: null,
     });
     const sorted = [...system.objects].sort((a, b) => a.orbitRadius - b.orbitRadius);
     for (const obj of sorted) {
@@ -284,6 +286,7 @@ export function createCanvasOrrery(
       objs.push({
         id: obj.id, type: obj.type, data: obj as unknown as Record<string, unknown>,
         a: p.a, b: p.b, c: p.c,
+        periapsisAngle: obj.periapsisAngle ?? 0,
         initialAngle: (obj.orbitalPhase ?? 0) * Math.PI * 2,
         orbitPeriod: obj.orbitPeriod || 1, parentId: null,
         worldX: 0, worldY: 0, visualR: visualRadius(obj.radius),
@@ -293,6 +296,7 @@ export function createCanvasOrrery(
         objs.push({
           id: moon.id, type: moon.type, data: moon as unknown as Record<string, unknown>,
           a: mp.a, b: mp.b, c: mp.c,
+          periapsisAngle: moon.periapsisAngle ?? 0,
           initialAngle: (moon.orbitalPhase ?? 0) * Math.PI * 2,
           orbitPeriod: moon.orbitPeriod || 1, parentId: obj.id,
           worldX: 0, worldY: 0, visualR: visualRadius(moon.radius),
@@ -306,7 +310,7 @@ export function createCanvasOrrery(
     for (const obj of animObjects) {
       if (obj.type === "star") continue;
       const angle = angleAtTime(obj.initialAngle, obj.orbitPeriod, elapsedDays);
-      const pos = orbitPosition(obj.a, obj.b, obj.c, angle);
+      const pos = orbitPosition(obj.a, obj.b, obj.c, angle, obj.periapsisAngle);
       if (obj.parentId === null) { obj.worldX = pos.x; obj.worldY = pos.y; }
       else {
         const parent = animObjectsById[obj.parentId];
