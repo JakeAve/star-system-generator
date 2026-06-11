@@ -29,6 +29,20 @@ function r3(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
+/**
+ * Round to `sig` significant figures at any magnitude (scale-invariant; 0 → 0).
+ * Used for radius and derived mass, which span ~1e-13 to ~530; fixed-decimal
+ * rounding (r2/r3) would flatten small bodies to zero.
+ */
+export function rsig(n: number, sig = 4): number {
+  return n === 0 ? 0 : Number(n.toPrecision(sig));
+}
+
+/** Earth-relative mass (M⊕) from Earth radii (R⊕) and Earth-relative density. */
+export function massFromRadiusDensity(radius: number, density: number): number {
+  return rsig(density * radius ** 3);
+}
+
 // ── Settlement cap ────────────────────────────────────────────────────────────
 
 export function settlementCap(
@@ -44,11 +58,11 @@ export function settlementCap(
   if (type === ObjectType.Asteroid) return sc.asteroid.cap!;
   if (type === ObjectType.Moon) {
     const entry = parentOrbitAU >= frostLineAU ? sc.moonOuter : sc.moonInner;
-    return Math.max(entry.min!, Math.floor(radius / entry.radiusDivisor!));
+    return Math.max(entry.min!, Math.floor(radius * entry.radiusMultiplier!));
   }
   if (type === ObjectType.DwarfPlanet) {
     const e = sc.dwarfPlanet;
-    return Math.max(e.min!, Math.floor(radius / e.radiusDivisor!));
+    return Math.max(e.min!, Math.floor(radius * e.radiusMultiplier!));
   }
   // Comets set their own cap in makeComet via rng.int — settlementCap is not called for them
   if (type === ObjectType.Comet) throw new Error("settlementCap: comets set their own cap via rng.int in makeComet");
@@ -153,8 +167,9 @@ function makeMoon(
   captured: boolean,
 ): CelestialObject {
   const rr = config.radiusRanges.moon;
-  const mr = config.massRanges.moon;
-  const radius = r3(rng.float(rr.min, rr.max));
+  const dr = config.densityRanges.moon;
+  const radius = rsig(rng.float(rr.min, rr.max));
+  const mass = massFromRadiusDensity(radius, rng.float(dr.min, dr.max));
   const eccRange = captured
     ? config.capturedMoonEccentricity
     : config.eccentricityDefaults[ObjectType.Moon];
@@ -179,7 +194,7 @@ function makeMoon(
     orbitPeriod,
     eccentricity: r3(rng.float(eccRange.min, eccRange.max)),
     radius,
-    mass: r2(rng.float(mr.min, mr.max)),
+    mass,
     settlementCap: settlementCap(
       ObjectType.Moon,
       radius,
@@ -214,15 +229,15 @@ function makeRockyPlanet(
   eccentricity: number,
   moonCount: number,
   radiusRange: { min: number; max: number },
-  massRange: { min: number; max: number },
+  densityRange: { min: number; max: number },
   waterBonus: number,
   config: GeneratorConfig,
   frostLineAU: number,
   starMass: number,
 ): CelestialObject {
   const id = nextId();
-  const mr = massRange;
-  const radius = r2(rng.float(radiusRange.min, radiusRange.max));
+  const radius = rsig(rng.float(radiusRange.min, radiusRange.max));
+  const mass = massFromRadiusDensity(radius, rng.float(densityRange.min, densityRange.max));
   const orbitPeriod = Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365);
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.planet;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
@@ -240,7 +255,7 @@ function makeRockyPlanet(
     orbitPeriod,
     eccentricity,
     radius,
-    mass: r2(rng.float(mr.min, mr.max)),
+    mass,
     settlementCap: settlementCap(
       ObjectType.RockyPlanet,
       radius,
@@ -284,8 +299,9 @@ function makeGasGiant(
 ): CelestialObject {
   const id = nextId();
   const rr = config.radiusRanges.gasGiant;
-  const mr = config.massRanges.gasGiant;
-  const radius = r2(rng.float(rr.min, rr.max));
+  const dr = config.densityRanges.gasGiant;
+  const radius = rsig(rng.float(rr.min, rr.max));
+  const mass = massFromRadiusDensity(radius, rng.float(dr.min, dr.max));
   const orbitPeriod = Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365);
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.planet;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
@@ -303,7 +319,7 @@ function makeGasGiant(
     orbitPeriod,
     eccentricity,
     radius,
-    mass: r2(rng.float(mr.min, mr.max)),
+    mass,
     settlementCap: settlementCap(
       ObjectType.GasGiant,
       radius,
@@ -354,8 +370,9 @@ function makeIceGiant(
 ): CelestialObject {
   const id = nextId();
   const rr = config.radiusRanges.iceGiant;
-  const mr = config.massRanges.iceGiant;
-  const radius = r2(rng.float(rr.min, rr.max));
+  const dr = config.densityRanges.iceGiant;
+  const radius = rsig(rng.float(rr.min, rr.max));
+  const mass = massFromRadiusDensity(radius, rng.float(dr.min, dr.max));
   const orbitPeriod = Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365);
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.planet;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
@@ -373,7 +390,7 @@ function makeIceGiant(
     orbitPeriod,
     eccentricity,
     radius,
-    mass: r2(rng.float(mr.min, mr.max)),
+    mass,
     settlementCap: settlementCap(
       ObjectType.IceGiant,
       radius,
@@ -416,12 +433,11 @@ function makeAsteroid(
   const rr = type === ObjectType.DwarfPlanet
     ? config.radiusRanges.dwarfPlanet
     : config.radiusRanges.asteroid;
-  const mr = type === ObjectType.DwarfPlanet
-    ? config.massRanges.dwarfPlanet
-    : config.massRanges.asteroid;
-  const radius = type === ObjectType.DwarfPlanet
-    ? r3(rng.float(rr.min, rr.max))
-    : r2(rng.float(rr.min, rr.max));
+  const dr = type === ObjectType.DwarfPlanet
+    ? config.densityRanges.dwarfPlanet
+    : config.densityRanges.asteroid;
+  const radius = rsig(rng.float(rr.min, rr.max));
+  const mass = massFromRadiusDensity(radius, rng.float(dr.min, dr.max));
   const rotRange = type === ObjectType.DwarfPlanet
     ? config.rotationPeriodDays.dwarfPlanet
     : config.rotationPeriodDays.asteroid;
@@ -434,7 +450,7 @@ function makeAsteroid(
     orbitPeriod: Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365),
     eccentricity,
     radius,
-    mass: r2(rng.float(mr.min, mr.max)),
+    mass,
     settlementCap: settlementCap(type, radius, config, 0, frostLineAU),
     deposits: generateDeposits(rng, type, config, orbitAU, frostLineAU),
     moons: [],
@@ -458,8 +474,9 @@ function makeComet(
   starMass: number,
 ): CelestialObject {
   const rr = config.radiusRanges.comet;
-  const mr = config.massRanges.comet;
-  const radius = r3(rng.float(rr.min, rr.max));
+  const dr = config.densityRanges.comet;
+  const radius = rsig(rng.float(rr.min, rr.max));
+  const mass = massFromRadiusDensity(radius, rng.float(dr.min, dr.max));
   const rotRange = config.rotationPeriodDays.comet;
 
   return {
@@ -470,7 +487,7 @@ function makeComet(
     orbitPeriod: Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365),
     eccentricity,
     radius,
-    mass: r2(rng.float(mr.min, mr.max)),
+    mass,
     settlementCap: rng.int(
       config.settlementConfig.comet.min!,
       config.settlementConfig.comet.max!,
@@ -605,9 +622,9 @@ export function generateSolarSystem(
         const radiusRange = slot.objectType === "superEarth"
           ? cfg.radiusRanges.superEarth
           : cfg.radiusRanges.rockyPlanet;
-        const massRange = slot.objectType === "superEarth"
-          ? cfg.massRanges.superEarth
-          : cfg.massRanges.rockyPlanet;
+        const densityRange = slot.objectType === "superEarth"
+          ? cfg.densityRanges.superEarth
+          : cfg.densityRanges.rockyPlanet;
         obj = makeRockyPlanet(
           rng,
           nextId,
@@ -616,7 +633,7 @@ export function generateSolarSystem(
           ecc,
           moonCount,
           radiusRange,
-          massRange,
+          densityRange,
           slot.waterBonus ?? 0,
           cfg,
           frostLineAU,

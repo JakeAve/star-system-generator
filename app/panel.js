@@ -273,6 +273,11 @@ function showDetail(obj) {
   head.append(left, flyBtn);
   detailEl.appendChild(head);
 
+  const EARTH_DENSITY_GCC = 5.51;
+  const fmt3 = (n) => (n == null ? "—" : Number(n).toPrecision(3));
+  const fmtDensity = (m, r) =>
+    (m == null || !r) ? "—" : ((m / r ** 3) * EARTH_DENSITY_GCC).toPrecision(3);
+
   const fields = obj.type === "star"
     ? [
         ["Type",           `${obj.data.spectralType}-type Star`],
@@ -283,8 +288,9 @@ function showDetail(obj) {
       ]
     : [
         ["Type",           obj.type],
-        ["Radius",         obj.data.radius?.toFixed(2) ?? "—"],
-        ["Mass",           obj.data.mass?.toFixed(2) ?? "—"],
+        ["Radius",         `${fmt3(obj.data.radius)} R⊕`],
+        ["Mass",           `${fmt3(obj.data.mass)} M⊕`],
+        ["Density",        `${fmtDensity(obj.data.mass, obj.data.radius)} g/cm³`],
         ["Orbit radius",   `${obj.data.orbitRadius?.toFixed(3) ?? "—"} AU`],
         ["Orbit period",   `${obj.data.orbitPeriod?.toFixed(1) ?? "—"} days`],
         ["Eccentricity",   obj.data.eccentricity?.toFixed(3) ?? "—"],

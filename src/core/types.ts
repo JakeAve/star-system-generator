@@ -62,9 +62,9 @@ export interface CelestialObject {
   orbitPeriod: number;
   /** 0 = circle, ~0.2 = elliptical */
   eccentricity: number;
-  /** Relative 1–10 */
+  /** Earth radii (R⊕) for non-stars; solar radii (R☉) for stars */
   radius: number;
-  /** Relative 1–10 */
+  /** Earth masses (M⊕) for non-stars; solar masses (M☉) for stars */
   mass: number;
   settlementCap: number;
   deposits: ResourceDeposit[];
@@ -100,7 +100,7 @@ export interface SettlementEntry {
   cap?: number;
   min?: number;
   max?: number;
-  radiusDivisor?: number;
+  /** cap = max(min, floor(radius × radiusMultiplier)); radius in R⊕ */
   radiusMultiplier?: number;
 }
 
@@ -163,7 +163,8 @@ export interface GeneratorConfig {
     superEarth: { min: number; max: number };
     comet: { min: number; max: number };
   };
-  massRanges: {
+  /** Per-type density relative to Earth (ρ⊕ = 1); mass = density × radius³ */
+  densityRanges: {
     rockyPlanet: { min: number; max: number };
     gasGiant: { min: number; max: number };
     iceGiant: { min: number; max: number };

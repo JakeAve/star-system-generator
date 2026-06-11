@@ -5,6 +5,50 @@ import {
   assertEquals,
 } from "@std/assert";
 import { RNG } from "./rng.ts";
+import { massFromRadiusDensity, rsig } from "./generator.ts";
+
+Deno.test("rsig: rounds to 4 significant figures at any magnitude", () => {
+  assertEquals(rsig(94.041), 94.04);
+  assertEquals(rsig(527.31), 527.3);
+  assertEquals(rsig(0.054321), 0.05432);
+  assertEquals(rsig(0.0002), 0.0002);
+});
+
+Deno.test("rsig: preserves very small values (no zero-collapse)", () => {
+  assertEquals(rsig(4e-13), 4e-13);
+  assertEquals(rsig(2.4e-10), 2.4e-10);
+});
+
+Deno.test("rsig: honors the sig parameter", () => {
+  assertEquals(rsig(94.041, 2), 94);
+  assertEquals(rsig(94.041, 6), 94.041);
+});
+
+Deno.test("rsig: maps zero to zero", () => {
+  assertEquals(rsig(0), 0);
+});
+
+Deno.test("massFromRadiusDensity: Earth-unit point gives 1 M⊕", () => {
+  assertEquals(massFromRadiusDensity(1.0, 1.0), 1);
+});
+
+Deno.test("massFromRadiusDensity: zero radius or density gives zero", () => {
+  assertEquals(massFromRadiusDensity(0, 1.0), 0);
+  assertEquals(massFromRadiusDensity(1.0, 0), 0);
+});
+
+Deno.test("massFromRadiusDensity: Jupiter-scale gives hundreds of M⊕", () => {
+  // radius 11.2 R⊕, density 0.24 rel => ~337 M⊕
+  const m = massFromRadiusDensity(11.2, 0.24);
+  assert(m > 300 && m < 360, `expected ~337 M⊕, got ${m}`);
+});
+
+Deno.test("massFromRadiusDensity: comet-scale stays nonzero", () => {
+  // radius 0.0002 R⊕, density 0.05 rel => ~4e-13 M⊕
+  const m = massFromRadiusDensity(0.0002, 0.05);
+  assertEquals(m, 4e-13);
+  assert(Number.isFinite(m), `expected finite, got ${m}`);
+});
 
 Deno.test("RNG: same seed produces same sequence", () => {
   const r1 = new RNG(12345);
@@ -23,7 +67,7 @@ Deno.test("RNG: different seeds produce different sequences", () => {
 });
 
 import { DEFAULT_CONFIG } from "./config.ts";
-import { MigrationArchetype, ObjectType, Resource } from "./types.ts";
+import { CelestialObject, MigrationArchetype, ObjectType, Resource } from "./types.ts";
 
 Deno.test("config: all ObjectTypes have resource weights", () => {
   for (const type of Object.values(ObjectType)) {
@@ -77,58 +121,33 @@ Deno.test("settlementCap: asteroid always returns 1", () => {
   );
 });
 
-Deno.test("settlementCap: inner moon uses moonInner (min 1)", () => {
-  // parentOrbit 1.0 < frostLine 5.0 => moonInner { min:1, radiusDivisor:2 }
-  // radius=1 => max(1, floor(1/2)) = max(1,0) = 1
-  assertEquals(
-    settlementCap(ObjectType.Moon, 1.0, DEFAULT_CONFIG, 1.0, 5.0),
-    1,
-  );
-  // radius=4 => max(1, floor(4/2)) = 2
-  assertEquals(
-    settlementCap(ObjectType.Moon, 4.0, DEFAULT_CONFIG, 1.0, 5.0),
-    2,
-  );
+Deno.test("settlementCap: inner moon scales with radiusMultiplier 7 (min 1)", () => {
+  // parentOrbit 1.0 < frostLine 5.0 => moonInner { min:1, radiusMultiplier:7 }
+  // radius=0.1 => max(1, floor(0.7)) = max(1,0) = 1
+  assertEquals(settlementCap(ObjectType.Moon, 0.1, DEFAULT_CONFIG, 1.0, 5.0), 1);
+  // radius=0.42 (Ganymede) => max(1, floor(2.94)) = 2
+  assertEquals(settlementCap(ObjectType.Moon, 0.42, DEFAULT_CONFIG, 1.0, 5.0), 2);
 });
 
 Deno.test("settlementCap: outer moon uses moonOuter (min 2)", () => {
-  // parentOrbit 8.0 >= frostLine 5.0 => moonOuter { min:2, radiusDivisor:2 }
-  // radius=1 => max(2, floor(1/2)) = max(2,0) = 2
-  assertEquals(
-    settlementCap(ObjectType.Moon, 1.0, DEFAULT_CONFIG, 8.0, 5.0),
-    2,
-  );
-  // radius=6 => max(2, floor(6/2)) = max(2,3) = 3
-  assertEquals(
-    settlementCap(ObjectType.Moon, 6.0, DEFAULT_CONFIG, 8.0, 5.0),
-    3,
-  );
+  // parentOrbit 8.0 >= frostLine 5.0 => moonOuter { min:2, radiusMultiplier:7 }
+  // radius=0.05 => max(2, floor(0.35)) = max(2,0) = 2
+  assertEquals(settlementCap(ObjectType.Moon, 0.05, DEFAULT_CONFIG, 8.0, 5.0), 2);
+  // radius=0.42 => max(2, floor(2.94)) = max(2,2) = 2
+  assertEquals(settlementCap(ObjectType.Moon, 0.42, DEFAULT_CONFIG, 8.0, 5.0), 2);
 });
 
-Deno.test("settlementCap: dwarfPlanet min 2 radiusDivisor 3", () => {
-  // radius=3 => max(2, floor(3/3)) = max(2,1) = 2
-  assertEquals(
-    settlementCap(ObjectType.DwarfPlanet, 3.0, DEFAULT_CONFIG, 0, 5.0),
-    2,
-  );
-  // radius=9 => max(2, floor(9/3)) = max(2,3) = 3
-  assertEquals(
-    settlementCap(ObjectType.DwarfPlanet, 9.0, DEFAULT_CONFIG, 0, 5.0),
-    3,
-  );
+Deno.test("settlementCap: dwarfPlanet is flat 2 over its R⊕ range", () => {
+  // dwarfPlanet { min:2, radiusMultiplier:5 }; radius 0.07–0.19 => floor(<1)=0 => 2
+  assertEquals(settlementCap(ObjectType.DwarfPlanet, 0.07, DEFAULT_CONFIG, 0, 5.0), 2);
+  assertEquals(settlementCap(ObjectType.DwarfPlanet, 0.19, DEFAULT_CONFIG, 0, 5.0), 2);
 });
 
-Deno.test("settlementCap: rockyPlanet scales with radiusMultiplier 1.5", () => {
-  // radius=4 => max(1, floor(4*1.5)) = max(1,6) = 6
-  assertEquals(
-    settlementCap(ObjectType.RockyPlanet, 4.0, DEFAULT_CONFIG, 0, 5.0),
-    6,
-  );
-  // radius=1 => max(1, floor(1*1.5)) = max(1,1) = 1
-  assertEquals(
-    settlementCap(ObjectType.RockyPlanet, 1.0, DEFAULT_CONFIG, 0, 5.0),
-    1,
-  );
+Deno.test("settlementCap: rockyPlanet scales with radiusMultiplier 1.5 (1–3)", () => {
+  // radius=1.0 (Earth) => max(1, floor(1.5)) = 1
+  assertEquals(settlementCap(ObjectType.RockyPlanet, 1.0, DEFAULT_CONFIG, 0, 5.0), 1);
+  // radius=2.0 (super-Earth) => max(1, floor(3.0)) = 3
+  assertEquals(settlementCap(ObjectType.RockyPlanet, 2.0, DEFAULT_CONFIG, 0, 5.0), 3);
 });
 
 import { generateDeposits } from "./generator.ts";
@@ -545,4 +564,72 @@ Deno.test("allObjects: count includes star", () => {
   const system = generateSolarSystem({ seed: 42 });
   const celestialCount = system.objects.flatMap((o) => [o, ...o.moons]).length;
   assertEquals(allObjects(system).length, celestialCount + 1);
+});
+
+// Flatten every non-star body (top-level + moons) across many seeds.
+function allNonStarBodies(seedCount: number) {
+  const out: CelestialObject[] = [];
+  for (let seed = 1; seed <= seedCount; seed++) {
+    const sys = generateSolarSystem({ seed });
+    for (const obj of sys.objects) {
+      out.push(obj);
+      for (const moon of obj.moons) out.push(moon);
+    }
+  }
+  return out;
+}
+
+const SWEPT_BODIES = allNonStarBodies(50);
+
+Deno.test("generator: no non-star body has zero/non-finite radius or mass", () => {
+  for (const b of SWEPT_BODIES) {
+    assert(b.radius > 0 && Number.isFinite(b.radius), `${b.type} radius ${b.radius}`);
+    assert(b.mass > 0 && Number.isFinite(b.mass), `${b.type} mass ${b.mass}`);
+  }
+});
+
+Deno.test("generator: recomputed density (mass / radius³) lands in the type's band", () => {
+  const d = DEFAULT_CONFIG.densityRanges;
+  const bandFor = (type: string) => {
+    switch (type) {
+      case ObjectType.RockyPlanet:
+        // covers rocky + super-Earth (both ObjectType.RockyPlanet); widen upper bound
+        return { min: d.rockyPlanet.min, max: d.superEarth.max };
+      case ObjectType.GasGiant:
+        return d.gasGiant;
+      case ObjectType.IceGiant:
+        return d.iceGiant;
+      case ObjectType.Moon:
+        return d.moon;
+      case ObjectType.Asteroid:
+        return d.asteroid;
+      case ObjectType.DwarfPlanet:
+        return d.dwarfPlanet;
+      case ObjectType.Comet:
+        return d.comet;
+      default:
+        return null;
+    }
+  };
+  for (const b of SWEPT_BODIES) {
+    const band = bandFor(b.type);
+    if (!band) continue;
+    const recomputed = b.mass / b.radius ** 3;
+    const lo = band.min * 0.97;
+    const hi = band.max * 1.03;
+    assert(
+      recomputed >= lo && recomputed <= hi,
+      `${b.type} density ${recomputed} outside [${lo}, ${hi}] (r=${b.radius}, m=${b.mass})`,
+    );
+  }
+});
+
+Deno.test("generator: gas giants are tens-to-hundreds of M⊕, ice giants low tens", () => {
+  const bodies = SWEPT_BODIES;
+  for (const g of bodies.filter((b) => b.type === ObjectType.GasGiant)) {
+    assert(g.mass > 50 && g.mass < 600, `gas giant mass ${g.mass}`);
+  }
+  for (const i of bodies.filter((b) => b.type === ObjectType.IceGiant)) {
+    assert(i.mass > 10 && i.mass < 30, `ice giant mass ${i.mass}`);
+  }
 });
