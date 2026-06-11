@@ -276,7 +276,7 @@ function showDetail(obj) {
   const EARTH_DENSITY_GCC = 5.51;
   const fmt3 = (n) => (n == null ? "—" : Number(n).toPrecision(3));
   const fmtDensity = (m, r) =>
-    (m == null || r == null) ? "—" : ((m / r ** 3) * EARTH_DENSITY_GCC).toPrecision(3);
+    (m == null || !r) ? "—" : ((m / r ** 3) * EARTH_DENSITY_GCC).toPrecision(3);
 
   const fields = obj.type === "star"
     ? [

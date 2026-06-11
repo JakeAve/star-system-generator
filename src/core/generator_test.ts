@@ -579,8 +579,10 @@ function allNonStarBodies(seedCount: number) {
   return out;
 }
 
+const SWEPT_BODIES = allNonStarBodies(50);
+
 Deno.test("generator: no non-star body has zero/non-finite radius or mass", () => {
-  for (const b of allNonStarBodies(50)) {
+  for (const b of SWEPT_BODIES) {
     assert(b.radius > 0 && Number.isFinite(b.radius), `${b.type} radius ${b.radius}`);
     assert(b.mass > 0 && Number.isFinite(b.mass), `${b.type} mass ${b.mass}`);
   }
@@ -609,7 +611,7 @@ Deno.test("generator: recomputed density (mass / radius³) lands in the type's b
         return null;
     }
   };
-  for (const b of allNonStarBodies(50)) {
+  for (const b of SWEPT_BODIES) {
     const band = bandFor(b.type);
     if (!band) continue;
     const recomputed = b.mass / b.radius ** 3;
@@ -623,7 +625,7 @@ Deno.test("generator: recomputed density (mass / radius³) lands in the type's b
 });
 
 Deno.test("generator: gas giants are tens-to-hundreds of M⊕, ice giants low tens", () => {
-  const bodies = allNonStarBodies(50);
+  const bodies = SWEPT_BODIES;
   for (const g of bodies.filter((b) => b.type === ObjectType.GasGiant)) {
     assert(g.mass > 50 && g.mass < 600, `gas giant mass ${g.mass}`);
   }
