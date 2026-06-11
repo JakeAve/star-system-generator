@@ -121,58 +121,33 @@ Deno.test("settlementCap: asteroid always returns 1", () => {
   );
 });
 
-Deno.test("settlementCap: inner moon uses moonInner (min 1)", () => {
-  // parentOrbit 1.0 < frostLine 5.0 => moonInner { min:1, radiusDivisor:2 }
-  // radius=1 => max(1, floor(1/2)) = max(1,0) = 1
-  assertEquals(
-    settlementCap(ObjectType.Moon, 1.0, DEFAULT_CONFIG, 1.0, 5.0),
-    1,
-  );
-  // radius=4 => max(1, floor(4/2)) = 2
-  assertEquals(
-    settlementCap(ObjectType.Moon, 4.0, DEFAULT_CONFIG, 1.0, 5.0),
-    2,
-  );
+Deno.test("settlementCap: inner moon scales with radiusMultiplier 7 (min 1)", () => {
+  // parentOrbit 1.0 < frostLine 5.0 => moonInner { min:1, radiusMultiplier:7 }
+  // radius=0.1 => max(1, floor(0.7)) = max(1,0) = 1
+  assertEquals(settlementCap(ObjectType.Moon, 0.1, DEFAULT_CONFIG, 1.0, 5.0), 1);
+  // radius=0.42 (Ganymede) => max(1, floor(2.94)) = 2
+  assertEquals(settlementCap(ObjectType.Moon, 0.42, DEFAULT_CONFIG, 1.0, 5.0), 2);
 });
 
 Deno.test("settlementCap: outer moon uses moonOuter (min 2)", () => {
-  // parentOrbit 8.0 >= frostLine 5.0 => moonOuter { min:2, radiusDivisor:2 }
-  // radius=1 => max(2, floor(1/2)) = max(2,0) = 2
-  assertEquals(
-    settlementCap(ObjectType.Moon, 1.0, DEFAULT_CONFIG, 8.0, 5.0),
-    2,
-  );
-  // radius=6 => max(2, floor(6/2)) = max(2,3) = 3
-  assertEquals(
-    settlementCap(ObjectType.Moon, 6.0, DEFAULT_CONFIG, 8.0, 5.0),
-    3,
-  );
+  // parentOrbit 8.0 >= frostLine 5.0 => moonOuter { min:2, radiusMultiplier:7 }
+  // radius=0.05 => max(2, floor(0.35)) = max(2,0) = 2
+  assertEquals(settlementCap(ObjectType.Moon, 0.05, DEFAULT_CONFIG, 8.0, 5.0), 2);
+  // radius=0.42 => max(2, floor(2.94)) = max(2,2) = 2
+  assertEquals(settlementCap(ObjectType.Moon, 0.42, DEFAULT_CONFIG, 8.0, 5.0), 2);
 });
 
-Deno.test("settlementCap: dwarfPlanet min 2 radiusDivisor 3", () => {
-  // radius=3 => max(2, floor(3/3)) = max(2,1) = 2
-  assertEquals(
-    settlementCap(ObjectType.DwarfPlanet, 3.0, DEFAULT_CONFIG, 0, 5.0),
-    2,
-  );
-  // radius=9 => max(2, floor(9/3)) = max(2,3) = 3
-  assertEquals(
-    settlementCap(ObjectType.DwarfPlanet, 9.0, DEFAULT_CONFIG, 0, 5.0),
-    3,
-  );
+Deno.test("settlementCap: dwarfPlanet is flat 2 over its R⊕ range", () => {
+  // dwarfPlanet { min:2, radiusMultiplier:5 }; radius 0.07–0.19 => floor(<1)=0 => 2
+  assertEquals(settlementCap(ObjectType.DwarfPlanet, 0.07, DEFAULT_CONFIG, 0, 5.0), 2);
+  assertEquals(settlementCap(ObjectType.DwarfPlanet, 0.19, DEFAULT_CONFIG, 0, 5.0), 2);
 });
 
-Deno.test("settlementCap: rockyPlanet scales with radiusMultiplier 1.5", () => {
-  // radius=4 => max(1, floor(4*1.5)) = max(1,6) = 6
-  assertEquals(
-    settlementCap(ObjectType.RockyPlanet, 4.0, DEFAULT_CONFIG, 0, 5.0),
-    6,
-  );
-  // radius=1 => max(1, floor(1*1.5)) = max(1,1) = 1
-  assertEquals(
-    settlementCap(ObjectType.RockyPlanet, 1.0, DEFAULT_CONFIG, 0, 5.0),
-    1,
-  );
+Deno.test("settlementCap: rockyPlanet scales with radiusMultiplier 1.5 (1–3)", () => {
+  // radius=1.0 (Earth) => max(1, floor(1.5)) = 1
+  assertEquals(settlementCap(ObjectType.RockyPlanet, 1.0, DEFAULT_CONFIG, 0, 5.0), 1);
+  // radius=2.0 (super-Earth) => max(1, floor(3.0)) = 3
+  assertEquals(settlementCap(ObjectType.RockyPlanet, 2.0, DEFAULT_CONFIG, 0, 5.0), 3);
 });
 
 import { generateDeposits } from "./generator.ts";

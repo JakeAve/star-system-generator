@@ -100,38 +100,41 @@ export const SETTLEMENT_CONFIG: GeneratorConfig["settlementConfig"] = {
   gasGiant: { cap: 0 },
   iceGiant: { cap: 0 },
   asteroid: { cap: 1 },
-  // moonOuter: moons whose parent is beyond the frost line — richer, more viable
-  moonInner: { min: 1, radiusDivisor: 2 },
-  moonOuter: { min: 2, radiusDivisor: 2 },
-  dwarfPlanet: { min: 2, radiusDivisor: 3 },
+  // Caps scale with radius (R⊕): cap = max(min, floor(radius × radiusMultiplier)).
+  // Resulting bands — rockyPlanet 1–3, moonInner 1–2, moonOuter 2, dwarfPlanet 2.
+  // moonOuter: moons whose parent is beyond the frost line — richer, more viable.
+  moonInner: { min: 1, radiusMultiplier: 7 },
+  moonOuter: { min: 2, radiusMultiplier: 7 },
+  dwarfPlanet: { min: 2, radiusMultiplier: 5 },
   rockyPlanet: { min: 1, radiusMultiplier: 1.5 },
   comet: { min: 1, max: 2 },
 };
 
-// ── Radius ranges (relative units 1–10) ──────────────────────────────────────
+// ── Radius ranges (Earth radii, R⊕) ───────────────────────────────────────────
 
 export const RADIUS_RANGES: GeneratorConfig["radiusRanges"] = {
-  rockyPlanet: { min: 0.055, max: 1.0 }, // Mercury (0.055) → Earth (1.0)
-  gasGiant: { min: 14, max: 318 }, // Uranus (14) → Jupiter (318)
-  iceGiant: { min: 14, max: 17 }, // Uranus (14) → Neptune (17)
-  superEarth: { min: 1.5, max: 10 }, // just above Earth → ~10 M⊕
-  dwarfPlanet: { min: 0.001, max: 0.022 }, // Ceres (0.00015) → Pluto (0.0022) -- very tiny!
-  moon: { min: 0.001, max: 0.025 }, // small captured rock → Ganymede (0.025)
-  asteroid: { min: 0.000001, max: 0.0002 }, // boulders → Vesta (0.000045)
-  comet: { min: 0.000001, max: 0.0005 },
+  rockyPlanet: { min: 0.38, max: 1.0 }, // Mercury (0.38) → Earth (1.0)
+  gasGiant: { min: 8, max: 13 }, // Saturn (9.1) / Jupiter (11.2), allow puffy → 13
+  iceGiant: { min: 3.8, max: 4.2 }, // Neptune (3.9) / Uranus (4.0)
+  superEarth: { min: 1.0, max: 2.0 }, // Earth → ~2 R⊕ (above this → mini-Neptune)
+  dwarfPlanet: { min: 0.07, max: 0.19 }, // Ceres (0.073) → Pluto (0.186)
+  moon: { min: 0.05, max: 0.42 }, // small captured rock → Ganymede (0.41)
+  asteroid: { min: 0.001, max: 0.045 }, // ~6 km boulder → Vesta (0.041)
+  comet: { min: 0.0002, max: 0.005 }, // ~1 km → ~32 km nucleus
 };
 
-// ── Mass ranges (relative units 1–10) ────────────────────────────────────────
+// ── Density ranges (relative to Earth, ρ⊕ = 1) ────────────────────────────────
+// Mass is derived: mass_M⊕ = density × radius_R⊕³. Earth density = 5.51 g/cm³.
 
-export const MASS_RANGES: GeneratorConfig["massRanges"] = {
-  rockyPlanet: { min: 1, max: 8 },
-  gasGiant: { min: 5, max: 10 },
-  iceGiant: { min: 3, max: 7 },
-  moon: { min: 0.5, max: 3 },
-  asteroid: { min: 0.1, max: 2 },
-  dwarfPlanet: { min: 0.5, max: 2 },
-  superEarth: { min: 2, max: 10 }, // just above rocky max → ~10 M⊕
-  comet: { min: 0.1, max: 2 },
+export const DENSITY_RANGES: GeneratorConfig["densityRanges"] = {
+  rockyPlanet: { min: 0.71, max: 1.0 }, // Mars (3.9 g/cc) → Earth (5.51)
+  gasGiant: { min: 0.13, max: 0.24 }, // Saturn (0.69) → Jupiter (1.33)
+  iceGiant: { min: 0.23, max: 0.30 }, // Uranus (1.27) → Neptune (1.64)
+  moon: { min: 0.35, max: 0.64 }, // Ganymede (1.94) → Io (3.53)
+  asteroid: { min: 0.24, max: 0.63 }, // rubble pile (1.3) → Vesta (3.46)
+  dwarfPlanet: { min: 0.34, max: 0.45 }, // Pluto (1.85) → Eris (2.5)
+  superEarth: { min: 0.9, max: 1.2 }, // rocky, slightly denser than Earth
+  comet: { min: 0.05, max: 0.11 }, // porous ice (0.3 → 0.6 g/cc)
 };
 
 // ── Eccentricity defaults ─────────────────────────────────────────────────────
@@ -471,7 +474,7 @@ export const DEFAULT_CONFIG: GeneratorConfig = {
   richDepositChance: 0.25,
   frostLineAUFactor: 2.7,
   radiusRanges: RADIUS_RANGES,
-  massRanges: MASS_RANGES,
+  densityRanges: DENSITY_RANGES,
   eccentricityDefaults: ECCENTRICITY_DEFAULTS,
   capturedMoonEccentricity: CAPTURED_MOON_ECCENTRICITY,
   resourceWeights: RESOURCE_WEIGHTS,
