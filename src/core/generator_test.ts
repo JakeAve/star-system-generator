@@ -67,7 +67,7 @@ Deno.test("RNG: different seeds produce different sequences", () => {
 });
 
 import { DEFAULT_CONFIG } from "./config.ts";
-import { MigrationArchetype, ObjectType, Resource } from "./types.ts";
+import { CelestialObject, MigrationArchetype, ObjectType, Resource } from "./types.ts";
 
 Deno.test("config: all ObjectTypes have resource weights", () => {
   for (const type of Object.values(ObjectType)) {
@@ -568,7 +568,7 @@ Deno.test("allObjects: count includes star", () => {
 
 // Flatten every non-star body (top-level + moons) across many seeds.
 function allNonStarBodies(seedCount: number) {
-  const out: import("./types.ts").CelestialObject[] = [];
+  const out: CelestialObject[] = [];
   for (let seed = 1; seed <= seedCount; seed++) {
     const sys = generateSolarSystem({ seed });
     for (const obj of sys.objects) {
@@ -625,9 +625,9 @@ Deno.test("generator: recomputed density (mass / radius³) lands in the type's b
 Deno.test("generator: gas giants are tens-to-hundreds of M⊕, ice giants low tens", () => {
   const bodies = allNonStarBodies(50);
   for (const g of bodies.filter((b) => b.type === ObjectType.GasGiant)) {
-    assert(g.mass > 50, `gas giant mass ${g.mass}`);
+    assert(g.mass > 50 && g.mass < 600, `gas giant mass ${g.mass}`);
   }
   for (const i of bodies.filter((b) => b.type === ObjectType.IceGiant)) {
-    assert(i.mass > 8 && i.mass < 40, `ice giant mass ${i.mass}`);
+    assert(i.mass > 10 && i.mass < 30, `ice giant mass ${i.mass}`);
   }
 });
