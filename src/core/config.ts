@@ -1,5 +1,6 @@
 import {
   ArchetypeProfile,
+  EccentricitySpec,
   GeneratorConfig,
   MigrationArchetype,
   ObjectType,
@@ -141,16 +142,16 @@ export const DENSITY_RANGES: GeneratorConfig["densityRanges"] = {
 
 export const ECCENTRICITY_DEFAULTS: Record<
   ObjectType,
-  { min: number; max: number }
+  EccentricitySpec
 > = {
-  [ObjectType.Star]: { min: 0.0, max: 0.0 },
-  [ObjectType.RockyPlanet]: { min: 0.0, max: 0.1 },
-  [ObjectType.GasGiant]: { min: 0.0, max: 0.1 },
-  [ObjectType.IceGiant]: { min: 0.0, max: 0.08 },
-  [ObjectType.Moon]: { min: 0.0, max: 0.05 },
-  [ObjectType.Asteroid]: { min: 0.05, max: 0.45 },
-  [ObjectType.DwarfPlanet]: { min: 0.02, max: 0.2 },
-  [ObjectType.Comet]: { min: 0.7, max: 0.97 },
+  [ObjectType.Star]: { sigma: 0.0, max: 0.0 },
+  [ObjectType.RockyPlanet]: { sigma: 0.04, max: 0.15 },
+  [ObjectType.GasGiant]: { sigma: 0.04, max: 0.15 },
+  [ObjectType.IceGiant]: { sigma: 0.035, max: 0.12 },
+  [ObjectType.Moon]: { sigma: 0.01, max: 0.05 },
+  [ObjectType.Asteroid]: { sigma: 0.10, max: 0.40 },
+  [ObjectType.DwarfPlanet]: { sigma: 0.15, max: 0.50 },
+  [ObjectType.Comet]: { min: 0.6, max: 0.97 },
 };
 
 export const CAPTURED_MOON_ECCENTRICITY = { min: 0.1, max: 0.5 };
@@ -273,7 +274,7 @@ export const ARCHETYPE_PROFILES: Record<MigrationArchetype, ArchetypeProfile> =
           countRange: { min: 1, max: 1 },
           auRange: { min: 0.15, max: 1.0 },
           moonsRange: { min: 1, max: 5 },
-          eccentricityRange: { min: 0.1, max: 0.4 },
+          eccentricityRange: { sigma: 0.25, max: 0.5 },
           knownCount: 1,
         },
         {
@@ -316,7 +317,7 @@ export const ARCHETYPE_PROFILES: Record<MigrationArchetype, ArchetypeProfile> =
           countRange: { min: 1, max: 1 },
           auRange: { min: 0.02, max: 0.09 },
           moonsRange: { min: 0, max: 1 },
-          eccentricityRange: { min: 0.0, max: 0.05 },
+          eccentricityRange: { sigma: 0.02, max: 0.05 },
           capturedMoons: true,
           knownCount: 1,
         },

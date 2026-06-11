@@ -28,6 +28,11 @@ export class RNG {
     return this.next() * (max - min) + min;
   }
 
+  rayleigh(sigma: number, max: number): number {
+    // 1 − next() ∈ (0, 1], so Math.log is finite and the result is ≥ 0.
+    return Math.min(max, sigma * Math.sqrt(-2 * Math.log(1 - this.next())));
+  }
+
   pick<T>(arr: T[]): T {
     const i = Math.min(Math.floor(this.next() * arr.length), arr.length - 1);
     return arr[i];

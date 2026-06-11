@@ -107,6 +107,16 @@ export interface SettlementEntry {
 }
 
 /**
+ * Eccentricity generation spec. Rayleigh for most populations; uniform for
+ * genuinely-eccentric ones (comets, captured moons). Discriminated by the
+ * presence of `sigma`. An override (via resolveConfig) must supply a complete
+ * spec of one variant — do not mix `sigma` into a uniform spec or vice-versa.
+ */
+export type EccentricitySpec =
+  | { sigma: number; max: number }
+  | { min: number; max: number };
+
+/**
  * A generation slot inside an archetype profile.
  * The generator fires each slot once per system (subject to `probability`),
  * spawning `countRange` objects with AU in `auRange * hz`.
@@ -118,7 +128,7 @@ export interface GenerationSlot {
   auRange: { min: number; max: number };
   moonsRange?: { min: number; max: number };
   /** Overrides per-type eccentricity default for objects in this slot */
-  eccentricityRange?: { min: number; max: number };
+  eccentricityRange?: EccentricitySpec;
   /** Grand Tack water enrichment bonus (0–1) */
   waterBonus?: number;
   capturedMoons?: boolean;
@@ -177,8 +187,8 @@ export interface GeneratorConfig {
     comet: { min: number; max: number };
   };
   /** Default eccentricity range per object type; overridden by slot.eccentricityRange */
-  eccentricityDefaults: Record<ObjectType, { min: number; max: number }>;
-  capturedMoonEccentricity: { min: number; max: number };
+  eccentricityDefaults: Record<ObjectType, EccentricitySpec>;
+  capturedMoonEccentricity: EccentricitySpec;
   resourceWeights: Record<ObjectType, ResourceWeights>;
   frostLineMultipliers: Record<Resource, { inner: number; outer: number }>;
   settlementConfig: {

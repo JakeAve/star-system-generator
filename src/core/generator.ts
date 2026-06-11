@@ -3,6 +3,7 @@
 import {
   CelestialObject,
   DeepPartial,
+  EccentricitySpec,
   GeneratorConfig,
   MigrationArchetype,
   ObjectType,
@@ -27,6 +28,12 @@ function r2(n: number): number {
 }
 function r3(n: number): number {
   return Math.round(n * 1000) / 1000;
+}
+
+function drawEccentricity(rng: RNG, spec: EccentricitySpec): number {
+  return "sigma" in spec
+    ? rng.rayleigh(spec.sigma, spec.max)
+    : rng.float(spec.min, spec.max);
 }
 
 /**
@@ -193,7 +200,7 @@ function makeMoon(
     type: ObjectType.Moon,
     orbitRadius: r3(moonOrbitAU),
     orbitPeriod,
-    eccentricity: r3(rng.float(eccRange.min, eccRange.max)),
+    eccentricity: r3(drawEccentricity(rng, eccRange)),
     radius,
     mass,
     settlementCap: settlementCap(
@@ -571,9 +578,9 @@ export function generateSolarSystem(
       const isKnown = knownRemaining > 0;
       if (isKnown) knownRemaining--;
 
-      const eccRange = slot.eccentricityRange ??
+      const eccSpec = slot.eccentricityRange ??
         cfg.eccentricityDefaults[effectiveType];
-      const ecc = r3(rng.float(eccRange.min, eccRange.max));
+      const ecc = r3(drawEccentricity(rng, eccSpec));
       const moonCount = slot.moonsRange
         ? rng.int(slot.moonsRange.min, slot.moonsRange.max)
         : 0;

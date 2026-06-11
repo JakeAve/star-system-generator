@@ -462,15 +462,15 @@ Deno.test("generateSolarSystem: CompactMultiplanet has no moons on inner planets
   assert(found, "Could not find a CompactMultiplanet system in 500 seeds");
 });
 
-Deno.test("comets have eccentricity in [0.7, 0.97]", () => {
+Deno.test("comets have eccentricity in [0.6, 0.97]", () => {
   let checked = 0;
   for (let seed = 0; seed < 100; seed++) {
     const system = generateSolarSystem({ seed });
     for (const obj of system.objects) {
       if (obj.type !== ObjectType.Comet) continue;
       assert(
-        obj.eccentricity >= 0.7 && obj.eccentricity <= 0.97,
-        `Comet seed ${seed} eccentricity ${obj.eccentricity} outside [0.7, 0.97]`,
+        obj.eccentricity >= 0.6 && obj.eccentricity <= 0.97,
+        `Comet seed ${seed} eccentricity ${obj.eccentricity} outside [0.6, 0.97]`,
       );
       checked++;
     }
@@ -632,4 +632,45 @@ Deno.test("generator: gas giants are tens-to-hundreds of M⊕, ice giants low te
   for (const i of bodies.filter((b) => b.type === ObjectType.IceGiant)) {
     assert(i.mass > 10 && i.mass < 30, `ice giant mass ${i.mass}`);
   }
+});
+
+Deno.test("eccentricity model: most planets are near-circular", () => {
+  const sys = generateSolarSystem({ seed: 7 });
+  const planets = allObjects(sys).filter((b) =>
+    b.type === ObjectType.RockyPlanet ||
+    b.type === ObjectType.GasGiant ||
+    b.type === ObjectType.IceGiant
+  );
+  if (planets.length > 0) {
+    const eccs = planets.map((p) => p.eccentricity).sort((a, b) => a - b);
+    const median = eccs[Math.floor(eccs.length / 2)];
+    assert(median < 0.1, `median planet eccentricity ${median} should be < 0.1`);
+    for (const p of planets) {
+      assert(p.eccentricity <= 0.15 + 1e-9, `planet ecc ${p.eccentricity} exceeds max`);
+    }
+  }
+});
+
+Deno.test("eccentricity model: comets remain highly eccentric", () => {
+  // Seed 7 is known to contain a comet (see scan); assert any comet is high-e.
+  const sys = generateSolarSystem({ seed: 7 });
+  const comets = allObjects(sys).filter((b) => b.type === ObjectType.Comet);
+  assert(comets.length > 0, "seed 7 should produce at least one comet");
+  for (const c of comets) {
+    assert(c.eccentricity >= 0.6, `comet ecc ${c.eccentricity} should be >= 0.6`);
+  }
+});
+
+Deno.test("eccentricity model: no body reaches parabolic (e < 1)", () => {
+  for (const seed of [1, 2, 3, 7, 42, 100]) {
+    for (const b of allObjects(generateSolarSystem({ seed }))) {
+      assert(b.eccentricity < 1, `seed ${seed}: ${b.name} has e=${b.eccentricity}`);
+    }
+  }
+});
+
+Deno.test("eccentricity model: generation is deterministic per seed", () => {
+  const a = generateSolarSystem({ seed: 7 });
+  const b = generateSolarSystem({ seed: 7 });
+  assertEquals(JSON.stringify(a), JSON.stringify(b));
 });
