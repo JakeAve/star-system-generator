@@ -682,7 +682,7 @@ export function findDoubleAssistRoutes(
 // valid lower bound there too. Searching the same grid means the optimum is identical to the
 // corresponding Pareto-front pick; only the wasted work differs.
 
-export type Objective = "deltaV" | "duration" | "goldilocks";
+export type Objective = "deltaV" | "duration" | "arrival" | "goldilocks";
 
 /**
  * Normalisation ranges for a balance ("goldilocks") objective. Each axis is optional; only the
@@ -703,6 +703,10 @@ export interface SearchOpts {
   initialBest?: number; // seed the incumbent bound (e.g. anchor distance for goldilocks)
   initialIncumbent?: Route | null;
   departWindowDays?: number; // cap the depart-time horizon (days from now)
+  // When set with a departWindowDays, the depth-0 (direct) departure horizon is additionally
+  // capped at one synodic period: beyond it is only repeats of geometries already sampled, so a
+  // wide game window must not push a direct departure to a needlessly-late recurrence.
+  capDirectDepartAtSynodic?: boolean;
 }
 
 /**
@@ -828,20 +832,21 @@ export function searchBest(
   // and flyby Δv is already computed for feasibility, so this is cheap.)
   const needDv = true;
 
-  // Objective score from a (Δv, duration) pair. Fed partial lower bounds while pruning and
-  // full totals at a completion; utopiaDist clamps at the corner so partials stay admissible.
-  const score = (dv: number, dur: number): number =>
+  // Objective score from a (Δv, duration, departDay) triple. arrival = departDay + duration.
+  // Fed partial lower bounds while pruning and full totals at a completion; utopiaDist clamps at
+  // the corner so partials stay admissible.
+  const score = (dv: number, dur: number, departDay: number): number =>
     obj === "deltaV"
       ? dv
       : obj === "duration"
       ? dur
-      // arr=0 placeholder: current goldilocks boxes carry no arrival axis (Tier-C threads it later).
-      : utopiaDist(dv, dur, 0, box!);
-  // Secondary, lexicographic tiebreak: the min-duration (or min-Δv) route is rarely unique, so
-  // among equal-primary routes prefer the one that also minimises the other axis. Without this
-  // "fastest" can be a Δv-absurd route that merely ties on time (and would corrupt the box).
+      : obj === "arrival"
+      ? departDay + dur
+      : utopiaDist(dv, dur, departDay + dur, box!);
+  // Lexicographic secondary tiebreak among equal-primary routes: deltaV prefers least duration;
+  // duration and arrival prefer least Δv; goldilocks has no secondary.
   const secondaryOf = (dv: number, dur: number): number =>
-    obj === "deltaV" ? dur : obj === "duration" ? dv : 0;
+    obj === "deltaV" ? dur : (obj === "duration" || obj === "arrival") ? dv : 0;
 
   let bestP = opts.initialBest ?? Infinity;
   let incumbent: Route | null = opts.initialIncumbent ?? null;
@@ -849,8 +854,13 @@ export function searchBest(
     ? secondaryOf(incumbent.totalDeltaV, incumbent.duration)
     : Infinity;
   // Accept a completed candidate if it improves the primary, or ties it with a better secondary.
-  const tryAccept = (dv: number, dur: number, make: () => Route) => {
-    const p = score(dv, dur);
+  const tryAccept = (
+    dv: number,
+    dur: number,
+    departDay: number,
+    make: () => Route,
+  ) => {
+    const p = score(dv, dur, departDay);
     if (p > bestP) return;
     const s = secondaryOf(dv, dur);
     if (p === bestP && s >= bestS) return;
@@ -861,12 +871,24 @@ export function searchBest(
 
   // Depth 0 — direct. Cost is computed closed-form before materialising the Route, so only an
   // improving candidate allocates.
-  const directOpts = defaultSweepOpts(
+  let directOpts = defaultSweepOpts(
     from.elements.orbitRadiusAu,
     to.elements.orbitRadiusAu,
     mu,
     opts.departWindowDays,
   );
+  if (opts.capDirectDepartAtSynodic && opts.departWindowDays !== undefined) {
+    // The synodic horizon is what defaultSweepOpts uses when no window is given.
+    const synodicHorizon = defaultSweepOpts(
+      from.elements.orbitRadiusAu,
+      to.elements.orbitRadiusAu,
+      mu,
+      undefined,
+    ).departHorizonDays;
+    if (directOpts.departHorizonDays > synodicHorizon) {
+      directOpts = { ...directOpts, departHorizonDays: synodicHorizon };
+    }
+  }
   for (const c of sweepTransfers(from.elements, to.elements, mu, directOpts)) {
     const dv = needDv
       ? terminalDv(from.endpoint, fromState, c.vInfDepart, "depart") +
@@ -875,6 +897,7 @@ export function searchBest(
     tryAccept(
       dv,
       c.tofDays,
+      c.departDay,
       () => toRoute(from, to, fromState, toState, centralId, c),
     );
   }
@@ -907,7 +930,7 @@ export function searchBest(
           const tof1 = opt1.tofMinDays + j * t1Step;
           if (tof1 <= 0) continue;
           // Pre-leg LB knows only Σtof; monotonic in j (tof ascends) → break, not continue.
-          if (score(0, tof1) > bestP) break;
+          if (score(0, tof1, departDay) > bestP) break;
           const flybyDay = departDay + tof1;
           const sVia = stateAt(via.elements, mu, flybyDay);
           const leg1 = solveLeg(sFrom.position, sVia.position, tof1, mu);
@@ -918,11 +941,11 @@ export function searchBest(
             ? terminalDv(from.endpoint, fromState, vInfDepart, "depart")
             : 0;
           // departDv is not monotonic in j → continue, not break.
-          if (score(departDv, tof1) > bestP) continue;
+          if (score(departDv, tof1, departDay) > bestP) continue;
           for (let k = 0; k < ASSIST_TOF_SAMPLES; k++) {
             const tof2 = opt2.tofMinDays + k * t2Step;
             if (tof2 <= 0) continue;
-            if (score(departDv, tof1 + tof2) > bestP) break;
+            if (score(departDv, tof1 + tof2, departDay) > bestP) break;
             const sTo = stateAt(to.elements, mu, flybyDay + tof2);
             const leg2 = solveLeg(sVia.position, sTo.position, tof2, mu);
             if (!leg2) continue;
@@ -939,6 +962,7 @@ export function searchBest(
               // Match buildAssistRoute's duration exactly so the comparison key and the
               // stored route.duration are bit-identical.
               sumPrecise([tof1, tof2]),
+              departDay,
               () =>
                 buildAssistRoute(
                   from,
@@ -1009,7 +1033,7 @@ export function searchBest(
           for (let j = 0; j < DOUBLE_TOF_SAMPLES; j++) {
             const tof1 = opt1.tofMinDays + j * t1Step;
             if (tof1 <= 0) continue;
-            if (score(0, tof1) > bestP) break;
+            if (score(0, tof1, departDay) > bestP) break;
             const f1Day = departDay + tof1;
             const sF1 = stateAt(f1.elements, mu, f1Day);
             const leg1 = solveLeg(sFrom.position, sF1.position, tof1, mu);
@@ -1019,11 +1043,11 @@ export function searchBest(
             const departDv = needDv
               ? terminalDv(from.endpoint, fromState, vInfDepart, "depart")
               : 0;
-            if (score(departDv, tof1) > bestP) continue;
+            if (score(departDv, tof1, departDay) > bestP) continue;
             for (let k = 0; k < DOUBLE_TOF_SAMPLES; k++) {
               const tof2 = opt2.tofMinDays + k * t2Step;
               if (tof2 <= 0) continue;
-              if (score(departDv, tof1 + tof2) > bestP) break;
+              if (score(departDv, tof1 + tof2, departDay) > bestP) break;
               const f2Day = f1Day + tof2;
               const sF2 = stateAt(f2.elements, mu, f2Day);
               const leg2 = solveLeg(sF1.position, sF2.position, tof2, mu);
@@ -1031,11 +1055,11 @@ export function searchBest(
               const fb1 = flybyVia(f1, sF1.velocity, leg1.v2, leg2.v1);
               if (!fb1) continue;
               const dvKnown2 = needDv ? departDv + mpsToKmps(fb1.deltaV) : 0;
-              if (score(dvKnown2, tof1 + tof2) > bestP) continue;
+              if (score(dvKnown2, tof1 + tof2, departDay) > bestP) continue;
               for (let l = 0; l < DOUBLE_TOF_SAMPLES; l++) {
                 const tof3 = opt3.tofMinDays + l * t3Step;
                 if (tof3 <= 0) continue;
-                if (score(dvKnown2, tof1 + tof2 + tof3) > bestP) break;
+                if (score(dvKnown2, tof1 + tof2 + tof3, departDay) > bestP) break;
                 const sTo = stateAt(to.elements, mu, f2Day + tof3);
                 const leg3 = solveLeg(sF2.position, sTo.position, tof3, mu);
                 if (!leg3) continue;
@@ -1050,6 +1074,7 @@ export function searchBest(
                 tryAccept(
                   fullDv,
                   sumPrecise([tof1, tof2, tof3]),
+                  departDay,
                   () =>
                     buildAssistRoute(
                       from,

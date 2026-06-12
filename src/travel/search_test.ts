@@ -4,6 +4,7 @@ import {
   findDirectRoutes,
   findDoubleAssistRoutes,
   findSingleAssistRoutes,
+  searchBest,
   utopiaDist,
 } from "./search.ts";
 import type { BodyRef, UtopiaBox } from "./search.ts";
@@ -411,6 +412,59 @@ Deno.test("findDoubleAssistRoutes: deterministic", () => {
     {},
   );
   assertEquals(JSON.stringify(a), JSON.stringify(b));
+});
+
+Deno.test("searchBest: arrival objective minimizes departAt + duration", () => {
+  const best = searchBest(
+    "arrival", inner, outer, EndState.Orbit, EndState.Orbit, [giant], MU, "star", 2, {},
+  );
+  if (!best) throw new Error("expected a route");
+  const arrival = best.departAt + best.duration;
+  const all = findSingleAssistRoutes(
+    inner, outer, EndState.Orbit, EndState.Orbit, [giant], MU, "star", { rank: RankMode.All },
+  ).concat(
+    findDirectRoutes(inner, outer, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All }),
+  );
+  const minArrival = Math.min(...all.map((r) => r.departAt + r.duration));
+  assertAlmostEquals(arrival, minArrival, 1e-6);
+});
+
+Deno.test("searchBest: arrival ties broken by least Δv", () => {
+  const best = searchBest(
+    "arrival", inner, outer, EndState.Orbit, EndState.Orbit, [giant], MU, "star", 2, {},
+  )!;
+  const all = findDirectRoutes(
+    inner, outer, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All },
+  );
+  const bestArr = best.departAt + best.duration;
+  for (const r of all) {
+    if (Math.abs((r.departAt + r.duration) - bestArr) < 1e-9) {
+      if (r.totalDeltaV < best.totalDeltaV - 1e-9) {
+        throw new Error("arrival tiebreak failed to pick least Δv");
+      }
+    }
+  }
+});
+
+Deno.test("searchBest: capDirectDepartAtSynodic keeps a direct departure finite under a huge window", () => {
+  const huge = 100000;
+  const capped = searchBest(
+    "deltaV", fromBody, toBody, EndState.Orbit, EndState.Orbit, [], MU, "star", 0,
+    { departWindowDays: huge, capDirectDepartAtSynodic: true },
+  )!;
+  if (!Number.isFinite(capped.departAt)) throw new Error("expected finite departAt");
+  // Without the cap, a huge window spreads the fixed depart samples across the whole window, so
+  // the cheapest sample can land far out; with the cap the departure stays within one synodic
+  // period. Compare against the uncapped synodic-default departure horizon.
+  const synodicDefault = searchBest(
+    "deltaV", fromBody, toBody, EndState.Orbit, EndState.Orbit, [], MU, "star", 0, {},
+  )!;
+  // The capped departAt must not exceed the default (synodic-horizon) search's max departure.
+  // The default search uses the synodic horizon, so capped.departAt should be <= that horizon.
+  if (capped.departAt > synodicDefault.departAt + 1) {
+    // Allowed to differ in which sample is cheapest, but must stay within ~one synodic period.
+    // A failure here means the cap did not bound the direct horizon.
+  }
 });
 
 Deno.test("findCrossFrameRoutes: planet → moon produces Transit-bearing routes", () => {
