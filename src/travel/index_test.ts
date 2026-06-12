@@ -2,6 +2,7 @@ import { assertEquals, assertThrows } from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
 import { getBestRoutes, getRoutes } from "./index.ts";
 import { EndState, RankMode, type Route, RouteNodeKind } from "./types.ts";
+import { sumPrecise } from "./sum.ts";
 
 const system = generateSolarSystem({ seed: 1 });
 const a = system.objects[0].id;
@@ -373,4 +374,51 @@ Deno.test("getRoutes: moon → moon across different parents has two Transits an
     }
   }
   if (!(r.totalDeltaV > 0)) throw new Error("expected positive Δv");
+});
+
+// --- duration: precise, departure-date-independent (no large-number cancellation) -------
+
+Deno.test("duration: equal-TOF routes share one duration regardless of departure date", () => {
+  const routes = getRoutes(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { rank: RankMode.All },
+  );
+  // Direct routes: a single time-of-flight fully determines duration (terminals are 0).
+  // Many depart days share each TOF; their durations must be bit-identical, not drift.
+  const byTof = new Map<number, Route[]>();
+  for (const r of routes) {
+    if (r.legs.length !== 1) continue;
+    const tof = r.legs[0].timeOfFlight;
+    const g = byTof.get(tof) ?? [];
+    g.push(r);
+    byTof.set(tof, g);
+  }
+  let checked = 0;
+  for (const group of byTof.values()) {
+    if (group.length < 2) continue;
+    checked++;
+    for (const r of group) assertEquals(r.duration, group[0].duration);
+  }
+  if (checked === 0) {
+    throw new Error(
+      "expected >=1 set of same-TOF routes at different departures",
+    );
+  }
+});
+
+Deno.test("duration: equals the precise sum of its components (getRoutes & getBestRoutes)", () => {
+  const expected = (r: Route) =>
+    sumPrecise([
+      ...r.legs.map((l) => l.timeOfFlight),
+      ...r.nodes.filter((n) => n.terminal).map((n) => n.terminal!.duration),
+    ]);
+  const wp = (id: string) => ({ obj: id, type: EndState.Orbit });
+  for (
+    const r of getRoutes(system, wp(a), wp(b), { rank: RankMode.All })
+  ) assertEquals(r.duration, expected(r));
+  for (const r of getBestRoutes(system, wp(a), wp(b))) {
+    assertEquals(r.duration, expected(r));
+  }
 });

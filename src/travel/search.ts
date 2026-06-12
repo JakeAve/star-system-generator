@@ -15,6 +15,7 @@ import {
 } from "./types.ts";
 import { AU_M, DAY_S, mpsToKmps } from "./units.ts";
 import { buildCrossFrameRoute, type CrossFrameEndpoint } from "./legs.ts";
+import { sumPrecise } from "./sum.ts";
 
 export interface BodyRef {
   id: string;
@@ -106,7 +107,13 @@ function toRoute(
       deltaV: 0, // Phase 1: leg energy lives in the terminals; per-leg burns added in later phases
     }],
     departAt,
-    duration: arriveTime - departAt,
+    // Sum the positive components rather than differencing the absolute timeline
+    // (arriveTime - departAt), which loses precision for late departures.
+    duration: sumPrecise([
+      departTerminal.duration,
+      c.tofDays,
+      arriveTerminal.duration,
+    ]),
     totalDeltaV,
     notation: `${from.id}@${CODE[fromState]} > ${to.id}@${CODE[toState]}`,
   };
@@ -377,7 +384,13 @@ function buildAssistRoute(
     nodes,
     legs,
     departAt,
-    duration: arriveTime - departAt,
+    // Sum the positive leg/terminal components rather than differencing the absolute timeline.
+    duration: sumPrecise([
+      departTerminal.duration,
+      ...steps.map((s) => s.inboundTof),
+      finalTof,
+      arriveTerminal.duration,
+    ]),
     totalDeltaV,
     notation: `${from.id}@${CODE[fromState]} > ${mid} > ${to.id}@${
       CODE[toState]
@@ -883,7 +896,9 @@ export function searchBest(
               : 0;
             tryAccept(
               fullDv,
-              tof1 + tof2,
+              // Match buildAssistRoute's duration exactly so the comparison key and the
+              // stored route.duration are bit-identical.
+              sumPrecise([tof1, tof2]),
               () =>
                 buildAssistRoute(
                   from,
@@ -994,7 +1009,7 @@ export function searchBest(
                   : 0;
                 tryAccept(
                   fullDv,
-                  tof1 + tof2 + tof3,
+                  sumPrecise([tof1, tof2, tof3]),
                   () =>
                     buildAssistRoute(
                       from,
