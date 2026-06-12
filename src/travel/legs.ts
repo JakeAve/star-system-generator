@@ -9,6 +9,7 @@ import {
   RouteNodeKind,
 } from "./types.ts";
 import { mpsToKmps, mToAu, sToDay } from "./units.ts";
+import { sumPrecise } from "./sum.ts";
 
 /**
  * Hohmann appendage between a low circular orbit at the parent's radius and a moon's
@@ -177,7 +178,12 @@ export function buildCrossFrameRoute(
     nodes,
     legs,
     departAt,
-    duration: arriveNodeTime - departAt,
+    // Precise component sum (leg times + terminal ops) rather than differencing the timeline.
+    duration: sumPrecise([
+      ...legs.map((l) => l.timeOfFlight),
+      originTerminal.duration,
+      destTerminal.duration,
+    ]),
     totalDeltaV,
     notation: `${from.id}@${CODE[from.endState]} > ${to.id}@${
       CODE[to.endState]

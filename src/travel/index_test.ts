@@ -421,4 +421,12 @@ Deno.test("duration: equals the precise sum of its components (getRoutes & getBe
   for (const r of getBestRoutes(system, wp(a), wp(b))) {
     assertEquals(r.duration, expected(r));
   }
+  // Cross-frame (moon endpoint) routes are built by a different code path (legs.ts).
+  if (giant42) {
+    const moon = giant42.moons[0].id;
+    const planet = sys42.objects.find((o) => o.id !== giant42!.id)!.id;
+    for (
+      const r of getRoutes(sys42, wp(moon), wp(planet), { rank: RankMode.All })
+    ) assertEquals(r.duration, expected(r));
+  }
 });
