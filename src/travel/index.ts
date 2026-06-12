@@ -2,6 +2,7 @@
 import type { CelestialObject, SolarSystem } from "../core/types.ts";
 import { ObjectType } from "../core/types.ts";
 import {
+  dedupeRoutes,
   findCrossFrameRoutes,
   findDirectRoutes,
   findDoubleAssistRoutes,
@@ -9,6 +10,7 @@ import {
   rankRoutes,
   searchBest,
   selectBestRoutes,
+  selectBestRoutes2,
   type UtopiaBox,
   utopiaDist,
 } from "./search.ts";
@@ -307,4 +309,140 @@ export function getBestRoutes(
     if (r && !out.includes(r)) out.push(r);
   }
   return out;
+}
+
+/**
+ * Experimental Tier-C counterpart to getBestRoutes (kept beside it as a benchmark control). Runs
+ * the three single-objective anchors (cheapest/fastest/soonest) as branch-and-bound passes, then
+ * four balance passes seeded from those anchors (cheapest×fastest, cheapest×soonest,
+ * fastest×soonest, and the triple), value-dedupes, and returns a bare Route[]. The default
+ * departure horizon is one synodic period; a departWindowDays restricts direct departures to
+ * [0, min(window, T_syn)). Moon endpoints have no assist variants, so they delegate to getRoutes
+ * and select the same seven picks via selectBestRoutes2.
+ */
+export function getBestRoutes2(
+  system: SolarSystem,
+  from: Waypoint,
+  to: Waypoint,
+  options: TravelOptions = {},
+): Route[] {
+  const index = flatten(system);
+  const f = index.get(from.obj);
+  const t = index.get(to.obj);
+  if (!f) throw new Error(`unknown body: ${from.obj}`);
+  if (!t) throw new Error(`unknown body: ${to.obj}`);
+  if (f.obj.type === ObjectType.Star || t.obj.type === ObjectType.Star) {
+    throw new Error("the star cannot be a travel endpoint");
+  }
+  if (f.isMoon || t.isMoon) {
+    const all = getRoutes(system, from, to, { ...options, rank: RankMode.All });
+    return selectBestRoutes2(all);
+  }
+  const mu = muStar(system.star.mass);
+  const assists = Math.min(options.maxAssists ?? 2, 2);
+  const flybyBodies: BodyRef[] = [];
+  for (const o of system.objects) {
+    if (o.id === f.obj.id || o.id === t.obj.id) continue;
+    if (FLYBY_TYPES.has(o.type)) flybyBodies.push(bodyRefOf(o));
+  }
+  const fromRef = bodyRefOf(f.obj);
+  const toRef = bodyRefOf(t.obj);
+  const arr = (r: Route) => r.departAt + r.duration;
+
+  const passOpts = {
+    departWindowDays: options.departWindowDays,
+    capDirectDepartAtSynodic: true as const,
+  };
+  const anchor = (obj: "deltaV" | "duration" | "arrival") =>
+    searchBest(
+      obj,
+      fromRef,
+      toRef,
+      from.type,
+      to.type,
+      flybyBodies,
+      mu,
+      system.star.id,
+      assists,
+      passOpts,
+    );
+  const cheapest = anchor("deltaV");
+  const fastest = anchor("duration");
+  const soonest = anchor("arrival");
+  if (!cheapest && !fastest && !soonest) return [];
+
+  const balance = (box: UtopiaBox, anchors: (Route | null)[]): Route | null => {
+    const present = anchors.filter((r): r is Route => r !== null);
+    if (present.length < 2) return present[0] ?? null;
+    let initialBest = Infinity;
+    let initialIncumbent: Route | null = null;
+    for (const r of present) {
+      const d = utopiaDist(r.totalDeltaV, r.duration, arr(r), box);
+      if (d < initialBest) {
+        initialBest = d;
+        initialIncumbent = r;
+      }
+    }
+    return searchBest(
+      "goldilocks",
+      fromRef,
+      toRef,
+      from.type,
+      to.type,
+      flybyBodies,
+      mu,
+      system.star.id,
+      assists,
+      { box, initialBest, initialIncumbent, ...passOpts },
+    );
+  };
+
+  const cf = (cheapest && fastest)
+    ? balance(
+      {
+        dvMin: cheapest.totalDeltaV,
+        dvMax: fastest.totalDeltaV,
+        durMin: fastest.duration,
+        durMax: cheapest.duration,
+      },
+      [cheapest, fastest],
+    )
+    : null;
+  const cs = (cheapest && soonest)
+    ? balance(
+      {
+        dvMin: cheapest.totalDeltaV,
+        dvMax: soonest.totalDeltaV,
+        arrMin: arr(soonest),
+        arrMax: arr(cheapest),
+      },
+      [cheapest, soonest],
+    )
+    : null;
+  const fs = (fastest && soonest)
+    ? balance(
+      {
+        durMin: fastest.duration,
+        durMax: soonest.duration,
+        arrMin: arr(soonest),
+        arrMax: arr(fastest),
+      },
+      [fastest, soonest],
+    )
+    : null;
+  const triple = (cheapest && fastest && soonest)
+    ? balance(
+      {
+        dvMin: cheapest.totalDeltaV,
+        dvMax: Math.max(fastest.totalDeltaV, soonest.totalDeltaV),
+        durMin: fastest.duration,
+        durMax: Math.max(cheapest.duration, soonest.duration),
+        arrMin: arr(soonest),
+        arrMax: Math.max(arr(cheapest), arr(fastest)),
+      },
+      [cheapest, fastest, soonest],
+    )
+    : null;
+
+  return dedupeRoutes([cheapest, fastest, soonest, cf, cs, fs, triple]);
 }

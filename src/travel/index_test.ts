@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
-import { getBestRoutes, getRoutes } from "./index.ts";
+import { getBestRoutes, getBestRoutes2, getRoutes } from "./index.ts";
 import { EndState, RankMode, type Route, RouteNodeKind } from "./types.ts";
 import { sumPrecise } from "./sum.ts";
 import { AU_M, DAY_S, muStar } from "./units.ts";
@@ -8,6 +8,7 @@ import { AU_M, DAY_S, muStar } from "./units.ts";
 const system = generateSolarSystem({ seed: 1 });
 const a = system.objects[0].id;
 const b = system.objects[system.objects.length - 1].id;
+const wp = (id: string) => ({ obj: id, type: EndState.Orbit });
 
 Deno.test("getRoutes: returns ranked routes between two non-moon bodies", () => {
   const routes = getRoutes(system, { obj: a, type: EndState.Orbit }, {
@@ -415,7 +416,6 @@ Deno.test("duration: equals the precise sum of its components (getRoutes & getBe
       ...r.legs.map((l) => l.timeOfFlight),
       ...r.nodes.filter((n) => n.terminal).map((n) => n.terminal!.duration),
     ]);
-  const wp = (id: string) => ({ obj: id, type: EndState.Orbit });
   for (
     const r of getRoutes(system, wp(a), wp(b), { rank: RankMode.All })
   ) assertEquals(r.duration, expected(r));
@@ -464,5 +464,62 @@ Deno.test("getRoutes: direct departures fall within the synodic period, not the 
     throw new Error(
       `direct departures should fall within the synodic horizon (max ${maxDepart} > ${horizon})`,
     );
+  }
+});
+
+// --- getBestRoutes2 (Tier-C, 7 picks) --------------------------------------------------
+
+Deno.test("getBestRoutes2: anchors agree with getRoutes' extremes (non-moon)", () => {
+  const all = getRoutes(system, wp(a), wp(b), { rank: RankMode.All });
+  const picks = getBestRoutes2(system, wp(a), wp(b));
+  if (picks.length === 0) throw new Error("expected picks");
+  const arr = (r: typeof all[number]) => r.departAt + r.duration;
+  const minDv = Math.min(...all.map((r) => r.totalDeltaV));
+  const minDur = Math.min(...all.map((r) => r.duration));
+  const minArr = Math.min(...all.map(arr));
+  if (!picks.some((r) => Math.abs(r.totalDeltaV - minDv) < 1e-6)) {
+    throw new Error("no pick reaches min Δv");
+  }
+  if (!picks.some((r) => Math.abs(r.duration - minDur) < 1e-6)) {
+    throw new Error("no pick reaches min duration");
+  }
+  if (!picks.some((r) => Math.abs(arr(r) - minArr) < 1e-6)) {
+    throw new Error("no pick reaches min arrival");
+  }
+});
+
+Deno.test("getBestRoutes2: returns at most 7 routes, all distinct by value", () => {
+  const picks = getBestRoutes2(system, wp(a), wp(b));
+  if (picks.length > 7) throw new Error("more than 7 picks");
+  const key = (r: typeof picks[number]) => `${r.departAt}|${r.duration}|${r.notation}`;
+  assertEquals(picks.length, new Set(picks.map(key)).size);
+});
+
+Deno.test("getBestRoutes2: deterministic", () => {
+  const r1 = getBestRoutes2(system, wp(a), wp(b));
+  const r2 = getBestRoutes2(system, wp(a), wp(b));
+  assertEquals(JSON.stringify(r1), JSON.stringify(r2));
+});
+
+Deno.test("getBestRoutes2: the star cannot be an endpoint", () => {
+  let threw = false;
+  try {
+    getBestRoutes2(system, { obj: system.star.id, type: EndState.Orbit }, wp(b));
+  } catch {
+    threw = true;
+  }
+  if (!threw) throw new Error("expected throw for star endpoint");
+});
+
+Deno.test("getBestRoutes2: moon endpoints draw picks from getRoutes' front", () => {
+  const giantM = sys42.objects.find((o) => o.moons.length >= 2)!;
+  const from = { obj: giantM.moons[0].id, type: EndState.Orbit };
+  const to = { obj: giantM.moons[1].id, type: EndState.Orbit };
+  const all = getRoutes(sys42, from, to, { rank: RankMode.All });
+  const picks = getBestRoutes2(sys42, from, to);
+  const key = (r: typeof all[number]) => `${r.departAt}|${r.duration}|${r.notation}`;
+  const allKeys = new Set(all.map(key));
+  for (const p of picks) {
+    if (!allKeys.has(key(p))) throw new Error("moon pick not from getRoutes front");
   }
 });
