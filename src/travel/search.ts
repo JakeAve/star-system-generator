@@ -10,6 +10,7 @@ import {
   type TravelOptions,
 } from "./types.ts";
 import { AU_M, DAY_S } from "./units.ts";
+import { buildCrossFrameRoute, type CrossFrameEndpoint } from "./legs.ts";
 
 export interface BodyRef {
   id: string;
@@ -26,7 +27,8 @@ const CODE: Record<EndState, string> = {
 function defaultSweepOpts(fromAu: number, toAu: number, mu: number) {
   const outerM = Math.max(fromAu, toAu) * AU_M;
   // Orbital period at the outer radius about a body of parameter mu: T = 2π√(a³/μ).
-  const periodDays = (2 * Math.PI * Math.sqrt((outerM * outerM * outerM) / mu)) /
+  const periodDays =
+    (2 * Math.PI * Math.sqrt((outerM * outerM * outerM) / mu)) /
     DAY_S;
   return {
     departHorizonDays: periodDays,
@@ -114,6 +116,21 @@ function pareto(routes: Route[]): Route[] {
   return keep;
 }
 
+/** Select/trim a route set per the requested ranking mode. */
+export function rankRoutes(routes: Route[], options: TravelOptions): Route[] {
+  const rank = options.rank ?? RankMode.Pareto;
+  if (rank === RankMode.All) return routes;
+  if (rank === RankMode.TopN) {
+    const w = options.weights ?? { time: 1, deltaV: 1 };
+    const score = (r: Route) => w.deltaV * r.totalDeltaV + w.time * r.duration;
+    return [...routes].sort((a, b) => score(a) - score(b)).slice(
+      0,
+      options.topN ?? 5,
+    );
+  }
+  return pareto(routes);
+}
+
 /** Enumerate direct transfers and rank them. Phase 1: the only topology is from→to. */
 export function findDirectRoutes(
   from: BodyRef,
@@ -128,20 +145,44 @@ export function findDirectRoutes(
     from.elements,
     to.elements,
     mu,
-    defaultSweepOpts(from.elements.orbitRadiusAu, to.elements.orbitRadiusAu, mu),
+    defaultSweepOpts(
+      from.elements.orbitRadiusAu,
+      to.elements.orbitRadiusAu,
+      mu,
+    ),
   );
   const routes = cands.map((c) =>
     toRoute(from, to, fromState, toState, centralId, c)
   );
-  const rank = options.rank ?? RankMode.Pareto;
-  if (rank === RankMode.All) return routes;
-  if (rank === RankMode.TopN) {
-    const w = options.weights ?? { time: 1, deltaV: 1 };
-    const score = (r: Route) => w.deltaV * r.totalDeltaV + w.time * r.duration;
-    return [...routes].sort((a, b) => score(a) - score(b)).slice(
-      0,
-      options.topN ?? 5,
-    );
+  return rankRoutes(routes, options);
+}
+
+/**
+ * Enumerate routes where at least one endpoint is a moon of a different parent. Sweeps the
+ * heliocentric spine between the two anchor planets, then maps each candidate through
+ * buildCrossFrameRoute (which attaches planetocentric appendages and Transit nodes).
+ */
+export function findCrossFrameRoutes(
+  from: CrossFrameEndpoint,
+  to: CrossFrameEndpoint,
+  centralId: string,
+  mu: number,
+  options: TravelOptions,
+): Route[] {
+  const cands = sweepTransfers(
+    from.anchorElements,
+    to.anchorElements,
+    mu,
+    defaultSweepOpts(
+      from.anchorElements.orbitRadiusAu,
+      to.anchorElements.orbitRadiusAu,
+      mu,
+    ),
+  );
+  const routes: Route[] = [];
+  for (const c of cands) {
+    const r = buildCrossFrameRoute(from, to, centralId, c);
+    if (r) routes.push(r);
   }
-  return pareto(routes);
+  return rankRoutes(routes, options);
 }
