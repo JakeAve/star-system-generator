@@ -1,7 +1,7 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
 import { travelOptions } from "./index.ts";
-import { EndState, RouteNodeKind } from "./types.ts";
+import { EndState, RankMode, RouteNodeKind } from "./types.ts";
 
 const system = generateSolarSystem({ seed: 1 });
 const a = system.objects[0].id;
@@ -13,8 +13,44 @@ Deno.test("travelOptions: returns ranked routes between two non-moon bodies", ()
     type: EndState.Orbit,
   });
   if (routes.length === 0) throw new Error("expected routes");
-  assertEquals(routes[0].bodies, [a, b]);
+  // The endpoints are fixed; the cheapest route may insert a gravity-assist flyby between.
+  assertEquals(routes[0].bodies[0], a);
+  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], b);
   if (!(routes[0].totalDeltaV > 0)) throw new Error("expected positive Δv");
+});
+
+Deno.test("travelOptions: maxAssists 0 yields only direct (two-body) routes", () => {
+  const routes = travelOptions(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { maxAssists: 0, rank: RankMode.All },
+  );
+  if (routes.length === 0) throw new Error("expected routes");
+  for (const r of routes) assertEquals(r.bodies.length, 2);
+});
+
+Deno.test("travelOptions: enabling assists adds gravity-assist candidates", () => {
+  const direct = travelOptions(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { maxAssists: 0, rank: RankMode.All },
+  );
+  const withAssist = travelOptions(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { maxAssists: 1, rank: RankMode.All },
+  );
+  if (!(withAssist.length > direct.length)) {
+    throw new Error("single-assist search should add candidate routes");
+  }
+  const flyby = withAssist.find((r) => r.bodies.length === 3);
+  if (!flyby) throw new Error("expected at least one three-body flyby route");
+  assertEquals(flyby.nodes[1].kind, RouteNodeKind.Flyby);
+  assertEquals(flyby.bodies[0], a);
+  assertEquals(flyby.bodies[2], b);
 });
 
 Deno.test("travelOptions: unknown id throws", () => {

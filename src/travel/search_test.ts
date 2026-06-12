@@ -1,5 +1,10 @@
 import { assertAlmostEquals, assertEquals } from "@std/assert";
-import { findCrossFrameRoutes, findDirectRoutes } from "./search.ts";
+import {
+  findCrossFrameRoutes,
+  findDirectRoutes,
+  findSingleAssistRoutes,
+} from "./search.ts";
+import type { BodyRef } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
 import { muBody, muStar, R_EARTH_M } from "./units.ts";
 import { EndState, RankMode, RouteNodeKind } from "./types.ts";
@@ -136,6 +141,134 @@ Deno.test("findDirectRoutes: planetocentric grid is scaled to the central mass (
       `leg semi-major axis ${a} AU is not Hohmann-scale; grid likely mis-scaled`,
     );
   }
+});
+
+// An inner planet, an outer planet, and a giant in between to swing past.
+const inner: BodyRef = {
+  id: "inner",
+  elements: {
+    orbitRadiusAu: 1,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0,
+  },
+  endpoint: { mu: muBody(1), radiusM: R_EARTH_M },
+};
+const outer: BodyRef = {
+  id: "outer",
+  elements: {
+    orbitRadiusAu: 9.5,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.3,
+  },
+  endpoint: { mu: muBody(95), radiusM: R_EARTH_M * 9 },
+};
+const giant: BodyRef = {
+  id: "giant",
+  elements: {
+    orbitRadiusAu: 5.2,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.6,
+  },
+  endpoint: { mu: muBody(318), radiusM: R_EARTH_M * 11 },
+};
+
+Deno.test("findSingleAssistRoutes: produces well-formed 3-body flyby routes", () => {
+  const routes = findSingleAssistRoutes(
+    inner,
+    outer,
+    EndState.Orbit,
+    EndState.Orbit,
+    [giant],
+    MU,
+    "star",
+    { rank: RankMode.All },
+  );
+  if (routes.length === 0) {
+    throw new Error("expected at least one assist route");
+  }
+  for (const r of routes) {
+    assertEquals(r.bodies, ["inner", "giant", "outer"]);
+    assertEquals(r.nodes.length, 3);
+    assertEquals(r.legs.length, 2);
+    assertEquals(r.nodes[1].kind, RouteNodeKind.Flyby);
+    assertEquals(r.legs[0].centralBodyId, "star");
+    assertEquals(r.legs[1].centralBodyId, "star");
+    if (r.nodes[1].flyby === undefined) {
+      throw new Error("flyby node must carry geometry");
+    }
+    if (!Number.isFinite(r.totalDeltaV)) throw new Error("Δv must be finite");
+    for (let i = 1; i < r.nodes.length; i++) {
+      if (!(r.nodes[i].time >= r.nodes[i - 1].time)) {
+        throw new Error("node times must be monotonic");
+      }
+    }
+  }
+});
+
+Deno.test("findSingleAssistRoutes: totalDeltaV sums both terminals and the flyby burn", () => {
+  const routes = findSingleAssistRoutes(
+    inner,
+    outer,
+    EndState.Orbit,
+    EndState.Orbit,
+    [giant],
+    MU,
+    "star",
+    { rank: RankMode.All },
+  );
+  const r = routes[0];
+  const expected = r.nodes[0].terminal!.totalDeltaV +
+    r.nodes[1].deltaV +
+    r.nodes[2].terminal!.totalDeltaV;
+  assertAlmostEquals(r.totalDeltaV, expected, 1e-9);
+});
+
+Deno.test("findSingleAssistRoutes: notation marks powered (+) vs unpowered (*) flybys", () => {
+  const routes = findSingleAssistRoutes(
+    inner,
+    outer,
+    EndState.Orbit,
+    EndState.Orbit,
+    [giant],
+    MU,
+    "star",
+    { rank: RankMode.All },
+  );
+  for (const r of routes) {
+    const marker = r.nodes[1].deltaV > 1e-6 ? "+giant" : "*giant";
+    assertEquals(r.notation, `inner@o > ${marker} > outer@o`);
+  }
+});
+
+Deno.test("findSingleAssistRoutes: deterministic", () => {
+  const a = findSingleAssistRoutes(
+    inner,
+    outer,
+    EndState.Orbit,
+    EndState.Orbit,
+    [
+      giant,
+    ],
+    MU,
+    "star",
+    {},
+  );
+  const b = findSingleAssistRoutes(
+    inner,
+    outer,
+    EndState.Orbit,
+    EndState.Orbit,
+    [
+      giant,
+    ],
+    MU,
+    "star",
+    {},
+  );
+  assertEquals(JSON.stringify(a), JSON.stringify(b));
 });
 
 Deno.test("findCrossFrameRoutes: planet → moon produces Transit-bearing routes", () => {

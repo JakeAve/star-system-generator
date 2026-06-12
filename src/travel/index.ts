@@ -1,12 +1,30 @@
 // src/travel/index.ts
 import type { CelestialObject, SolarSystem } from "../core/types.ts";
 import { ObjectType } from "../core/types.ts";
-import { findCrossFrameRoutes, findDirectRoutes } from "./search.ts";
+import {
+  findCrossFrameRoutes,
+  findDirectRoutes,
+  findSingleAssistRoutes,
+  rankRoutes,
+} from "./search.ts";
 import type { BodyRef } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
 import { auToM, muBody, muStar, R_EARTH_M } from "./units.ts";
 import type { OrbitElements } from "./state.ts";
-import type { EndState, Route, TravelOptions, Waypoint } from "./types.ts";
+import {
+  type EndState,
+  RankMode,
+  type Route,
+  type TravelOptions,
+  type Waypoint,
+} from "./types.ts";
+
+/** Planet/giant bodies are the only eligible gravity-assist flyby targets. */
+const FLYBY_TYPES = new Set<ObjectType>([
+  ObjectType.RockyPlanet,
+  ObjectType.GasGiant,
+  ObjectType.IceGiant,
+]);
 
 function elementsOf(o: CelestialObject): OrbitElements {
   return {
@@ -122,13 +140,33 @@ export function travelOptions(
       options,
     );
   }
-  return findDirectRoutes(
+  const mu = muStar(system.star.mass);
+  const direct = findDirectRoutes(
     bodyRefOf(f.obj),
     bodyRefOf(t.obj),
     from.type,
     to.type,
-    muStar(system.star.mass),
+    mu,
     system.star.id,
-    options,
+    { rank: RankMode.All },
   );
+  // Default maxAssists is 2, but v1 caps the search at depth 1 (single assist).
+  const assists = Math.min(options.maxAssists ?? 2, 1);
+  if (assists < 1) return rankRoutes(direct, options);
+  const flybyBodies: BodyRef[] = [];
+  for (const o of system.objects) {
+    if (o.id === f.obj.id || o.id === t.obj.id) continue;
+    if (FLYBY_TYPES.has(o.type)) flybyBodies.push(bodyRefOf(o));
+  }
+  const assistRoutes = findSingleAssistRoutes(
+    bodyRefOf(f.obj),
+    bodyRefOf(t.obj),
+    from.type,
+    to.type,
+    flybyBodies,
+    mu,
+    system.star.id,
+    { rank: RankMode.All },
+  );
+  return rankRoutes([...direct, ...assistRoutes], options);
 }
