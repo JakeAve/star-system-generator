@@ -4,6 +4,7 @@ import { ObjectType } from "../core/types.ts";
 import {
   findCrossFrameRoutes,
   findDirectRoutes,
+  findDoubleAssistRoutes,
   findSingleAssistRoutes,
   rankRoutes,
 } from "./search.ts";
@@ -150,23 +151,42 @@ export function travelOptions(
     system.star.id,
     { rank: RankMode.All },
   );
-  // Default maxAssists is 2, but v1 caps the search at depth 1 (single assist).
-  const assists = Math.min(options.maxAssists ?? 2, 1);
+  // Default maxAssists is 2; the search is capped at depth 2 (double assist).
+  const assists = Math.min(options.maxAssists ?? 2, 2);
   if (assists < 1) return rankRoutes(direct, options);
   const flybyBodies: BodyRef[] = [];
   for (const o of system.objects) {
     if (o.id === f.obj.id || o.id === t.obj.id) continue;
     if (FLYBY_TYPES.has(o.type)) flybyBodies.push(bodyRefOf(o));
   }
-  const assistRoutes = findSingleAssistRoutes(
-    bodyRefOf(f.obj),
-    bodyRefOf(t.obj),
-    from.type,
-    to.type,
-    flybyBodies,
-    mu,
-    system.star.id,
-    { rank: RankMode.All },
+  const fromRef = bodyRefOf(f.obj);
+  const toRef = bodyRefOf(t.obj);
+  const candidates = [...direct];
+  candidates.push(
+    ...findSingleAssistRoutes(
+      fromRef,
+      toRef,
+      from.type,
+      to.type,
+      flybyBodies,
+      mu,
+      system.star.id,
+      { rank: RankMode.All },
+    ),
   );
-  return rankRoutes([...direct, ...assistRoutes], options);
+  if (assists >= 2) {
+    candidates.push(
+      ...findDoubleAssistRoutes(
+        fromRef,
+        toRef,
+        from.type,
+        to.type,
+        flybyBodies,
+        mu,
+        system.star.id,
+        { rank: RankMode.All },
+      ),
+    );
+  }
+  return rankRoutes(candidates, options);
 }

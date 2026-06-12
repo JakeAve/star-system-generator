@@ -53,6 +53,61 @@ Deno.test("travelOptions: enabling assists adds gravity-assist candidates", () =
   assertEquals(flyby.bodies[2], b);
 });
 
+Deno.test("travelOptions: maxAssists 1 never returns a four-body (double-assist) route", () => {
+  const routes = travelOptions(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { maxAssists: 1, rank: RankMode.All },
+  );
+  for (const r of routes) {
+    if (r.bodies.length > 3) throw new Error("depth-1 cap exceeded");
+  }
+});
+
+Deno.test("travelOptions: maxAssists 2 enables double-assist (four-body) routes", () => {
+  const single = travelOptions(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { maxAssists: 1, rank: RankMode.All },
+  );
+  const double = travelOptions(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { maxAssists: 2, rank: RankMode.All },
+  );
+  if (!(double.length > single.length)) {
+    throw new Error("depth-2 search should add candidate routes");
+  }
+  const quad = double.find((r) => r.bodies.length === 4);
+  if (!quad) {
+    throw new Error("expected at least one four-body double-assist route");
+  }
+  assertEquals(quad.nodes[1].kind, RouteNodeKind.Flyby);
+  assertEquals(quad.nodes[2].kind, RouteNodeKind.Flyby);
+  assertEquals(quad.bodies[0], a);
+  assertEquals(quad.bodies[3], b);
+  assertEquals(quad.legs.length, 3);
+});
+
+Deno.test("travelOptions: maxAssists is capped at depth 2 (a value of 3 matches 2)", () => {
+  const two = travelOptions(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { maxAssists: 2, rank: RankMode.All },
+  );
+  const three = travelOptions(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { maxAssists: 3, rank: RankMode.All },
+  );
+  assertEquals(JSON.stringify(three), JSON.stringify(two));
+});
+
 Deno.test("travelOptions: unknown id throws", () => {
   assertThrows(
     () =>

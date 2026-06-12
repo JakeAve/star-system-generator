@@ -2,6 +2,7 @@ import { assertAlmostEquals, assertEquals } from "@std/assert";
 import {
   findCrossFrameRoutes,
   findDirectRoutes,
+  findDoubleAssistRoutes,
   findSingleAssistRoutes,
 } from "./search.ts";
 import type { BodyRef } from "./search.ts";
@@ -264,6 +265,122 @@ Deno.test("findSingleAssistRoutes: deterministic", () => {
     [
       giant,
     ],
+    MU,
+    "star",
+    {},
+  );
+  assertEquals(JSON.stringify(a), JSON.stringify(b));
+});
+
+const giant2: BodyRef = {
+  id: "giant2",
+  elements: {
+    orbitRadiusAu: 7,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.15,
+  },
+  endpoint: { mu: muBody(95), radiusM: R_EARTH_M * 9 },
+};
+const farOuter: BodyRef = {
+  id: "farOuter",
+  elements: {
+    orbitRadiusAu: 19,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.7,
+  },
+  endpoint: { mu: muBody(17), radiusM: R_EARTH_M * 4 },
+};
+
+Deno.test("findDoubleAssistRoutes: produces well-formed 4-body double-flyby routes", () => {
+  const routes = findDoubleAssistRoutes(
+    inner,
+    farOuter,
+    EndState.Orbit,
+    EndState.Orbit,
+    [giant, giant2],
+    MU,
+    "star",
+    { rank: RankMode.All },
+  );
+  if (routes.length === 0) throw new Error("expected double-assist routes");
+  for (const r of routes) {
+    assertEquals(r.bodies.length, 4);
+    assertEquals(r.bodies[0], "inner");
+    assertEquals(r.bodies[3], "farOuter");
+    // the two middle bodies are distinct flyby planets
+    if (r.bodies[1] === r.bodies[2]) {
+      throw new Error("the two flyby bodies must be distinct");
+    }
+    assertEquals(r.nodes.length, 4);
+    assertEquals(r.legs.length, 3);
+    assertEquals(r.nodes[1].kind, RouteNodeKind.Flyby);
+    assertEquals(r.nodes[2].kind, RouteNodeKind.Flyby);
+    for (const l of r.legs) assertEquals(l.centralBodyId, "star");
+    if (!Number.isFinite(r.totalDeltaV)) throw new Error("Δv must be finite");
+    for (let i = 1; i < r.nodes.length; i++) {
+      if (!(r.nodes[i].time >= r.nodes[i - 1].time)) {
+        throw new Error("node times must be monotonic");
+      }
+    }
+  }
+});
+
+Deno.test("findDoubleAssistRoutes: totalDeltaV sums both terminals and both flyby burns", () => {
+  const routes = findDoubleAssistRoutes(
+    inner,
+    farOuter,
+    EndState.Orbit,
+    EndState.Orbit,
+    [giant, giant2],
+    MU,
+    "star",
+    { rank: RankMode.All },
+  );
+  const r = routes[0];
+  const expected = r.nodes[0].terminal!.totalDeltaV +
+    r.nodes[1].deltaV +
+    r.nodes[2].deltaV +
+    r.nodes[3].terminal!.totalDeltaV;
+  assertAlmostEquals(r.totalDeltaV, expected, 1e-9);
+});
+
+Deno.test("findDoubleAssistRoutes: notation lists both flyby markers in order", () => {
+  const routes = findDoubleAssistRoutes(
+    inner,
+    farOuter,
+    EndState.Orbit,
+    EndState.Orbit,
+    [giant, giant2],
+    MU,
+    "star",
+    { rank: RankMode.All },
+  );
+  for (const r of routes) {
+    const m1 = (r.nodes[1].deltaV > 1e-6 ? "+" : "*") + r.bodies[1];
+    const m2 = (r.nodes[2].deltaV > 1e-6 ? "+" : "*") + r.bodies[2];
+    assertEquals(r.notation, `inner@o > ${m1} > ${m2} > farOuter@o`);
+  }
+});
+
+Deno.test("findDoubleAssistRoutes: deterministic", () => {
+  const a = findDoubleAssistRoutes(
+    inner,
+    farOuter,
+    EndState.Orbit,
+    EndState.Orbit,
+    [giant, giant2],
+    MU,
+    "star",
+    {},
+  );
+  const b = findDoubleAssistRoutes(
+    inner,
+    farOuter,
+    EndState.Orbit,
+    EndState.Orbit,
+    [giant, giant2],
     MU,
     "star",
     {},
