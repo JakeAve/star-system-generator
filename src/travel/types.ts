@@ -83,4 +83,5 @@ export interface TravelOptions {
   rank?: RankMode; // default Pareto
   topN?: number;
   weights?: { time: number; deltaV: number };
+  departWindowDays?: number; // cap depart times to [0, window) days from now; default = outer period
 }

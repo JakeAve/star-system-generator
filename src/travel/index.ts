@@ -7,6 +7,8 @@ import {
   findDoubleAssistRoutes,
   findSingleAssistRoutes,
   rankRoutes,
+  searchBest,
+  type UtopiaBox,
 } from "./search.ts";
 import type { BodyRef } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
@@ -149,7 +151,7 @@ export function getRoutes(
     to.type,
     mu,
     system.star.id,
-    { rank: RankMode.All },
+    { rank: RankMode.All, departWindowDays: options.departWindowDays },
   );
   // Default maxAssists is 2; the search is capped at depth 2 (double assist).
   const assists = Math.min(options.maxAssists ?? 2, 2);
@@ -172,7 +174,7 @@ export function getRoutes(
       flybyBodies,
       mu,
       system.star.id,
-      { rank: RankMode.All },
+      { rank: RankMode.All, departWindowDays: options.departWindowDays },
     ),
   );
   if (assists >= 2) {
@@ -185,9 +187,117 @@ export function getRoutes(
         flybyBodies,
         mu,
         system.star.id,
-        { rank: RankMode.All },
+        { rank: RankMode.All, departWindowDays: options.departWindowDays },
       ),
     );
   }
   return rankRoutes(candidates, options);
+}
+
+/**
+ * Branch-and-bound counterpart to getRoutes. Instead of enumerating every candidate and
+ * Pareto-filtering, it runs single-objective searches and returns the "picks": fastest,
+ * cheapest, and (when `includeGoldilocks`) the goldilocks compromise — the feasible route
+ * nearest the (minΔv, minTime) utopia corner. Same grid as getRoutes, so the picks match the
+ * corresponding Pareto-front routes, but with the candidate-set pruned. Heliocentric
+ * (non-moon) endpoints only.
+ */
+export function getBestRoutes(
+  system: SolarSystem,
+  from: Waypoint,
+  to: Waypoint,
+  options: TravelOptions = {},
+  includeGoldilocks = true,
+): Route[] {
+  const index = flatten(system);
+  const f = index.get(from.obj);
+  const t = index.get(to.obj);
+  if (!f) throw new Error(`unknown body: ${from.obj}`);
+  if (!t) throw new Error(`unknown body: ${to.obj}`);
+  if (f.obj.type === ObjectType.Star || t.obj.type === ObjectType.Star) {
+    throw new Error("the star cannot be a travel endpoint");
+  }
+  if (f.isMoon || t.isMoon) {
+    throw new Error("getBestRoutes supports non-moon endpoints only");
+  }
+  const mu = muStar(system.star.mass);
+  const assists = Math.min(options.maxAssists ?? 2, 2);
+  const flybyBodies: BodyRef[] = [];
+  for (const o of system.objects) {
+    if (o.id === f.obj.id || o.id === t.obj.id) continue;
+    if (FLYBY_TYPES.has(o.type)) flybyBodies.push(bodyRefOf(o));
+  }
+  const fromRef = bodyRefOf(f.obj);
+  const toRef = bodyRefOf(t.obj);
+  const window = { departWindowDays: options.departWindowDays };
+  const fastest = searchBest(
+    "duration",
+    fromRef,
+    toRef,
+    from.type,
+    to.type,
+    flybyBodies,
+    mu,
+    system.star.id,
+    assists,
+    window,
+  );
+  const cheapest = searchBest(
+    "deltaV",
+    fromRef,
+    toRef,
+    from.type,
+    to.type,
+    flybyBodies,
+    mu,
+    system.star.id,
+    assists,
+    window,
+  );
+
+  let goldilocks: Route | null = null;
+  if (includeGoldilocks && fastest && cheapest && fastest !== cheapest) {
+    // The two anchors define the normalisation box; seed the bound with the closer anchor so
+    // the goldilocks search only keeps strictly-better interior compromises.
+    const box: UtopiaBox = {
+      dvMin: cheapest.totalDeltaV,
+      dvMax: fastest.totalDeltaV,
+      durMin: fastest.duration,
+      durMax: cheapest.duration,
+    };
+    const dAnchor = (r: Route) => {
+      const dvR = Math.max(1e-9, box.dvMax - box.dvMin);
+      const durR = Math.max(1e-9, box.durMax - box.durMin);
+      const x = Math.max(0, (r.totalDeltaV - box.dvMin) / dvR);
+      const y = Math.max(0, (r.duration - box.durMin) / durR);
+      return Math.sqrt(x * x + y * y);
+    };
+    const seedBest = Math.min(dAnchor(fastest), dAnchor(cheapest));
+    const seedRoute = dAnchor(fastest) <= dAnchor(cheapest)
+      ? fastest
+      : cheapest;
+    goldilocks = searchBest(
+      "goldilocks",
+      fromRef,
+      toRef,
+      from.type,
+      to.type,
+      flybyBodies,
+      mu,
+      system.star.id,
+      assists,
+      {
+        box,
+        initialBest: seedBest,
+        initialIncumbent: seedRoute,
+        departWindowDays: options.departWindowDays,
+      },
+    );
+  }
+
+  const out: Route[] = [];
+  for (const r of [fastest, goldilocks, cheapest]) {
+    if (r && !out.includes(r)) out.push(r);
+  }
+  return out;
 }

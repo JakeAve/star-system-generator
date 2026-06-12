@@ -8,6 +8,9 @@ assets.json
 .vscode
 app/*.bundle.js
 
+# Local travel-routing benchmarks & reports — keep out of the remote repo
+bench
+
 # Don't commit claude superpowers in the repo
 docs
 publish-debug.sh
