@@ -44,9 +44,10 @@ const clamp = (x: number, lo: number, hi: number): number =>
 
 /**
  * Take incoming excess `vInfIn` (vector, body frame) to outgoing `vInfOut`. The flyby rotates
- * the velocity for free up to the maximum turn at periapsis = body radius; the magnitude is
- * conserved by an unpowered swing. Any residual (excess turn or speed change) is closed by a
- * powered periapsis burn whose cost is the vector gap to the achievable outgoing velocity.
+ * the velocity for free up to the maximum turn at periapsis = body radius. Any residual is a
+ * powered burn: the speed-change part is charged at periapsis (Oberth-correct, so it shrinks
+ * the deeper the pass), and any turn the swing-by cannot deliver is charged in v∞ space. The
+ * burn is an approximation — Level 2 (see /tmp/todo) couples r_p to the outgoing hyperbola.
  */
 export function evaluateFlyby(
   vInfIn: { x: number; y: number },
@@ -66,14 +67,17 @@ export function evaluateFlyby(
   const periapsisRadius = achieved >= dMax
     ? body.radiusM
     : periapsisForTurn(vIn, achieved, body.mu);
-  // Best unpowered result: vInfIn rotated by `achieved` toward vInfOut, magnitude preserved.
-  const cross = vInfIn.x * vInfOut.y - vInfIn.y * vInfOut.x;
-  const sign = cross >= 0 ? 1 : -1;
-  const ang = sign * achieved;
-  const c = Math.cos(ang);
-  const s = Math.sin(ang);
-  const ax = vInfIn.x * c - vInfIn.y * s;
-  const ay = vInfIn.x * s + vInfIn.y * c;
-  const deltaV = Math.hypot(vInfOut.x - ax, vInfOut.y - ay);
+  // Magnitude change is charged at periapsis (Oberth): a burn deep in the well, where the
+  // speed is √(v∞² + 2μ/r_p), buys far more than the same burn out in v∞ space. With no turn
+  // (r_p → ∞) the 2μ/r_p term vanishes and a pure speed change costs full price, as it should.
+  const k = 2 * body.mu / periapsisRadius; // 0 when periapsisRadius is Infinity
+  const vPeriIn = Math.sqrt(vIn * vIn + k);
+  const vPeriOut = Math.sqrt(vOut * vOut + k);
+  const dvMag = Math.abs(vPeriOut - vPeriIn);
+  // Turn the flyby cannot deliver for free still costs a direction change, which a periapsis
+  // burn cannot buy cheaply — charge it in v∞ space at the outgoing speed.
+  const turnDeficit = Math.max(0, theta - dMax);
+  const dvTurn = 2 * vOut * Math.sin(turnDeficit / 2);
+  const deltaV = dvMag + dvTurn;
   return { deltaV, periapsisRadius, turnAngle: achieved, vInfinity: vIn };
 }

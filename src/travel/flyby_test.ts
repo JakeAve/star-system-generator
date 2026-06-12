@@ -70,3 +70,39 @@ Deno.test("evaluateFlyby: a turn beyond capacity clamps periapsis at the body ra
   assertEquals(fb.turnAngle <= dMax + 1e-9, true);
   if (!(fb.deltaV > 0)) throw new Error("excess turn must cost Δv");
 });
+
+Deno.test("evaluateFlyby: a speed change during a deep turn is discounted by Oberth", () => {
+  // A 1.0 rad turn (within Earth's ~1.6 rad capacity at this v∞) forces a finite, fairly
+  // deep periapsis. Asking for a faster outgoing v∞ then costs far less than the naive
+  // v∞-space chord, because the burn happens deep in the well.
+  const vIn = { x: 5000, y: 0 };
+  const a = 1.0;
+  const speedOut = 6000;
+  const vOut = {
+    x: speedOut * Math.cos(a),
+    y: speedOut * Math.sin(a),
+  };
+  const fb = evaluateFlyby(vIn, vOut, EARTH);
+
+  // Naive v∞-space chord (the old, Oberth-blind cost): rotate vIn by the turn, magnitude
+  // preserved, then measure the straight-line gap to vOut.
+  const ax = vIn.x * Math.cos(a) - vIn.y * Math.sin(a);
+  const ay = vIn.x * Math.sin(a) + vIn.y * Math.cos(a);
+  const naiveChord = Math.hypot(vOut.x - ax, vOut.y - ay); // == 1000 here
+
+  if (!(fb.deltaV > 0)) throw new Error("a speed change still needs a burn");
+  if (!(fb.deltaV < naiveChord)) {
+    throw new Error(
+      `Oberth should discount the burn: got ${fb.deltaV}, chord ${naiveChord}`,
+    );
+  }
+  // Sanity on the closed form: Δv = |√(vOut²+2μ/rp) − √(vIn²+2μ/rp)| at the turn's periapsis.
+  const k = 2 * EARTH.mu / fb.periapsisRadius;
+  const expected = Math.abs(
+    Math.sqrt(speedOut * speedOut + k) - Math.sqrt(5000 * 5000 + k),
+  );
+  assertAlmostEquals(fb.deltaV, expected, 1e-6);
+  if (!Number.isFinite(fb.periapsisRadius)) {
+    throw new Error("a turning flyby must have a finite periapsis");
+  }
+});
