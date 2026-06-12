@@ -9,7 +9,7 @@ import {
 } from "./search.ts";
 import type { BodyRef, UtopiaBox } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
-import { muBody, muStar, R_EARTH_M } from "./units.ts";
+import { AU_M, DAY_S, muBody, muStar, R_EARTH_M } from "./units.ts";
 import { EndState, RankMode, RouteNodeKind } from "./types.ts";
 
 const MU = muStar(1);
@@ -446,24 +446,35 @@ Deno.test("searchBest: arrival ties broken by least Δv", () => {
   }
 });
 
-Deno.test("searchBest: capDirectDepartAtSynodic keeps a direct departure finite under a huge window", () => {
+Deno.test("searchBest: capDirectDepartAtSynodic bounds a direct departure to one synodic period", () => {
   const huge = 100000;
   const capped = searchBest(
     "deltaV", fromBody, toBody, EndState.Orbit, EndState.Orbit, [], MU, "star", 0,
     { departWindowDays: huge, capDirectDepartAtSynodic: true },
   )!;
   if (!Number.isFinite(capped.departAt)) throw new Error("expected finite departAt");
-  // Without the cap, a huge window spreads the fixed depart samples across the whole window, so
-  // the cheapest sample can land far out; with the cap the departure stays within one synodic
-  // period. Compare against the uncapped synodic-default departure horizon.
-  const synodicDefault = searchBest(
-    "deltaV", fromBody, toBody, EndState.Orbit, EndState.Orbit, [], MU, "star", 0, {},
+
+  // Synodic horizon, mirroring defaultSweepOpts (not exported): orbital period
+  // T = 2π√(a³/μ) in days; synodic = 1/|1/T_in − 1/T_out|, capped at the outer period.
+  const periodDays = (au: number) => {
+    const m = au * AU_M;
+    return (2 * Math.PI * Math.sqrt((m * m * m) / MU)) / DAY_S;
+  };
+  const tIn = periodDays(Math.min(fromBody.elements.orbitRadiusAu, toBody.elements.orbitRadiusAu));
+  const tOut = periodDays(Math.max(fromBody.elements.orbitRadiusAu, toBody.elements.orbitRadiusAu));
+  const horizon = Math.min(1 / Math.abs(1 / tIn - 1 / tOut), tOut);
+
+  // The cap must bound the direct departure to within one synodic horizon.
+  if (capped.departAt > horizon + 1e-6) {
+    throw new Error(`expected departAt <= ${horizon}, got ${capped.departAt}`);
+  }
+  // And it must actually pull the departure in vs. the huge uncapped window.
+  const uncapped = searchBest(
+    "deltaV", fromBody, toBody, EndState.Orbit, EndState.Orbit, [], MU, "star", 0,
+    { departWindowDays: huge },
   )!;
-  // The capped departAt must not exceed the default (synodic-horizon) search's max departure.
-  // The default search uses the synodic horizon, so capped.departAt should be <= that horizon.
-  if (capped.departAt > synodicDefault.departAt + 1) {
-    // Allowed to differ in which sample is cheapest, but must stay within ~one synodic period.
-    // A failure here means the cap did not bound the direct horizon.
+  if (!(capped.departAt < uncapped.departAt)) {
+    throw new Error("cap did not pull the departure in");
   }
 });
 
