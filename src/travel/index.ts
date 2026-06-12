@@ -10,6 +10,7 @@ import {
   searchBest,
   selectBestRoutes,
   type UtopiaBox,
+  utopiaDist,
 } from "./search.ts";
 import type { BodyRef } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
@@ -276,13 +277,8 @@ export function getBestRoutes(
       durMin: fastest.duration,
       durMax: cheapest.duration,
     };
-    const dAnchor = (r: Route) => {
-      const dvR = Math.max(1e-9, box.dvMax! - box.dvMin!);
-      const durR = Math.max(1e-9, box.durMax! - box.durMin!);
-      const x = Math.max(0, (r.totalDeltaV - box.dvMin!) / dvR);
-      const y = Math.max(0, (r.duration - box.durMin!) / durR);
-      return Math.sqrt(x * x + y * y);
-    };
+    const dAnchor = (r: Route) =>
+      utopiaDist(r.totalDeltaV, r.duration, r.departAt + r.duration, box);
     const seedBest = Math.min(dAnchor(fastest), dAnchor(cheapest));
     const seedRoute = dAnchor(fastest) <= dAnchor(cheapest)
       ? fastest

@@ -835,6 +835,7 @@ export function searchBest(
       ? dv
       : obj === "duration"
       ? dur
+      // arr=0 placeholder: current goldilocks boxes carry no arrival axis (Tier-C threads it later).
       : utopiaDist(dv, dur, 0, box!);
   // Secondary, lexicographic tiebreak: the min-duration (or min-Δv) route is rarely unique, so
   // among equal-primary routes prefer the one that also minimises the other axis. Without this
