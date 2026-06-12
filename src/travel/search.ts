@@ -766,6 +766,85 @@ export function selectBestRoutes(
   return out;
 }
 
+/** Value-identity key for a route: schedule (departAt + duration) plus the body/flyby chain. */
+function routeKey(r: Route): string {
+  return `${r.departAt}|${r.duration}|${r.notation}`;
+}
+
+/** Dedupe routes by value (schedule + notation), dropping nulls, preserving first-seen order. */
+export function dedupeRoutes(routes: (Route | null)[]): Route[] {
+  const seen = new Set<string>();
+  const out: Route[] = [];
+  for (const r of routes) {
+    if (!r) continue;
+    const k = routeKey(r);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(r);
+  }
+  return out;
+}
+
+/**
+ * Tier-C counterpart to selectBestRoutes: pick the 3 anchors (cheapest/fastest/soonest) and the
+ * 4 balances (cheapest×fastest, cheapest×soonest, fastest×soonest, triple) from an already
+ * enumerated candidate set, then value-dedupe. Used for moon topologies (no assist variants, so
+ * the candidate set from getRoutes is small and full enumeration is cheap), keeping getBestRoutes2
+ * and getRoutes in agreement — mirrors selectBestRoutes' role for the old getBestRoutes.
+ */
+export function selectBestRoutes2(routes: Route[]): Route[] {
+  if (routes.length === 0) return [];
+  const arr = (r: Route) => r.departAt + r.duration;
+  const pickMin = (
+    primary: (r: Route) => number,
+    secondary: (r: Route) => number,
+  ): Route => {
+    let best = routes[0];
+    for (const r of routes) {
+      if (
+        primary(r) < primary(best) ||
+        (primary(r) === primary(best) && secondary(r) < secondary(best))
+      ) best = r;
+    }
+    return best;
+  };
+  const cheapest = pickMin((r) => r.totalDeltaV, arr);
+  const fastest = pickMin((r) => r.duration, (r) => r.totalDeltaV);
+  const soonest = pickMin(arr, (r) => r.totalDeltaV);
+
+  const nearest = (box: UtopiaBox): Route => {
+    let best = routes[0];
+    let bestD = Infinity;
+    for (const r of routes) {
+      const d = utopiaDist(r.totalDeltaV, r.duration, arr(r), box);
+      if (d < bestD) {
+        bestD = d;
+        best = r;
+      }
+    }
+    return best;
+  };
+  const cf = nearest({
+    dvMin: cheapest.totalDeltaV, dvMax: fastest.totalDeltaV,
+    durMin: fastest.duration, durMax: cheapest.duration,
+  });
+  const cs = nearest({
+    dvMin: cheapest.totalDeltaV, dvMax: soonest.totalDeltaV,
+    arrMin: arr(soonest), arrMax: arr(cheapest),
+  });
+  const fs = nearest({
+    durMin: fastest.duration, durMax: soonest.duration,
+    arrMin: arr(soonest), arrMax: arr(fastest),
+  });
+  const triple = nearest({
+    dvMin: cheapest.totalDeltaV, dvMax: Math.max(fastest.totalDeltaV, soonest.totalDeltaV),
+    durMin: fastest.duration, durMax: Math.max(cheapest.duration, soonest.duration),
+    arrMin: arr(soonest), arrMax: Math.max(arr(cheapest), arr(fastest)),
+  });
+
+  return dedupeRoutes([cheapest, fastest, soonest, cf, cs, fs, triple]);
+}
+
 /**
  * Normalised Euclidean distance from a point to the utopia corner of `b`, over whichever axes
  * the box carries. Each present axis is normalised to its [min, max] range and clamped at 0 so

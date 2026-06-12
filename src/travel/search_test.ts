@@ -5,6 +5,7 @@ import {
   findDoubleAssistRoutes,
   findSingleAssistRoutes,
   searchBest,
+  selectBestRoutes2,
   utopiaDist,
 } from "./search.ts";
 import type { BodyRef, UtopiaBox } from "./search.ts";
@@ -520,4 +521,30 @@ Deno.test("findCrossFrameRoutes: planet → moon produces Transit-bearing routes
     if (!(r.departAt >= 0)) throw new Error("departAt must be non-negative");
     if (!(r.totalDeltaV > 0)) throw new Error("positive Δv");
   }
+});
+
+Deno.test("selectBestRoutes2: returns the 7 picks deduped, each matching a brute-force scan", () => {
+  const all = findDirectRoutes(
+    fromBody, toBody, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All },
+  );
+  const picks = selectBestRoutes2(all);
+  if (picks.length === 0) throw new Error("expected picks");
+
+  const arr = (r: typeof all[number]) => r.departAt + r.duration;
+  const min = (f: (r: typeof all[number]) => number) =>
+    all.reduce((a, b) => (f(b) < f(a) ? b : a));
+  const key = (r: typeof all[number]) => `${r.departAt}|${r.duration}|${r.notation}`;
+  const keys = new Set(picks.map(key));
+  if (!keys.has(key(min((r) => r.totalDeltaV)))) throw new Error("cheapest missing");
+  if (!keys.has(key(min((r) => r.duration)))) throw new Error("fastest missing");
+  if (!keys.has(key(min(arr)))) throw new Error("soonest missing");
+  for (const p of picks) {
+    if (!all.some((r) => key(r) === key(p))) throw new Error("pick not from candidate set");
+  }
+  assertEquals(picks.length, new Set(picks.map(key)).size);
+  if (picks.length > 7) throw new Error("more than 7 picks");
+});
+
+Deno.test("selectBestRoutes2: empty input yields no picks", () => {
+  assertEquals(selectBestRoutes2([]).length, 0);
 });
