@@ -1,10 +1,12 @@
 // src/travel/index.ts
 import type { CelestialObject, SolarSystem } from "../core/types.ts";
 import { ObjectType } from "../core/types.ts";
-import { type BodyRef, findDirectRoutes } from "./search.ts";
-import { muBody, muStar, R_EARTH_M } from "./units.ts";
+import { findCrossFrameRoutes, findDirectRoutes } from "./search.ts";
+import type { BodyRef } from "./search.ts";
+import type { CrossFrameEndpoint } from "./legs.ts";
+import { auToM, muBody, muStar, R_EARTH_M } from "./units.ts";
 import type { OrbitElements } from "./state.ts";
-import type { Route, TravelOptions, Waypoint } from "./types.ts";
+import type { EndState, Route, TravelOptions, Waypoint } from "./types.ts";
 
 function elementsOf(o: CelestialObject): OrbitElements {
   return {
@@ -20,6 +22,41 @@ function bodyRefOf(o: CelestialObject): BodyRef {
     id: o.id,
     elements: elementsOf(o),
     endpoint: { mu: muBody(o.mass), radiusM: o.radius * R_EARTH_M },
+  };
+}
+
+/** Build a cross-frame endpoint descriptor. A planet anchors to itself; a moon to its parent. */
+function crossFrameEndpointOf(
+  entry: { obj: CelestialObject; isMoon: boolean },
+  endState: EndState,
+  index: Map<string, { obj: CelestialObject; isMoon: boolean }>,
+): CrossFrameEndpoint {
+  const o = entry.obj;
+  const body = { mu: muBody(o.mass), radiusM: o.radius * R_EARTH_M };
+  if (!entry.isMoon) {
+    return {
+      id: o.id,
+      endState,
+      body,
+      anchorId: o.id,
+      anchorElements: elementsOf(o),
+    };
+  }
+  const parent = index.get(o.parentId!);
+  if (!parent) throw new Error(`unknown parent body: ${o.parentId}`);
+  return {
+    id: o.id,
+    endState,
+    body,
+    anchorId: parent.obj.id,
+    anchorElements: elementsOf(parent.obj),
+    parent: {
+      body: {
+        mu: muBody(parent.obj.mass),
+        radiusM: parent.obj.radius * R_EARTH_M,
+      },
+      moonOrbitRadiusM: auToM(o.orbitRadius),
+    },
   };
 }
 
@@ -55,7 +92,7 @@ export function travelOptions(
     throw new Error("the star cannot be a travel endpoint");
   }
   if (f.isMoon || t.isMoon) {
-    // Phase 1b supports only same-parent moon→moon (one planetocentric leg).
+    // Same-parent moon→moon: a single planetocentric leg (Phase 1b).
     if (f.isMoon && t.isMoon && f.obj.parentId === t.obj.parentId) {
       const parent = index.get(f.obj.parentId!);
       if (!parent) throw new Error(`unknown parent body: ${f.obj.parentId}`);
@@ -69,8 +106,20 @@ export function travelOptions(
         options,
       );
     }
-    throw new Error(
-      "moon endpoints are only supported for same-parent moon→moon until Phase 1c",
+    const fromEp = crossFrameEndpointOf(f, from.type, index);
+    const toEp = crossFrameEndpointOf(t, to.type, index);
+    if (fromEp.anchorId === toEp.anchorId) {
+      // A moon and its own parent planet share an anchor; the heliocentric spine degenerates.
+      throw new Error(
+        "travel between a moon and its own parent is not yet supported",
+      );
+    }
+    return findCrossFrameRoutes(
+      fromEp,
+      toEp,
+      system.star.id,
+      muStar(system.star.mass),
+      options,
     );
   }
   return findDirectRoutes(
