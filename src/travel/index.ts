@@ -96,7 +96,7 @@ function flatten(
  * Compute ranked direct travel routes between two non-moon bodies.
  * Phase 1: heliocentric, direct (no gravity assists), no moon endpoints.
  */
-export function travelOptions(
+export function getRoutes(
   system: SolarSystem,
   from: Waypoint,
   to: Waypoint,
@@ -161,9 +161,10 @@ export function travelOptions(
   }
   const fromRef = bodyRefOf(f.obj);
   const toRef = bodyRefOf(t.obj);
-  const candidates = [...direct];
-  candidates.push(
-    ...findSingleAssistRoutes(
+  // Concatenate rather than push(...spread): assist searches can return tens of
+  // thousands of candidates, which would overflow the argument limit of push.
+  let candidates = direct.concat(
+    findSingleAssistRoutes(
       fromRef,
       toRef,
       from.type,
@@ -175,8 +176,8 @@ export function travelOptions(
     ),
   );
   if (assists >= 2) {
-    candidates.push(
-      ...findDoubleAssistRoutes(
+    candidates = candidates.concat(
+      findDoubleAssistRoutes(
         fromRef,
         toRef,
         from.type,

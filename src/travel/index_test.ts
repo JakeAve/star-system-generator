@@ -1,14 +1,14 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
-import { travelOptions } from "./index.ts";
+import { getRoutes } from "./index.ts";
 import { EndState, RankMode, RouteNodeKind } from "./types.ts";
 
 const system = generateSolarSystem({ seed: 1 });
 const a = system.objects[0].id;
 const b = system.objects[system.objects.length - 1].id;
 
-Deno.test("travelOptions: returns ranked routes between two non-moon bodies", () => {
-  const routes = travelOptions(system, { obj: a, type: EndState.Orbit }, {
+Deno.test("getRoutes: returns ranked routes between two non-moon bodies", () => {
+  const routes = getRoutes(system, { obj: a, type: EndState.Orbit }, {
     obj: b,
     type: EndState.Orbit,
   });
@@ -19,8 +19,8 @@ Deno.test("travelOptions: returns ranked routes between two non-moon bodies", ()
   if (!(routes[0].totalDeltaV > 0)) throw new Error("expected positive Δv");
 });
 
-Deno.test("travelOptions: maxAssists 0 yields only direct (two-body) routes", () => {
-  const routes = travelOptions(
+Deno.test("getRoutes: maxAssists 0 yields only direct (two-body) routes", () => {
+  const routes = getRoutes(
     system,
     { obj: a, type: EndState.Orbit },
     { obj: b, type: EndState.Orbit },
@@ -30,14 +30,14 @@ Deno.test("travelOptions: maxAssists 0 yields only direct (two-body) routes", ()
   for (const r of routes) assertEquals(r.bodies.length, 2);
 });
 
-Deno.test("travelOptions: enabling assists adds gravity-assist candidates", () => {
-  const direct = travelOptions(
+Deno.test("getRoutes: enabling assists adds gravity-assist candidates", () => {
+  const direct = getRoutes(
     system,
     { obj: a, type: EndState.Orbit },
     { obj: b, type: EndState.Orbit },
     { maxAssists: 0, rank: RankMode.All },
   );
-  const withAssist = travelOptions(
+  const withAssist = getRoutes(
     system,
     { obj: a, type: EndState.Orbit },
     { obj: b, type: EndState.Orbit },
@@ -53,8 +53,8 @@ Deno.test("travelOptions: enabling assists adds gravity-assist candidates", () =
   assertEquals(flyby.bodies[2], b);
 });
 
-Deno.test("travelOptions: maxAssists 1 never returns a four-body (double-assist) route", () => {
-  const routes = travelOptions(
+Deno.test("getRoutes: maxAssists 1 never returns a four-body (double-assist) route", () => {
+  const routes = getRoutes(
     system,
     { obj: a, type: EndState.Orbit },
     { obj: b, type: EndState.Orbit },
@@ -65,14 +65,14 @@ Deno.test("travelOptions: maxAssists 1 never returns a four-body (double-assist)
   }
 });
 
-Deno.test("travelOptions: maxAssists 2 enables double-assist (four-body) routes", () => {
-  const single = travelOptions(
+Deno.test("getRoutes: maxAssists 2 enables double-assist (four-body) routes", () => {
+  const single = getRoutes(
     system,
     { obj: a, type: EndState.Orbit },
     { obj: b, type: EndState.Orbit },
     { maxAssists: 1, rank: RankMode.All },
   );
-  const double = travelOptions(
+  const double = getRoutes(
     system,
     { obj: a, type: EndState.Orbit },
     { obj: b, type: EndState.Orbit },
@@ -92,14 +92,14 @@ Deno.test("travelOptions: maxAssists 2 enables double-assist (four-body) routes"
   assertEquals(quad.legs.length, 3);
 });
 
-Deno.test("travelOptions: maxAssists is capped at depth 2 (a value of 3 matches 2)", () => {
-  const two = travelOptions(
+Deno.test("getRoutes: maxAssists is capped at depth 2 (a value of 3 matches 2)", () => {
+  const two = getRoutes(
     system,
     { obj: a, type: EndState.Orbit },
     { obj: b, type: EndState.Orbit },
     { maxAssists: 2, rank: RankMode.All },
   );
-  const three = travelOptions(
+  const three = getRoutes(
     system,
     { obj: a, type: EndState.Orbit },
     { obj: b, type: EndState.Orbit },
@@ -108,10 +108,10 @@ Deno.test("travelOptions: maxAssists is capped at depth 2 (a value of 3 matches 
   assertEquals(JSON.stringify(three), JSON.stringify(two));
 });
 
-Deno.test("travelOptions: unknown id throws", () => {
+Deno.test("getRoutes: unknown id throws", () => {
   assertThrows(
     () =>
-      travelOptions(system, { obj: "nope", type: EndState.Orbit }, {
+      getRoutes(system, { obj: "nope", type: EndState.Orbit }, {
         obj: b,
         type: EndState.Orbit,
       }),
@@ -120,12 +120,12 @@ Deno.test("travelOptions: unknown id throws", () => {
   );
 });
 
-Deno.test("travelOptions: determinism — identical inputs give identical output", () => {
-  const r1 = travelOptions(system, { obj: a, type: EndState.Orbit }, {
+Deno.test("getRoutes: determinism — identical inputs give identical output", () => {
+  const r1 = getRoutes(system, { obj: a, type: EndState.Orbit }, {
     obj: b,
     type: EndState.Orbit,
   });
-  const r2 = travelOptions(system, { obj: a, type: EndState.Orbit }, {
+  const r2 = getRoutes(system, { obj: a, type: EndState.Orbit }, {
     obj: b,
     type: EndState.Orbit,
   });
@@ -136,13 +136,13 @@ Deno.test("travelOptions: determinism — identical inputs give identical output
 const sys42 = generateSolarSystem({ seed: 42 });
 const giant42 = sys42.objects.find((o) => o.moons.length >= 2);
 
-Deno.test("travelOptions: same-parent moon→moon returns a planetocentric route", () => {
+Deno.test("getRoutes: same-parent moon→moon returns a planetocentric route", () => {
   if (!giant42) {
     throw new Error("seed 42 expected to have a planet with >= 2 moons");
   }
   const m1 = giant42.moons[0].id;
   const m2 = giant42.moons[1].id;
-  const routes = travelOptions(sys42, { obj: m1, type: EndState.Orbit }, {
+  const routes = getRoutes(sys42, { obj: m1, type: EndState.Orbit }, {
     obj: m2,
     type: EndState.Orbit,
   });
@@ -154,14 +154,14 @@ Deno.test("travelOptions: same-parent moon→moon returns a planetocentric route
   if (!(routes[0].duration > 0)) throw new Error("expected positive duration");
 });
 
-Deno.test("travelOptions: moon → non-parent planet routes through a Transit node", () => {
+Deno.test("getRoutes: moon → non-parent planet routes through a Transit node", () => {
   if (!giant42) {
     throw new Error("seed 42 expected to have a planet with >= 2 moons");
   }
   const moonId = giant42.moons[0].id;
   const planet = sys42.objects.find((o) => o.id !== giant42.id);
   if (!planet) throw new Error("seed 42 expected a second planet");
-  const routes = travelOptions(
+  const routes = getRoutes(
     sys42,
     { obj: moonId, type: EndState.Orbit },
     { obj: planet.id, type: EndState.Orbit },
@@ -178,14 +178,14 @@ Deno.test("travelOptions: moon → non-parent planet routes through a Transit no
   if (!(r.totalDeltaV > 0)) throw new Error("expected positive Δv");
 });
 
-Deno.test("travelOptions: planet → moon routes through the moon's parent", () => {
+Deno.test("getRoutes: planet → moon routes through the moon's parent", () => {
   if (!giant42) {
     throw new Error("seed 42 expected to have a planet with >= 2 moons");
   }
   const moonId = giant42.moons[0].id;
   const planet = sys42.objects.find((o) => o.id !== giant42.id);
   if (!planet) throw new Error("seed 42 expected a second planet");
-  const routes = travelOptions(
+  const routes = getRoutes(
     sys42,
     { obj: planet.id, type: EndState.Orbit },
     { obj: moonId, type: EndState.Surface },
@@ -202,7 +202,7 @@ Deno.test("travelOptions: planet → moon routes through the moon's parent", () 
   if (!(r.totalDeltaV > 0)) throw new Error("expected positive Δv");
 });
 
-Deno.test("travelOptions: moon → moon across different parents has two Transits and three legs", () => {
+Deno.test("getRoutes: moon → moon across different parents has two Transits and three legs", () => {
   // Two planets that each have at least one moon (different parents).
   const withMoons = sys42.objects.filter((o) => o.moons.length > 0);
   if (withMoons.length < 2) {
@@ -213,7 +213,7 @@ Deno.test("travelOptions: moon → moon across different parents has two Transit
   const moonA = parentA.moons[0].id;
   const moonB = parentB.moons[0].id;
 
-  const routes = travelOptions(
+  const routes = getRoutes(
     sys42,
     { obj: moonA, type: EndState.Orbit },
     { obj: moonB, type: EndState.Surface },
