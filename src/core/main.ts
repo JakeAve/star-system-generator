@@ -6,12 +6,11 @@ const args = Deno.args;
 const jsonFlagIdx = args.indexOf("--json");
 const exportJson = jsonFlagIdx !== -1;
 
-const folderArg =
-  exportJson &&
-  jsonFlagIdx + 1 < args.length &&
-  !args[jsonFlagIdx + 1].startsWith("--")
-    ? args[jsonFlagIdx + 1]
-    : null;
+const folderArg = exportJson &&
+    jsonFlagIdx + 1 < args.length &&
+    !args[jsonFlagIdx + 1].startsWith("--")
+  ? args[jsonFlagIdx + 1]
+  : null;
 const outputDir = folderArg ?? "./seeds";
 
 const seedArg = args.find(
@@ -23,8 +22,8 @@ const seed = !isNaN(rawSeed) ? rawSeed : undefined;
 
 const system = generateSolarSystem({ seed });
 
-const frostLineAU =
-  system.star.habitableZoneAU * DEFAULT_CONFIG.frostLineAUFactor;
+const frostLineAU = system.star.habitableZoneAU *
+  DEFAULT_CONFIG.frostLineAUFactor;
 const all = allObjects(system);
 const known = knownObjects(system);
 
@@ -33,9 +32,11 @@ console.log(
   `  Star:     ${system.star.spectralType}-type  luminosity:${system.star.luminosity}x Sol`,
 );
 console.log(
-  `  Hz:       ${system.star.habitableZoneAU} AU  |  Frost line: ${frostLineAU.toFixed(
-    2,
-  )} AU`,
+  `  Hz:       ${system.star.habitableZoneAU} AU  |  Frost line: ${
+    frostLineAU.toFixed(
+      2,
+    )
+  } AU`,
 );
 console.log(`  History:  ${system.migrationHistory}`);
 const celestialCount = all.length - 1; // exclude star
@@ -46,10 +47,12 @@ console.log(
 );
 console.log(`  Known:    ${known.length}`);
 console.log(
-  `  Slots:    ${all.reduce(
-    (s, o) => s + o.settlementCap,
-    0,
-  )} settlement slots`,
+  `  Slots:    ${
+    all.reduce(
+      (s, o) => s + o.settlementCap,
+      0,
+    )
+  } settlement slots`,
 );
 
 if (exportJson) {

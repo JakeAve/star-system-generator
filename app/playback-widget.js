@@ -48,7 +48,10 @@ export function buildPlaybackWidget({ onTimeScale, onPause, onResume }) {
 
   function apply(v) {
     const ts = 0.1 * Math.pow(5000, v / 100);
-    slider.setAttribute("aria-valuenow", ts < 10 ? ts.toFixed(1) : Math.round(ts));
+    slider.setAttribute(
+      "aria-valuenow",
+      ts < 10 ? ts.toFixed(1) : Math.round(ts),
+    );
     onTimeScale(ts);
   }
   apply(Number(slider.value));

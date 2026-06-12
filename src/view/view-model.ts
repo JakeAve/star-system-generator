@@ -65,7 +65,9 @@ export function buildViewModel(
     data: system.star,
   });
 
-  const sorted = [...system.objects].sort((a, b) => a.orbitRadius - b.orbitRadius);
+  const sorted = [...system.objects].sort((a, b) =>
+    a.orbitRadius - b.orbitRadius
+  );
   for (const obj of sorted) flatten(obj, null, false, bodies);
 
   // Resolve positions parent-before-child (parents precede their moons in `bodies`).
@@ -90,7 +92,10 @@ export function buildViewModel(
       body.position = local;
     } else {
       const parent = byId[body.parentId];
-      body.position = { x: parent.position.x + local.x, y: parent.position.y + local.y };
+      body.position = {
+        x: parent.position.x + local.x,
+        y: parent.position.y + local.y,
+      };
     }
   }
 

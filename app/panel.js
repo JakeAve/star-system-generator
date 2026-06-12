@@ -83,19 +83,24 @@ const STYLES = `
 `;
 
 const TYPE_HEX = {
-  star:        "#fff5b0",
+  star: "#fff5b0",
   rockyPlanet: "#c1693a",
-  gasGiant:    "#d4874e",
-  iceGiant:    "#6ab0d4",
+  gasGiant: "#d4874e",
+  iceGiant: "#6ab0d4",
   dwarfPlanet: "#7090b0",
-  asteroid:    "#555555",
-  moon:        "#aaaaaa",
-  comet:       "#88aacc",
+  asteroid: "#555555",
+  moon: "#aaaaaa",
+  comet: "#88aacc",
 };
 
 const SPECTRAL_STAR_COLOR = {
-  O: "#9bb0ff", B: "#aabfff", A: "#cad7ff",
-  F: "#f8f7ff", G: "#fff5b0", K: "#ffcc6f", M: "#ff6633",
+  O: "#9bb0ff",
+  B: "#aabfff",
+  A: "#cad7ff",
+  F: "#f8f7ff",
+  G: "#fff5b0",
+  K: "#ffcc6f",
+  M: "#ff6633",
 };
 
 function colorFor(obj) {
@@ -184,19 +189,28 @@ function initHandle(handle) {
 function buildList(seed, animObjects) {
   listEl.innerHTML = "";
 
-  const starColor = SPECTRAL_STAR_COLOR[seed.star.spectralType] ?? TYPE_HEX.star;
-  const starRow = makeListRow("star", `${seed.star.spectralType}-type Star`, false, "star", starColor);
+  const starColor = SPECTRAL_STAR_COLOR[seed.star.spectralType] ??
+    TYPE_HEX.star;
+  const starRow = makeListRow(
+    "star",
+    `${seed.star.spectralType}-type Star`,
+    false,
+    "star",
+    starColor,
+  );
   starRow.addEventListener("click", () => {
     setActiveRow(starRow);
-    const starObj = animObjects.find(o => o.type === "star");
+    const starObj = animObjects.find((o) => o.type === "star");
     panelCallbacks.onFocus(starObj);
     showDetail(starObj);
   });
   listEl.appendChild(starRow);
 
-  const sorted = [...seed.objects].sort((a, b) => a.orbitRadius - b.orbitRadius);
+  const sorted = [...seed.objects].sort((a, b) =>
+    a.orbitRadius - b.orbitRadius
+  );
   for (const obj of sorted) {
-    const planetAnimObj = animObjects.find(o => o.id === obj.id);
+    const planetAnimObj = animObjects.find((o) => o.id === obj.id);
     const row = makeListRow(obj.type, obj.name, false, obj.id);
     row.addEventListener("click", () => {
       if (!planetAnimObj) return;
@@ -207,7 +221,7 @@ function buildList(seed, animObjects) {
     listEl.appendChild(row);
 
     for (const moon of (obj.moons ?? [])) {
-      const moonAnimObj = animObjects.find(o => o.id === moon.id);
+      const moonAnimObj = animObjects.find((o) => o.id === moon.id);
       const moonRow = makeListRow(moon.type, moon.name, true, moon.id);
       moonRow.addEventListener("click", () => {
         if (!moonAnimObj) return;
@@ -280,24 +294,24 @@ function showDetail(obj) {
 
   const fields = obj.type === "star"
     ? [
-        ["Type",           `${obj.data.spectralType}-type Star`],
-        ["Luminosity",     `${obj.data.luminosity?.toFixed(2) ?? "—"} L☉`],
-        ["Habitable zone", `${obj.data.habitableZoneAU?.toFixed(2) ?? "—"} AU`],
-        ["Mass",           `${obj.data.mass?.toFixed(2) ?? "—"} M☉`],
-        ["Radius",         `${obj.data.radius?.toFixed(2) ?? "—"} R☉`],
-      ]
+      ["Type", `${obj.data.spectralType}-type Star`],
+      ["Luminosity", `${obj.data.luminosity?.toFixed(2) ?? "—"} L☉`],
+      ["Habitable zone", `${obj.data.habitableZoneAU?.toFixed(2) ?? "—"} AU`],
+      ["Mass", `${obj.data.mass?.toFixed(2) ?? "—"} M☉`],
+      ["Radius", `${obj.data.radius?.toFixed(2) ?? "—"} R☉`],
+    ]
     : [
-        ["Type",           obj.type],
-        ["Radius",         `${fmt3(obj.data.radius)} R⊕`],
-        ["Mass",           `${fmt3(obj.data.mass)} M⊕`],
-        ["Density",        `${fmtDensity(obj.data.mass, obj.data.radius)} g/cm³`],
-        ["Orbit radius",   `${obj.data.orbitRadius?.toFixed(3) ?? "—"} AU`],
-        ["Orbit period",   `${obj.data.orbitPeriod?.toFixed(1) ?? "—"} days`],
-        ["Eccentricity",   obj.data.eccentricity?.toFixed(3) ?? "—"],
-        ["Settlement cap", obj.data.settlementCap ?? "—"],
-        ["Rotation",       `${obj.data.rotationPeriodDays?.toFixed(2) ?? "—"} days`],
-        ["Tidal lock",     obj.data.tidallyLocked ? "Yes" : "No"],
-      ];
+      ["Type", obj.type],
+      ["Radius", `${fmt3(obj.data.radius)} R⊕`],
+      ["Mass", `${fmt3(obj.data.mass)} M⊕`],
+      ["Density", `${fmtDensity(obj.data.mass, obj.data.radius)} g/cm³`],
+      ["Orbit radius", `${obj.data.orbitRadius?.toFixed(3) ?? "—"} AU`],
+      ["Orbit period", `${obj.data.orbitPeriod?.toFixed(1) ?? "—"} days`],
+      ["Eccentricity", obj.data.eccentricity?.toFixed(3) ?? "—"],
+      ["Settlement cap", obj.data.settlementCap ?? "—"],
+      ["Rotation", `${obj.data.rotationPeriodDays?.toFixed(2) ?? "—"} days`],
+      ["Tidal lock", obj.data.tidallyLocked ? "Yes" : "No"],
+    ];
 
   for (const [label, value] of fields) {
     const row = document.createElement("div");
@@ -349,7 +363,7 @@ export function buildPanel(seed, animObjects, callbacks) {
   setHeight(PEEK_PX, false);
 
   bodySelectedController = new AbortController();
-  document.addEventListener("bodySelected", e => onBodySelected(e.detail), {
+  document.addEventListener("bodySelected", (e) => onBodySelected(e.detail), {
     signal: bodySelectedController.signal,
   });
   window.matchMedia("(min-width: 900px)").addEventListener("change", () => {

@@ -1,4 +1,4 @@
-import { assertEquals, assertAlmostEquals, assert } from "@std/assert";
+import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
 import { RNG } from "./rng.ts";
 
 Deno.test("rayleigh: sigma=0 always returns 0", () => {
@@ -28,7 +28,9 @@ Deno.test("rayleigh: mean approximates sigma*sqrt(pi/2)", () => {
 Deno.test("rayleigh: deterministic for a given seed", () => {
   const a = new RNG(99);
   const b = new RNG(99);
-  for (let i = 0; i < 20; i++) assertEquals(a.rayleigh(0.1, 0.4), b.rayleigh(0.1, 0.4));
+  for (let i = 0; i < 20; i++) {
+    assertEquals(a.rayleigh(0.1, 0.4), b.rayleigh(0.1, 0.4));
+  }
 });
 
 Deno.test("rayleigh: consumes exactly one next() (stream alignment)", () => {

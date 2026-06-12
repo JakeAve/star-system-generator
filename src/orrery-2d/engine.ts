@@ -11,15 +11,33 @@ import {
 const FLY_DURATION = 1.5;
 
 const TYPE_COLORS: Record<string, string> = {
-  star: "#fff5b0", rockyPlanet: "#c1693a", gasGiant: "#d4874e", iceGiant: "#6ab0d4",
-  dwarfPlanet: "#7090b0", asteroid: "#555555", moon: "#aaaaaa", comet: "#88aacc",
+  star: "#fff5b0",
+  rockyPlanet: "#c1693a",
+  gasGiant: "#d4874e",
+  iceGiant: "#6ab0d4",
+  dwarfPlanet: "#7090b0",
+  asteroid: "#555555",
+  moon: "#aaaaaa",
+  comet: "#88aacc",
 };
 const TYPE_BORDERS: Record<string, string> = {
-  star: "#ccc380", rockyPlanet: "#8a4020", gasGiant: "#a05828", iceGiant: "#3a7090",
-  dwarfPlanet: "#405070", asteroid: "#333333", moon: "#777777", comet: "#557799",
+  star: "#ccc380",
+  rockyPlanet: "#8a4020",
+  gasGiant: "#a05828",
+  iceGiant: "#3a7090",
+  dwarfPlanet: "#405070",
+  asteroid: "#333333",
+  moon: "#777777",
+  comet: "#557799",
 };
 const SPECTRAL_STAR_COLOR: Record<string, string> = {
-  O: "#9bb0ff", B: "#aabfff", A: "#cad7ff", F: "#f8f7ff", G: "#fff5b0", K: "#ffcc6f", M: "#ff6633",
+  O: "#9bb0ff",
+  B: "#aabfff",
+  A: "#cad7ff",
+  F: "#f8f7ff",
+  G: "#fff5b0",
+  K: "#ffcc6f",
+  M: "#ff6633",
 };
 
 export interface CanvasOrreryOptions {
@@ -31,12 +49,15 @@ interface AnimObj {
   id: string;
   type: string;
   data: Record<string, unknown>;
-  a: number; b: number; c: number;
+  a: number;
+  b: number;
+  c: number;
   periapsisAngle: number;
   initialAngle: number;
   orbitPeriod: number;
   parentId: string | null;
-  worldX: number; worldY: number;
+  worldX: number;
+  worldY: number;
   visualR: number;
 }
 
@@ -53,7 +74,9 @@ export function createCanvasOrrery(
   container: HTMLElement,
   opts: CanvasOrreryOptions = {},
 ): CanvasOrreryHandle {
-  if (!container) throw new Error("createCanvasOrrery: container element is required");
+  if (!container) {
+    throw new Error("createCanvasOrrery: container element is required");
+  }
 
   const canvas = document.createElement("canvas");
   canvas.width = container.clientWidth || globalThis.innerWidth;
@@ -72,7 +95,14 @@ export function createCanvasOrrery(
   let paused = false;
   let timeScale = 1;
   let flyState:
-    | { startX: number; startY: number; startScale: number; target: AnimObj; targetScale: number | null; progress: number }
+    | {
+      startX: number;
+      startY: number;
+      startScale: number;
+      target: AnimObj;
+      targetScale: number | null;
+      progress: number;
+    }
     | null = null;
   let lockedTarget: AnimObj | null = null;
   let rafId = 0;
@@ -99,7 +129,10 @@ export function createCanvasOrrery(
     for (const obj of animObjects) {
       const d = Math.hypot(obj.worldX - wx, obj.worldY - wy);
       const hitR = Math.max(MIN_HIT, obj.visualR);
-      if (d < hitR && d < bestDist) { best = obj; bestDist = d; }
+      if (d < hitR && d < bestDist) {
+        best = obj;
+        bestDist = d;
+      }
     }
     if (best) {
       focus(best.id);
@@ -122,12 +155,17 @@ export function createCanvasOrrery(
     cam.y = camAtDrag.y - (e.clientY - dragStart.y) / cam.scale;
   };
   const onMouseUp = (e: MouseEvent) => {
-    if (dragStart && Math.abs(e.clientX - dragStart.x) < 4 && Math.abs(e.clientY - dragStart.y) < 4) {
+    if (
+      dragStart && Math.abs(e.clientX - dragStart.x) < 4 &&
+      Math.abs(e.clientY - dragStart.y) < 4
+    ) {
       handleTap(e.clientX, e.clientY);
     }
     dragStart = null;
   };
-  const onMouseLeave = () => { dragStart = null; };
+  const onMouseLeave = () => {
+    dragStart = null;
+  };
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
     lockedTarget = null;
@@ -141,12 +179,17 @@ export function createCanvasOrrery(
   const onTouchStart = (e: TouchEvent) => {
     e.preventDefault();
     lockedTarget = null;
-    for (const t of Array.from(e.changedTouches)) touchCache[t.identifier] = { x: t.clientX, y: t.clientY };
+    for (const t of Array.from(e.changedTouches)) {
+      touchCache[t.identifier] = { x: t.clientX, y: t.clientY };
+    }
     const pts = Object.values(touchCache);
     if (pts.length === 2) {
       pinchStartDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
       pinchStartScale = cam.scale;
-      pinchMidWorld = screenToWorld((pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
+      pinchMidWorld = screenToWorld(
+        (pts[0].x + pts[1].x) / 2,
+        (pts[0].y + pts[1].y) / 2,
+      );
       dragStart = null;
     } else if (pts.length === 1) {
       dragStart = { x: pts[0].x, y: pts[0].y };
@@ -155,12 +198,20 @@ export function createCanvasOrrery(
   };
   const onTouchMove = (e: TouchEvent) => {
     e.preventDefault();
-    for (const t of Array.from(e.changedTouches)) touchCache[t.identifier] = { x: t.clientX, y: t.clientY };
+    for (const t of Array.from(e.changedTouches)) {
+      touchCache[t.identifier] = { x: t.clientX, y: t.clientY };
+    }
     const pts = Object.values(touchCache);
     if (pts.length === 2 && pinchStartDist !== null && pinchMidWorld) {
       const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
-      cam.scale = Math.max(0.01, Math.min(500, pinchStartScale * dist / pinchStartDist));
-      const after = screenToWorld((pts[0].x + pts[1].x) / 2, (pts[0].y + pts[1].y) / 2);
+      cam.scale = Math.max(
+        0.01,
+        Math.min(500, pinchStartScale * dist / pinchStartDist),
+      );
+      const after = screenToWorld(
+        (pts[0].x + pts[1].x) / 2,
+        (pts[0].y + pts[1].y) / 2,
+      );
       cam.x += pinchMidWorld.x - after.x;
       cam.y += pinchMidWorld.y - after.y;
     } else if (pts.length === 1 && dragStart && camAtDrag) {
@@ -170,18 +221,25 @@ export function createCanvasOrrery(
   };
   const onTouchEnd = (e: TouchEvent) => {
     const wasSingle = Object.keys(touchCache).length === 1;
-    for (const t of Array.from(e.changedTouches)) delete touchCache[t.identifier];
+    for (const t of Array.from(e.changedTouches)) {
+      delete touchCache[t.identifier];
+    }
     pinchStartDist = null;
     if (wasSingle && e.changedTouches.length === 1) {
       const t = e.changedTouches[0];
-      if (dragStart && Math.abs(t.clientX - dragStart.x) < 10 && Math.abs(t.clientY - dragStart.y) < 10) {
+      if (
+        dragStart && Math.abs(t.clientX - dragStart.x) < 10 &&
+        Math.abs(t.clientY - dragStart.y) < 10
+      ) {
         handleTap(t.clientX, t.clientY);
       }
     }
     if (Object.keys(touchCache).length === 0) dragStart = null;
   };
   const onTouchCancel = (e: TouchEvent) => {
-    for (const t of Array.from(e.changedTouches)) delete touchCache[t.identifier];
+    for (const t of Array.from(e.changedTouches)) {
+      delete touchCache[t.identifier];
+    }
     pinchStartDist = null;
     dragStart = null;
   };
@@ -189,7 +247,9 @@ export function createCanvasOrrery(
     canvas.width = container.clientWidth || globalThis.innerWidth;
     canvas.height = container.clientHeight || globalThis.innerHeight;
     ctx.imageSmoothingEnabled = false;
-    if (currentSeed) starfield = buildStarfield(currentSeed, canvas.width, canvas.height);
+    if (currentSeed) {
+      starfield = buildStarfield(currentSeed, canvas.width, canvas.height);
+    }
   };
 
   canvas.addEventListener("mousedown", onMouseDown);
@@ -208,7 +268,8 @@ export function createCanvasOrrery(
   }
   function mulberry32(seed: number) {
     return function () {
-      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      seed |= 0;
+      seed = seed + 0x6D2B79F5 | 0;
       let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
       t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
       return ((t ^ t >>> 14) >>> 0) / 4294967296;
@@ -217,12 +278,20 @@ export function createCanvasOrrery(
   function buildStarfield(systemSeed: number, w: number, h: number) {
     const rand = mulberry32(systemSeed);
     const dots: { x: number; y: number }[] = [];
-    for (let i = 0; i < 250; i++) dots.push({ x: Math.floor(rand() * w), y: Math.floor(rand() * h) });
+    for (let i = 0; i < 250; i++) {
+      dots.push({ x: Math.floor(rand() * w), y: Math.floor(rand() * h) });
+    }
     return dots;
   }
   function applyTransform() {
-    ctx.setTransform(cam.scale, 0, 0, cam.scale,
-      canvas.width / 2 - cam.x * cam.scale, canvas.height / 2 - cam.y * cam.scale);
+    ctx.setTransform(
+      cam.scale,
+      0,
+      0,
+      cam.scale,
+      canvas.width / 2 - cam.x * cam.scale,
+      canvas.height / 2 - cam.y * cam.scale,
+    );
   }
   function drawStarfield() {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -263,7 +332,9 @@ export function createCanvasOrrery(
       ctx.beginPath();
       ctx.arc(0, 0, r, 0, Math.PI * 2);
       ctx.fillStyle = obj.type === "star"
-        ? (SPECTRAL_STAR_COLOR[(obj.data as { spectralType?: string }).spectralType ?? "G"] ?? "#fff5b0")
+        ? (SPECTRAL_STAR_COLOR[
+          (obj.data as { spectralType?: string }).spectralType ?? "G"
+        ] ?? "#fff5b0")
         : (TYPE_COLORS[obj.type] ?? "#ffffff");
       ctx.fill();
       ctx.strokeStyle = TYPE_BORDERS[obj.type] ?? "#888";
@@ -276,30 +347,56 @@ export function createCanvasOrrery(
   function buildAnimObjects(system: SolarSystem): AnimObj[] {
     const objs: AnimObj[] = [];
     objs.push({
-      id: system.star.id, type: "star", data: system.star as unknown as Record<string, unknown>,
-      worldX: 0, worldY: 0, visualR: visualRadius(system.star.radius * SOLAR_TO_EARTH_RADII),
-      a: 0, b: 0, c: 0, periapsisAngle: 0, initialAngle: 0, orbitPeriod: 1, parentId: null,
+      id: system.star.id,
+      type: "star",
+      data: system.star as unknown as Record<string, unknown>,
+      worldX: 0,
+      worldY: 0,
+      visualR: visualRadius(system.star.radius * SOLAR_TO_EARTH_RADII),
+      a: 0,
+      b: 0,
+      c: 0,
+      periapsisAngle: 0,
+      initialAngle: 0,
+      orbitPeriod: 1,
+      parentId: null,
     });
-    const sorted = [...system.objects].sort((a, b) => a.orbitRadius - b.orbitRadius);
+    const sorted = [...system.objects].sort((a, b) =>
+      a.orbitRadius - b.orbitRadius
+    );
     for (const obj of sorted) {
       const p = orbitParams(obj.orbitRadius, obj.eccentricity, false);
       objs.push({
-        id: obj.id, type: obj.type, data: obj as unknown as Record<string, unknown>,
-        a: p.a, b: p.b, c: p.c,
+        id: obj.id,
+        type: obj.type,
+        data: obj as unknown as Record<string, unknown>,
+        a: p.a,
+        b: p.b,
+        c: p.c,
         periapsisAngle: obj.periapsisAngle ?? 0,
         initialAngle: (obj.orbitalPhase ?? 0) * Math.PI * 2,
-        orbitPeriod: obj.orbitPeriod || 1, parentId: null,
-        worldX: 0, worldY: 0, visualR: visualRadius(obj.radius),
+        orbitPeriod: obj.orbitPeriod || 1,
+        parentId: null,
+        worldX: 0,
+        worldY: 0,
+        visualR: visualRadius(obj.radius),
       });
       for (const moon of obj.moons ?? []) {
         const mp = orbitParams(moon.orbitRadius, moon.eccentricity, true);
         objs.push({
-          id: moon.id, type: moon.type, data: moon as unknown as Record<string, unknown>,
-          a: mp.a, b: mp.b, c: mp.c,
+          id: moon.id,
+          type: moon.type,
+          data: moon as unknown as Record<string, unknown>,
+          a: mp.a,
+          b: mp.b,
+          c: mp.c,
           periapsisAngle: moon.periapsisAngle ?? 0,
           initialAngle: (moon.orbitalPhase ?? 0) * Math.PI * 2,
-          orbitPeriod: moon.orbitPeriod || 1, parentId: obj.id,
-          worldX: 0, worldY: 0, visualR: visualRadius(moon.radius),
+          orbitPeriod: moon.orbitPeriod || 1,
+          parentId: obj.id,
+          worldX: 0,
+          worldY: 0,
+          visualR: visualRadius(moon.radius),
         });
       }
     }
@@ -316,8 +413,10 @@ export function createCanvasOrrery(
         obj.a > 0 ? obj.c / obj.a : 0,
       );
       const pos = orbitPosition(obj.a, obj.b, obj.c, angle, obj.periapsisAngle);
-      if (obj.parentId === null) { obj.worldX = pos.x; obj.worldY = pos.y; }
-      else {
+      if (obj.parentId === null) {
+        obj.worldX = pos.x;
+        obj.worldY = pos.y;
+      } else {
         const parent = animObjectsById[obj.parentId];
         obj.worldX = parent.worldX + pos.x;
         obj.worldY = parent.worldY + pos.y;
@@ -330,13 +429,26 @@ export function createCanvasOrrery(
     const obj = animObjectsById[id];
     if (!obj) return;
     const minDim = Math.min(canvas.width, canvas.height);
-    const targetScale = Math.max(0.01, Math.min(500, (minDim * 0.2) / Math.max(obj.visualR, 1e-6)));
-    flyState = { startX: cam.x, startY: cam.y, startScale: cam.scale, target: obj, targetScale, progress: 0 };
+    const targetScale = Math.max(
+      0.01,
+      Math.min(500, (minDim * 0.2) / Math.max(obj.visualR, 1e-6)),
+    );
+    flyState = {
+      startX: cam.x,
+      startY: cam.y,
+      startScale: cam.scale,
+      target: obj,
+      targetScale,
+      progress: 0,
+    };
   }
 
   function animate(time: number) {
     rafId = requestAnimationFrame(animate);
-    if (lastTime === null) { lastTime = time; return; }
+    if (lastTime === null) {
+      lastTime = time;
+      return;
+    }
     const delta = Math.min((time - lastTime) / 1000, 0.1);
     lastTime = time;
     if (!paused) elapsedDays += delta * timeScale;
@@ -351,7 +463,10 @@ export function createCanvasOrrery(
         const lt = Math.log(flyState.targetScale);
         cam.scale = Math.exp(ls + (lt - ls) * t);
       }
-      if (flyState.progress >= 1) { lockedTarget = flyState.target; flyState = null; }
+      if (flyState.progress >= 1) {
+        lockedTarget = flyState.target;
+        flyState = null;
+      }
     } else if (lockedTarget !== null) {
       cam.x = lockedTarget.worldX;
       cam.y = lockedTarget.worldY;
@@ -363,7 +478,10 @@ export function createCanvasOrrery(
   }
 
   function clearScene() {
-    if (rafId !== 0) { cancelAnimationFrame(rafId); rafId = 0; }
+    if (rafId !== 0) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
     animObjects = [];
     animObjectsById = {};
     starfield = [];
@@ -389,24 +507,41 @@ export function createCanvasOrrery(
       ctx.fillStyle = "#666";
       ctx.font = "14px monospace";
       ctx.textAlign = "center";
-      ctx.fillText("No system loaded — generate one first", canvas.width / 2, canvas.height / 2);
+      ctx.fillText(
+        "No system loaded — generate one first",
+        canvas.width / 2,
+        canvas.height / 2,
+      );
       return;
     }
     currentSeed = system.seed;
     animObjects = buildAnimObjects(system);
     animObjectsById = Object.fromEntries(animObjects.map((o) => [o.id, o]));
     starfield = buildStarfield(system.seed, canvas.width, canvas.height);
-    const maxR = Math.max(1,
-      ...animObjects.filter((o) => o.parentId === null && o.type !== "star").map((o) => o.a + Math.abs(o.c)));
-    cam = { x: 0, y: 0, scale: Math.min(canvas.width, canvas.height) / 2 / maxR * 0.8 };
+    const maxR = Math.max(
+      1,
+      ...animObjects.filter((o) => o.parentId === null && o.type !== "star")
+        .map((o) => o.a + Math.abs(o.c)),
+    );
+    cam = {
+      x: 0,
+      y: 0,
+      scale: Math.min(canvas.width, canvas.height) / 2 / maxR * 0.8,
+    };
     rafId = requestAnimationFrame(animate);
   }
 
   return {
     setSystem,
-    setTimeScale(scale) { timeScale = scale; },
-    pause() { paused = true; },
-    resume() { paused = false; },
+    setTimeScale(scale) {
+      timeScale = scale;
+    },
+    pause() {
+      paused = true;
+    },
+    resume() {
+      paused = false;
+    },
     focus,
     dispose() {
       clearScene();

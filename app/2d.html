@@ -6,37 +6,74 @@
     <title>Canvas Viewer</title>
     <link rel="icon" href="./favicon.ico">
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { background: #000; overflow: hidden; touch-action: none; }
-      canvas { display: block; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #000;
+        overflow: hidden;
+        touch-action: none;
+      }
+      canvas {
+        display: block;
+      }
       #loading {
-        position: fixed; inset: 0; display: flex;
-        align-items: center; justify-content: center;
-        background: #000; color: #888;
-        font-family: monospace; font-size: 0.85rem; letter-spacing: 0.1em;
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        color: #888;
+        font-family: monospace;
+        font-size: 0.85rem;
+        letter-spacing: 0.1em;
       }
       #top-bar {
-        position: fixed; top: 0; left: 0; right: 0;
-        padding: 1rem; display: flex; flex-direction: column;
-        align-items: flex-start; gap: 0.5rem; z-index: 15; pointer-events: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        z-index: 15;
+        pointer-events: none;
       }
       #nav-links {
-        display: flex; gap: 0.375rem;
-        flex-shrink: 0; pointer-events: auto;
+        display: flex;
+        gap: 0.375rem;
+        flex-shrink: 0;
+        pointer-events: auto;
       }
       .nav-link {
-        padding: 0.375rem 0.625rem; background: rgba(0,0,0,0.75);
-        border: 1px solid #2a2a3a; border-radius: 0.25rem;
-        color: #ccc; font-family: monospace; font-size: 0.6875rem;
-        letter-spacing: 0.05em; text-decoration: none;
+        padding: 0.375rem 0.625rem;
+        background: rgba(0, 0, 0, 0.75);
+        border: 1px solid #2a2a3a;
+        border-radius: 0.25rem;
+        color: #ccc;
+        font-family: monospace;
+        font-size: 0.6875rem;
+        letter-spacing: 0.05em;
+        text-decoration: none;
       }
-      .nav-link:hover { border-color: #555; color: #fff; }
+      .nav-link:hover {
+        border-color: #555;
+        color: #fff;
+      }
     </style>
   </head>
   <body>
     <div id="loading">LOADING...</div>
     <script type="module">
-      import { generateSolarSystem, buildViewModel } from "./star-seeder.bundle.js";
+      import {
+        buildViewModel,
+        generateSolarSystem,
+      } from "./star-seeder.bundle.js";
       import { createCanvasOrrery } from "./orrery-2d.bundle.js";
       import { loadSystem, saveSystem } from "./storage.js";
       import { buildPanel } from "./panel.js";
@@ -69,8 +106,12 @@
         const loadingEl = document.getElementById("loading");
         let data = loadSystem(numericId);
         if (!data) {
-          try { data = generateSolarSystem({ seed: numericId }); saveSystem(data); }
-          catch (err) { if (loadingEl) loadingEl.textContent = `Error: ${err.message}`; }
+          try {
+            data = generateSolarSystem({ seed: numericId });
+            saveSystem(data);
+          } catch (err) {
+            if (loadingEl) loadingEl.textContent = `Error: ${err.message}`;
+          }
         }
         if (data) {
           if (loadingEl) loadingEl.remove();
@@ -78,8 +119,12 @@
           const orrery = createCanvasOrrery(document.body, {
             onPick: (id) => {
               orrery.focus(id);
-              const obj = animObjects.find(o => o.id === id);
-              if (obj) document.dispatchEvent(new CustomEvent("bodySelected", { detail: obj }));
+              const obj = animObjects.find((o) => o.id === id);
+              if (obj) {
+                document.dispatchEvent(
+                  new CustomEvent("bodySelected", { detail: obj }),
+                );
+              }
             },
           });
           orrery.setSystem(data);

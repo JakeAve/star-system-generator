@@ -17,14 +17,32 @@ const FLY_OFFSET_FACTOR = 6;
 const FLY_OFFSET_MIN = 0.2;
 
 const TYPE_COLORS: Record<string, number> = {
-  star: 0xfff5b0, rockyPlanet: 0xc1693a, gasGiant: 0xd4874e, iceGiant: 0x6ab0d4,
-  dwarfPlanet: 0x7090b0, asteroid: 0x555555, moon: 0xaaaaaa, comet: 0x88aacc,
+  star: 0xfff5b0,
+  rockyPlanet: 0xc1693a,
+  gasGiant: 0xd4874e,
+  iceGiant: 0x6ab0d4,
+  dwarfPlanet: 0x7090b0,
+  asteroid: 0x555555,
+  moon: 0xaaaaaa,
+  comet: 0x88aacc,
 };
 const SPECTRAL_STAR_COLOR: Record<string, number> = {
-  O: 0x9bb0ff, B: 0xaabfff, A: 0xcad7ff, F: 0xf8f7ff, G: 0xfff5b0, K: 0xffcc6f, M: 0xff6633,
+  O: 0x9bb0ff,
+  B: 0xaabfff,
+  A: 0xcad7ff,
+  F: 0xf8f7ff,
+  G: 0xfff5b0,
+  K: 0xffcc6f,
+  M: 0xff6633,
 };
 const SPECTRAL_LIGHT_COLOR: Record<string, number> = {
-  O: 0x7090ff, B: 0x90aaff, A: 0xc0d0ff, F: 0xfff8f0, G: 0xfff5e0, K: 0xffaa44, M: 0xff5522,
+  O: 0x7090ff,
+  B: 0x90aaff,
+  A: 0xc0d0ff,
+  F: 0xfff8f0,
+  G: 0xfff5e0,
+  K: 0xffaa44,
+  M: 0xff5522,
 };
 
 export interface OrreryOptions {
@@ -62,7 +80,9 @@ export function createOrrery(
   container: HTMLElement,
   opts: OrreryOptions = {},
 ): OrreryHandle {
-  if (!container) throw new Error("createOrrery: container element is required");
+  if (!container) {
+    throw new Error("createOrrery: container element is required");
+  }
 
   const width = () => container.clientWidth || globalThis.innerWidth;
   const height = () => container.clientHeight || globalThis.innerHeight;
@@ -70,7 +90,12 @@ export function createOrrery(
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x000008);
 
-  const camera = new THREE.PerspectiveCamera(60, width() / height(), 0.1, 10000);
+  const camera = new THREE.PerspectiveCamera(
+    60,
+    width() / height(),
+    0.1,
+    10000,
+  );
   camera.position.set(0, 80, 120);
   camera.lookAt(0, 0, 0);
 
@@ -84,7 +109,9 @@ export function createOrrery(
 
   const pointLight = new THREE.PointLight(0xfff5e0, POINT_LIGHT_INTENSITY, 0);
   scene.add(pointLight);
-  scene.add(new THREE.AmbientLight(AMBIENT_LIGHT_COLOR, AMBIENT_LIGHT_INTENSITY));
+  scene.add(
+    new THREE.AmbientLight(AMBIENT_LIGHT_COLOR, AMBIENT_LIGHT_INTENSITY),
+  );
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
@@ -168,16 +195,28 @@ export function createOrrery(
 
   function addBody(body: ViewBody, parent: THREE.Object3D, isMoon: boolean) {
     const { a, b, c } = body.ellipse;
-    const initialAngle = ((body.data as { orbitalPhase?: number }).orbitalPhase ?? 0) * Math.PI * 2;
-    const periapsisAngle = (body.data as { periapsisAngle?: number }).periapsisAngle ?? 0;
+    const initialAngle =
+      ((body.data as { orbitalPhase?: number }).orbitalPhase ?? 0) * Math.PI *
+      2;
+    const periapsisAngle =
+      (body.data as { periapsisAngle?: number }).periapsisAngle ?? 0;
     parent.add(buildOrbitLine(a, b, c, periapsisAngle, isMoon));
     const geo = new THREE.SphereGeometry(body.visualR, 16, 16);
-    const mat = new THREE.MeshStandardMaterial({ color: TYPE_COLORS[body.type] ?? 0xffffff });
+    const mat = new THREE.MeshStandardMaterial({
+      color: TYPE_COLORS[body.type] ?? 0xffffff,
+    });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.userData.id = body.id;
     mesh.position.copy(orbitPos(
-      a, b, c,
-      eccentricAngleAtTime(initialAngle, (body.data as { orbitPeriod?: number }).orbitPeriod || 1, 0, a > 0 ? c / a : 0),
+      a,
+      b,
+      c,
+      eccentricAngleAtTime(
+        initialAngle,
+        (body.data as { orbitPeriod?: number }).orbitPeriod || 1,
+        0,
+        a > 0 ? c / a : 0,
+      ),
       periapsisAngle,
     ));
     parent.add(mesh);
@@ -186,7 +225,9 @@ export function createOrrery(
       id: body.id,
       type: body.type,
       mesh,
-      a, b, c,
+      a,
+      b,
+      c,
       periapsisAngle,
       initialAngle,
       orbitPeriod: (body.data as { orbitPeriod?: number }).orbitPeriod || 1,
@@ -201,25 +242,42 @@ export function createOrrery(
     scene.add(systemRoot);
 
     const spectralType = system.star.spectralType;
-    pointLight.color.set(SPECTRAL_LIGHT_COLOR[spectralType] ?? SPECTRAL_LIGHT_COLOR.G);
+    pointLight.color.set(
+      SPECTRAL_LIGHT_COLOR[spectralType] ?? SPECTRAL_LIGHT_COLOR.G,
+    );
 
     const vm = buildViewModel(system, 0);
     const starBody = vm[0];
     const starRadiusEarths = system.star.radius * SOLAR_TO_EARTH_RADII;
-    starFlyOffset = Math.max(FLY_OFFSET_MIN, visualRadius(starRadiusEarths) * FLY_OFFSET_FACTOR);
+    starFlyOffset = Math.max(
+      FLY_OFFSET_MIN,
+      visualRadius(starRadiusEarths) * FLY_OFFSET_FACTOR,
+    );
     const starMesh = new THREE.Mesh(
       new THREE.SphereGeometry(starBody.visualR, 32, 32),
-      new THREE.MeshBasicMaterial({ color: SPECTRAL_STAR_COLOR[spectralType] ?? SPECTRAL_STAR_COLOR.G }),
+      new THREE.MeshBasicMaterial({
+        color: SPECTRAL_STAR_COLOR[spectralType] ?? SPECTRAL_STAR_COLOR.G,
+      }),
     );
     starMesh.userData.id = system.star.id;
     systemRoot.add(starMesh);
     meshById[system.star.id] = starMesh;
     animObjects.push({
-      id: system.star.id, type: "star", mesh: starMesh,
-      a: 0, b: 0, c: 0, periapsisAngle: 0, initialAngle: 0, orbitPeriod: 1, flyOffset: starFlyOffset,
+      id: system.star.id,
+      type: "star",
+      mesh: starMesh,
+      a: 0,
+      b: 0,
+      c: 0,
+      periapsisAngle: 0,
+      initialAngle: 0,
+      orbitPeriod: 1,
+      flyOffset: starFlyOffset,
     });
 
-    const sorted = [...system.objects].sort((a, b) => a.orbitRadius - b.orbitRadius);
+    const sorted = [...system.objects].sort((a, b) =>
+      a.orbitRadius - b.orbitRadius
+    );
     for (const obj of sorted) {
       const planetBody = vm.find((v) => v.id === obj.id)!;
       const planetMesh = addBody(planetBody, systemRoot, false);
@@ -230,7 +288,13 @@ export function createOrrery(
     }
   }
 
-  function orbitPos(a: number, b: number, c: number, angle: number, periapsisAngle = 0) {
+  function orbitPos(
+    a: number,
+    b: number,
+    c: number,
+    angle: number,
+    periapsisAngle = 0,
+  ) {
     const x = a * Math.cos(angle) - c;
     const z = b * Math.sin(angle);
     const cos = Math.cos(periapsisAngle);
@@ -258,9 +322,13 @@ export function createOrrery(
     const rawDuration = travel / (FLY_SPEED_AU_PER_SEC * AU_SCALE);
     const duration = Math.max(FLY_MIN_SEC, Math.min(FLY_MAX_SEC, rawDuration));
     flyState = {
-      startTarget, startOffsetDir, startOffsetDist,
+      startTarget,
+      startOffsetDir,
+      startOffsetDist,
       animObj: isStar ? null : animObj,
-      flyOffset, progress: 0, duration,
+      flyOffset,
+      progress: 0,
+      duration,
       zoomOutBoost: travel * FLY_ZOOM_OUT_FACTOR,
     };
     lockedTarget = null;
@@ -286,19 +354,30 @@ export function createOrrery(
           elapsedDays,
           obj.a > 0 ? obj.c / obj.a : 0,
         );
-        obj.mesh.position.copy(orbitPos(obj.a, obj.b, obj.c, angle, obj.periapsisAngle));
+        obj.mesh.position.copy(
+          orbitPos(obj.a, obj.b, obj.c, angle, obj.periapsisAngle),
+        );
       }
       if (flyState !== null) {
-        flyState.progress = Math.min(flyState.progress + delta / flyState.duration, 1);
+        flyState.progress = Math.min(
+          flyState.progress + delta / flyState.duration,
+          1,
+        );
         const t = easeInOutCubic(flyState.progress);
-        if (flyState.animObj) flyState.animObj.mesh.getWorldPosition(flyEndTarget);
-        else flyEndTarget.set(0, 0, 0);
+        if (flyState.animObj) {
+          flyState.animObj.mesh.getWorldPosition(flyEndTarget);
+        } else flyEndTarget.set(0, 0, 0);
         flyTmpTarget.lerpVectors(flyState.startTarget, flyEndTarget, t);
         controls.target.copy(flyTmpTarget);
-        flyTmpDir.lerpVectors(flyState.startOffsetDir, FLY_END_DIR, t).normalize();
-        const baseDist = flyState.startOffsetDist * (1 - t) + flyState.flyOffset * t;
+        flyTmpDir.lerpVectors(flyState.startOffsetDir, FLY_END_DIR, t)
+          .normalize();
+        const baseDist = flyState.startOffsetDist * (1 - t) +
+          flyState.flyOffset * t;
         const bump = flyState.zoomOutBoost * Math.sin(Math.PI * t);
-        camera.position.copy(flyTmpTarget).addScaledVector(flyTmpDir, baseDist + bump);
+        camera.position.copy(flyTmpTarget).addScaledVector(
+          flyTmpDir,
+          baseDist + bump,
+        );
         if (flyState.progress >= 1) {
           lockedTarget = flyState.animObj;
           if (lockedTarget) lockedTarget.mesh.getWorldPosition(lockedPrevPos);
@@ -342,10 +421,18 @@ export function createOrrery(
 
   return {
     setSystem,
-    setTime(days) { elapsedDays = days; },
-    setTimeScale(scale) { timeScale = scale; },
-    pause() { paused = true; },
-    resume() { paused = false; },
+    setTime(days) {
+      elapsedDays = days;
+    },
+    setTimeScale(scale) {
+      timeScale = scale;
+    },
+    pause() {
+      paused = true;
+    },
+    resume() {
+      paused = false;
+    },
     focus,
     addOverlay(bodyId, object) {
       const mesh = meshById[bodyId];

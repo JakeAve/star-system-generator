@@ -66,18 +66,21 @@
       }
     </style>
     <script type="importmap">
-      {
-        "imports": {
-          "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
-          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
-        }
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
       }
+    }
     </script>
   </head>
   <body>
     <div id="loading">LOADING...</div>
     <script type="module">
-      import { generateSolarSystem, buildViewModel } from "./star-seeder.bundle.js";
+      import {
+        buildViewModel,
+        generateSolarSystem,
+      } from "./star-seeder.bundle.js";
       import { createOrrery } from "./orrery-3d.bundle.js";
       import { loadSystem, saveSystem } from "./storage.js";
       import { buildPanel } from "./panel.js";
@@ -106,8 +109,12 @@
         const loadingEl = document.getElementById("loading");
         let data = loadSystem(numericId);
         if (!data) {
-          try { data = generateSolarSystem({ seed: numericId }); saveSystem(data); }
-          catch (err) { loadingEl.textContent = `Error: ${err.message}`; }
+          try {
+            data = generateSolarSystem({ seed: numericId });
+            saveSystem(data);
+          } catch (err) {
+            loadingEl.textContent = `Error: ${err.message}`;
+          }
         }
         if (data) {
           loadingEl.remove();
@@ -116,8 +123,12 @@
           const orrery = createOrrery(document.body, {
             onPick: (id) => {
               orrery.focus(id);
-              const obj = animObjects.find(o => o.id === id);
-              if (obj) document.dispatchEvent(new CustomEvent("bodySelected", { detail: obj }));
+              const obj = animObjects.find((o) => o.id === id);
+              if (obj) {
+                document.dispatchEvent(
+                  new CustomEvent("bodySelected", { detail: obj }),
+                );
+              }
             },
           });
           orrery.setSystem(data);

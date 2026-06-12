@@ -176,30 +176,30 @@
   </head>
   <body>
     <div id="scroll-container">
-    <section id="generator" class="section">
-      <div id="box">
-        <div id="title">STAR SYSTEM GENERATOR</div>
-        <div id="seed-row">
-          <label for="seed-input">SEED</label>
-          <input
-            id="seed-input"
-            type="text"
-            placeholder="Random"
-            autocomplete="off"
-            spellcheck="false"
-          >
+      <section id="generator" class="section">
+        <div id="box">
+          <div id="title">STAR SYSTEM GENERATOR</div>
+          <div id="seed-row">
+            <label for="seed-input">SEED</label>
+            <input
+              id="seed-input"
+              type="text"
+              placeholder="Random"
+              autocomplete="off"
+              spellcheck="false"
+            >
+          </div>
+          <button class="btn" id="generate-btn">GENERATE</button>
+          <div id="error"></div>
         </div>
-        <button class="btn" id="generate-btn">GENERATE</button>
-        <div id="error"></div>
-      </div>
-      <button id="to-library" class="scroll-btn">↓ SAVED SEEDS</button>
-    </section>
+        <button id="to-library" class="scroll-btn">↓ SAVED SEEDS</button>
+      </section>
 
-    <section id="library" class="section">
-      <button id="to-generator" class="scroll-btn">↑ GENERATOR</button>
-      <h1>SAVED SEEDS</h1>
-      <div id="list" class="seed-list"></div>
-    </section>
+      <section id="library" class="section">
+        <button id="to-generator" class="scroll-btn">↑ GENERATOR</button>
+        <h1>SAVED SEEDS</h1>
+        <div id="list" class="seed-list"></div>
+      </section>
     </div>
 
     <script type="module">
@@ -236,10 +236,16 @@
       });
 
       document.getElementById("to-library").addEventListener("click", () => {
-        document.getElementById("library").scrollIntoView({ behavior: "smooth", block: "start" });
+        document.getElementById("library").scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       });
       document.getElementById("to-generator").addEventListener("click", () => {
-        document.getElementById("generator").scrollIntoView({ behavior: "smooth", block: "start" });
+        document.getElementById("generator").scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       });
 
       const listEl = document.getElementById("list");
@@ -269,9 +275,7 @@
             (n, o) => n + (o.moons?.length ?? 0),
             0,
           );
-          const orbits = planets.map((o) => o.orbitRadius).filter((r) =>
-            r > 0
-          );
+          const orbits = planets.map((o) => o.orbitRadius).filter((r) => r > 0);
           const auRange = orbits.length
             ? `${Math.min(...orbits).toFixed(1)}–${
               Math.max(...orbits).toFixed(1)
@@ -293,9 +297,7 @@
               ? `${moonCount} moon${moonCount !== 1 ? "s" : ""}`
               : null,
             asteroidCount > 0
-              ? `${asteroidCount} asteroid${
-                asteroidCount !== 1 ? "s" : ""
-              }`
+              ? `${asteroidCount} asteroid${asteroidCount !== 1 ? "s" : ""}`
               : null,
             auRange,
             hzStr,

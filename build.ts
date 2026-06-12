@@ -7,7 +7,11 @@ const BUNDLES: Array<{ entry: string; out: string; external: string[] }> = [
     out: "app/orrery-3d.bundle.js",
     external: ["three", "three/addons/*"],
   },
-  { entry: "src/orrery-2d/engine.ts", out: "app/orrery-2d.bundle.js", external: [] },
+  {
+    entry: "src/orrery-2d/engine.ts",
+    out: "app/orrery-2d.bundle.js",
+    external: [],
+  },
 ];
 
 export async function build(): Promise<void> {

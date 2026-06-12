@@ -1,9 +1,6 @@
 // system-seeder-2/generator_test.ts
 
-import {
-  assert,
-  assertEquals,
-} from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { RNG } from "./rng.ts";
 import { massFromRadiusDensity, rsig } from "./generator.ts";
 
@@ -67,7 +64,12 @@ Deno.test("RNG: different seeds produce different sequences", () => {
 });
 
 import { DEFAULT_CONFIG } from "./config.ts";
-import { CelestialObject, MigrationArchetype, ObjectType, Resource } from "./types.ts";
+import {
+  CelestialObject,
+  MigrationArchetype,
+  ObjectType,
+  Resource,
+} from "./types.ts";
 
 Deno.test("config: all ObjectTypes have resource weights", () => {
   for (const type of Object.values(ObjectType)) {
@@ -124,30 +126,54 @@ Deno.test("settlementCap: asteroid always returns 1", () => {
 Deno.test("settlementCap: inner moon scales with radiusMultiplier 7 (min 1)", () => {
   // parentOrbit 1.0 < frostLine 5.0 => moonInner { min:1, radiusMultiplier:7 }
   // radius=0.1 => max(1, floor(0.7)) = max(1,0) = 1
-  assertEquals(settlementCap(ObjectType.Moon, 0.1, DEFAULT_CONFIG, 1.0, 5.0), 1);
+  assertEquals(
+    settlementCap(ObjectType.Moon, 0.1, DEFAULT_CONFIG, 1.0, 5.0),
+    1,
+  );
   // radius=0.42 (Ganymede) => max(1, floor(2.94)) = 2
-  assertEquals(settlementCap(ObjectType.Moon, 0.42, DEFAULT_CONFIG, 1.0, 5.0), 2);
+  assertEquals(
+    settlementCap(ObjectType.Moon, 0.42, DEFAULT_CONFIG, 1.0, 5.0),
+    2,
+  );
 });
 
 Deno.test("settlementCap: outer moon uses moonOuter (min 2)", () => {
   // parentOrbit 8.0 >= frostLine 5.0 => moonOuter { min:2, radiusMultiplier:7 }
   // radius=0.05 => max(2, floor(0.35)) = max(2,0) = 2
-  assertEquals(settlementCap(ObjectType.Moon, 0.05, DEFAULT_CONFIG, 8.0, 5.0), 2);
+  assertEquals(
+    settlementCap(ObjectType.Moon, 0.05, DEFAULT_CONFIG, 8.0, 5.0),
+    2,
+  );
   // radius=0.42 => max(2, floor(2.94)) = max(2,2) = 2
-  assertEquals(settlementCap(ObjectType.Moon, 0.42, DEFAULT_CONFIG, 8.0, 5.0), 2);
+  assertEquals(
+    settlementCap(ObjectType.Moon, 0.42, DEFAULT_CONFIG, 8.0, 5.0),
+    2,
+  );
 });
 
 Deno.test("settlementCap: dwarfPlanet is flat 2 over its R⊕ range", () => {
   // dwarfPlanet { min:2, radiusMultiplier:5 }; radius 0.07–0.19 => floor(<1)=0 => 2
-  assertEquals(settlementCap(ObjectType.DwarfPlanet, 0.07, DEFAULT_CONFIG, 0, 5.0), 2);
-  assertEquals(settlementCap(ObjectType.DwarfPlanet, 0.19, DEFAULT_CONFIG, 0, 5.0), 2);
+  assertEquals(
+    settlementCap(ObjectType.DwarfPlanet, 0.07, DEFAULT_CONFIG, 0, 5.0),
+    2,
+  );
+  assertEquals(
+    settlementCap(ObjectType.DwarfPlanet, 0.19, DEFAULT_CONFIG, 0, 5.0),
+    2,
+  );
 });
 
 Deno.test("settlementCap: rockyPlanet scales with radiusMultiplier 1.5 (1–3)", () => {
   // radius=1.0 (Earth) => max(1, floor(1.5)) = 1
-  assertEquals(settlementCap(ObjectType.RockyPlanet, 1.0, DEFAULT_CONFIG, 0, 5.0), 1);
+  assertEquals(
+    settlementCap(ObjectType.RockyPlanet, 1.0, DEFAULT_CONFIG, 0, 5.0),
+    1,
+  );
   // radius=2.0 (super-Earth) => max(1, floor(3.0)) = 3
-  assertEquals(settlementCap(ObjectType.RockyPlanet, 2.0, DEFAULT_CONFIG, 0, 5.0), 3);
+  assertEquals(
+    settlementCap(ObjectType.RockyPlanet, 2.0, DEFAULT_CONFIG, 0, 5.0),
+    3,
+  );
 });
 
 import { generateDeposits } from "./generator.ts";
@@ -532,7 +558,9 @@ Deno.test("generateSolarSystem: comets appear across seeds", () => {
   let cometCount = 0;
   for (let seed = 0; seed < 50; seed++) {
     const system = generateSolarSystem({ seed });
-    cometCount += system.objects.filter((o) => o.type === ObjectType.Comet).length;
+    cometCount += system.objects.filter((o) =>
+      o.type === ObjectType.Comet
+    ).length;
   }
   assert(cometCount > 0, "No comets found in 50 systems");
 });
@@ -540,7 +568,10 @@ Deno.test("generateSolarSystem: comets appear across seeds", () => {
 Deno.test("generateSolarSystem: star has an obj_N id", () => {
   const system = generateSolarSystem({ seed: 42 });
   assert(typeof system.star.id === "string", "star.id should be a string");
-  assert(/^obj_\d+$/.test(system.star.id), `star.id "${system.star.id}" does not match obj_N format`);
+  assert(
+    /^obj_\d+$/.test(system.star.id),
+    `star.id "${system.star.id}" does not match obj_N format`,
+  );
 });
 
 Deno.test("generateSolarSystem: all IDs are unique including the star", () => {
@@ -583,7 +614,10 @@ const SWEPT_BODIES = allNonStarBodies(50);
 
 Deno.test("generator: no non-star body has zero/non-finite radius or mass", () => {
   for (const b of SWEPT_BODIES) {
-    assert(b.radius > 0 && Number.isFinite(b.radius), `${b.type} radius ${b.radius}`);
+    assert(
+      b.radius > 0 && Number.isFinite(b.radius),
+      `${b.type} radius ${b.radius}`,
+    );
     assert(b.mass > 0 && Number.isFinite(b.mass), `${b.type} mass ${b.mass}`);
   }
 });
@@ -644,9 +678,15 @@ Deno.test("eccentricity model: most planets are near-circular", () => {
   if (planets.length > 0) {
     const eccs = planets.map((p) => p.eccentricity).sort((a, b) => a - b);
     const median = eccs[Math.floor(eccs.length / 2)];
-    assert(median < 0.1, `median planet eccentricity ${median} should be < 0.1`);
+    assert(
+      median < 0.1,
+      `median planet eccentricity ${median} should be < 0.1`,
+    );
     for (const p of planets) {
-      assert(p.eccentricity <= 0.15 + 1e-9, `planet ecc ${p.eccentricity} exceeds max`);
+      assert(
+        p.eccentricity <= 0.15 + 1e-9,
+        `planet ecc ${p.eccentricity} exceeds max`,
+      );
     }
   }
 });
@@ -657,14 +697,20 @@ Deno.test("eccentricity model: comets remain highly eccentric", () => {
   const comets = allObjects(sys).filter((b) => b.type === ObjectType.Comet);
   assert(comets.length > 0, "seed 7 should produce at least one comet");
   for (const c of comets) {
-    assert(c.eccentricity >= 0.6, `comet ecc ${c.eccentricity} should be >= 0.6`);
+    assert(
+      c.eccentricity >= 0.6,
+      `comet ecc ${c.eccentricity} should be >= 0.6`,
+    );
   }
 });
 
 Deno.test("eccentricity model: no body reaches parabolic (e < 1)", () => {
   for (const seed of [1, 2, 3, 7, 42, 100]) {
     for (const b of allObjects(generateSolarSystem({ seed }))) {
-      assert(b.eccentricity < 1, `seed ${seed}: ${b.name} has e=${b.eccentricity}`);
+      assert(
+        b.eccentricity < 1,
+        `seed ${seed}: ${b.name} has e=${b.eccentricity}`,
+      );
     }
   }
 });

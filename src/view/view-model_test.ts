@@ -1,24 +1,63 @@
-import { assertEquals, assertAlmostEquals } from "@std/assert";
+import { assertAlmostEquals, assertEquals } from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
 import { buildViewModel } from "./view-model.ts";
 import { orbitParams, orbitPosition, solveKepler } from "../core/kinematics.ts";
-import { MigrationArchetype, ObjectType, SolarSystem, SpectralType } from "../core/types.ts";
+import {
+  MigrationArchetype,
+  ObjectType,
+  SolarSystem,
+  SpectralType,
+} from "../core/types.ts";
 
-function singlePlanetSystem(eccentricity: number, orbitalPhase: number): SolarSystem {
+function singlePlanetSystem(
+  eccentricity: number,
+  orbitalPhase: number,
+): SolarSystem {
   const star = {
-    id: "star", name: "G-type Star", type: ObjectType.Star as const,
-    spectralType: SpectralType.G, luminosity: 1, habitableZoneAU: 1,
-    orbitRadius: 0, orbitPeriod: 0, eccentricity: 0, radius: 1, mass: 1,
-    settlementCap: 0, deposits: [], moons: [], orbitalPhase: 0, periapsisAngle: 0,
-    rotationPeriodDays: 0, tidallyLocked: false, knownAtStart: true,
+    id: "star",
+    name: "G-type Star",
+    type: ObjectType.Star as const,
+    spectralType: SpectralType.G,
+    luminosity: 1,
+    habitableZoneAU: 1,
+    orbitRadius: 0,
+    orbitPeriod: 0,
+    eccentricity: 0,
+    radius: 1,
+    mass: 1,
+    settlementCap: 0,
+    deposits: [],
+    moons: [],
+    orbitalPhase: 0,
+    periapsisAngle: 0,
+    rotationPeriodDays: 0,
+    tidallyLocked: false,
+    knownAtStart: true,
   };
   const planet = {
-    id: "p1", name: "Planet", type: ObjectType.RockyPlanet,
-    orbitRadius: 1, orbitPeriod: 365, eccentricity, radius: 1, mass: 1,
-    settlementCap: 0, deposits: [], moons: [], orbitalPhase, periapsisAngle: 0,
-    rotationPeriodDays: 1, tidallyLocked: false, knownAtStart: true,
+    id: "p1",
+    name: "Planet",
+    type: ObjectType.RockyPlanet,
+    orbitRadius: 1,
+    orbitPeriod: 365,
+    eccentricity,
+    radius: 1,
+    mass: 1,
+    settlementCap: 0,
+    deposits: [],
+    moons: [],
+    orbitalPhase,
+    periapsisAngle: 0,
+    rotationPeriodDays: 1,
+    tidallyLocked: false,
+    knownAtStart: true,
   };
-  return { seed: 1, star, migrationHistory: MigrationArchetype.DynamicallyCold, objects: [planet] };
+  return {
+    seed: 1,
+    star,
+    migrationHistory: MigrationArchetype.DynamicallyCold,
+    objects: [planet],
+  };
 }
 
 Deno.test("buildViewModel returns a star body first", () => {
@@ -48,7 +87,11 @@ Deno.test("buildViewModel: moon world position is relative to its parent", () =>
   if (moon) {
     const parent = vm.find((b) => b.id === moon.parentId)!;
     assertEquals(typeof moon.position.x, "number");
-    assertEquals(moon.position.x !== parent.position.x || moon.position.y !== parent.position.y, true);
+    assertEquals(
+      moon.position.x !== parent.position.x ||
+        moon.position.y !== parent.position.y,
+      true,
+    );
   }
 });
 

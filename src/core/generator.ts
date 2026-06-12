@@ -75,7 +75,11 @@ export function settlementCap(
     return Math.max(e.min!, Math.floor(radius * e.radiusMultiplier!));
   }
   // Comets set their own cap in makeComet via rng.int — settlementCap is not called for them
-  if (type === ObjectType.Comet) throw new Error("settlementCap: comets set their own cap via rng.int in makeComet");
+  if (type === ObjectType.Comet) {
+    throw new Error(
+      "settlementCap: comets set their own cap via rng.int in makeComet",
+    );
+  }
   // rockyPlanet
   const e = sc.rockyPlanet;
   return Math.max(e.min!, Math.floor(radius * e.radiusMultiplier!));
@@ -136,7 +140,11 @@ export function generateDeposits(
 
 // ── Star generator ────────────────────────────────────────────────────────────
 
-function generateStar(rng: RNG, config: GeneratorConfig, nextId: () => string): Star {
+function generateStar(
+  rng: RNG,
+  config: GeneratorConfig,
+  nextId: () => string,
+): Star {
   const spectralType = rng.weightedPick(config.starWeights);
   const [luMin, luMax] = config.starLuminosity[spectralType];
   const [mMin, mMax] = config.starMass[spectralType];
@@ -192,9 +200,12 @@ function makeMoon(
   const moonOrbitAU = hillSphereAU *
     rng.float(config.moonHillSphereRange.min, config.moonHillSphereRange.max);
   // Kepler's third law for moon orbiting parent planet
-  const orbitPeriod = Math.max(1, Math.round(
-    Math.sqrt(moonOrbitAU ** 3 / (parentMass * M_EARTH_IN_SOLAR)) * 365.25,
-  ));
+  const orbitPeriod = Math.max(
+    1,
+    Math.round(
+      Math.sqrt(moonOrbitAU ** 3 / (parentMass * M_EARTH_IN_SOLAR)) * 365.25,
+    ),
+  );
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.moon;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
     rng.float(
@@ -255,8 +266,14 @@ function makeRockyPlanet(
 ): CelestialObject {
   const id = nextId();
   const radius = rsig(rng.float(radiusRange.min, radiusRange.max));
-  const mass = massFromRadiusDensity(radius, rng.float(densityRange.min, densityRange.max));
-  const orbitPeriod = Math.max(1, Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365));
+  const mass = massFromRadiusDensity(
+    radius,
+    rng.float(densityRange.min, densityRange.max),
+  );
+  const orbitPeriod = Math.max(
+    1,
+    Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365),
+  );
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.planet;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
     rng.float(
@@ -292,7 +309,18 @@ function makeRockyPlanet(
     moons: Array.from(
       { length: moonCount },
       (_, i) =>
-        makeMoon(rng, nextId, i, id, orbitAU, mass, starMass, config, frostLineAU, false),
+        makeMoon(
+          rng,
+          nextId,
+          i,
+          id,
+          orbitAU,
+          mass,
+          starMass,
+          config,
+          frostLineAU,
+          false,
+        ),
     ),
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
@@ -321,7 +349,10 @@ function makeGasGiant(
   const dr = config.densityRanges.gasGiant;
   const radius = rsig(rng.float(rr.min, rr.max));
   const mass = massFromRadiusDensity(radius, rng.float(dr.min, dr.max));
-  const orbitPeriod = Math.max(1, Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365));
+  const orbitPeriod = Math.max(
+    1,
+    Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365),
+  );
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.planet;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
     rng.float(
@@ -395,7 +426,10 @@ function makeIceGiant(
   const dr = config.densityRanges.iceGiant;
   const radius = rsig(rng.float(rr.min, rr.max));
   const mass = massFromRadiusDensity(radius, rng.float(dr.min, dr.max));
-  const orbitPeriod = Math.max(1, Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365));
+  const orbitPeriod = Math.max(
+    1,
+    Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365),
+  );
   const tidallyLocked = orbitPeriod < config.tidalLockThresholdDays.planet;
   const rotationPeriodDays = tidallyLocked ? orbitPeriod : r2(
     rng.float(
@@ -430,7 +464,18 @@ function makeIceGiant(
     moons: Array.from(
       { length: moonCount },
       (_, i) =>
-        makeMoon(rng, nextId, i, id, orbitAU, mass, starMass, config, frostLineAU, false),
+        makeMoon(
+          rng,
+          nextId,
+          i,
+          id,
+          orbitAU,
+          mass,
+          starMass,
+          config,
+          frostLineAU,
+          false,
+        ),
     ),
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
@@ -470,7 +515,10 @@ function makeAsteroid(
     name: generateName(rng, type, index),
     type,
     orbitRadius: r2(orbitAU),
-    orbitPeriod: Math.max(1, Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365)),
+    orbitPeriod: Math.max(
+      1,
+      Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365),
+    ),
     eccentricity,
     radius,
     mass,
@@ -508,7 +556,10 @@ function makeComet(
     name: generateName(rng, ObjectType.Comet, index),
     type: ObjectType.Comet,
     orbitRadius: r2(orbitAU),
-    orbitPeriod: Math.max(1, Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365)),
+    orbitPeriod: Math.max(
+      1,
+      Math.round(Math.sqrt(orbitAU ** 3 / starMass) * 365),
+    ),
     eccentricity,
     radius,
     mass,
@@ -516,7 +567,13 @@ function makeComet(
       config.settlementConfig.comet.min!,
       config.settlementConfig.comet.max!,
     ),
-    deposits: generateDeposits(rng, ObjectType.Comet, config, orbitAU, frostLineAU),
+    deposits: generateDeposits(
+      rng,
+      ObjectType.Comet,
+      config,
+      orbitAU,
+      frostLineAU,
+    ),
     moons: [],
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
@@ -641,7 +698,16 @@ export function generateSolarSystem(
           star.mass,
         );
       } else if (effectiveType === ObjectType.Comet) {
-        obj = makeComet(rng, nextId, orbitAU, cometIdx++, ecc, cfg, frostLineAU, star.mass);
+        obj = makeComet(
+          rng,
+          nextId,
+          orbitAU,
+          cometIdx++,
+          ecc,
+          cfg,
+          frostLineAU,
+          star.mass,
+        );
       } else {
         // RockyPlanet or superEarth
         const radiusRange = slot.objectType === "superEarth"

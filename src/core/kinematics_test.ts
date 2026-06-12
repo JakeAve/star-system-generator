@@ -1,7 +1,7 @@
-import { assertEquals, assertAlmostEquals } from "@std/assert";
+import { assertAlmostEquals, assertEquals } from "@std/assert";
 import {
-  AU_SCALE,
   angleAtTime,
+  AU_SCALE,
   eccentricAngleAtTime,
   orbitParams,
   orbitPosition,
@@ -70,7 +70,9 @@ Deno.test("orbital motion: closer AND faster at periapsis than apoapsis (Kepler'
   assertAlmostEquals(apo.radius, a * (1 + e), 1e-6);
   // Speed must be greater at periapsis (guards against the apse/speed inversion).
   if (!(peri.speed > apo.speed)) {
-    throw new Error(`periapsis speed ${peri.speed} must exceed apoapsis speed ${apo.speed}`);
+    throw new Error(
+      `periapsis speed ${peri.speed} must exceed apoapsis speed ${apo.speed}`,
+    );
   }
 });
 
