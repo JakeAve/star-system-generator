@@ -1,7 +1,7 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
-import { getRoutes } from "./index.ts";
-import { EndState, RankMode, RouteNodeKind } from "./types.ts";
+import { getBestRoutes, getRoutes } from "./index.ts";
+import { EndState, RankMode, type Route, RouteNodeKind } from "./types.ts";
 
 const system = generateSolarSystem({ seed: 1 });
 const a = system.objects[0].id;
@@ -200,6 +200,140 @@ Deno.test("getRoutes: planet → moon routes through the moon's parent", () => {
     throw new Error("expected a Transit node");
   }
   if (!(r.totalDeltaV > 0)) throw new Error("expected positive Δv");
+});
+
+// --- getBestRoutes ---------------------------------------------------------------------
+
+/** Same route by value: identical body sequence and (within fp tolerance) Δv and duration. */
+function sameRoute(x: Route, y: Route): boolean {
+  if (x.bodies.length !== y.bodies.length) return false;
+  for (let i = 0; i < x.bodies.length; i++) {
+    if (x.bodies[i] !== y.bodies[i]) return false;
+  }
+  return Math.abs(x.totalDeltaV - y.totalDeltaV) < 1e-9 &&
+    Math.abs(x.duration - y.duration) < 1e-9;
+}
+
+Deno.test("getBestRoutes: returns fastest/cheapest picks for two non-moon bodies", () => {
+  const picks = getBestRoutes(system, { obj: a, type: EndState.Orbit }, {
+    obj: b,
+    type: EndState.Orbit,
+  });
+  if (picks.length === 0) throw new Error("expected picks");
+  // 1–3 picks: fastest, (goldilocks), cheapest — collapsing when they coincide.
+  if (picks.length > 3) throw new Error("expected at most 3 picks");
+  for (const r of picks) {
+    assertEquals(r.bodies[0], a);
+    assertEquals(r.bodies[r.bodies.length - 1], b);
+  }
+});
+
+Deno.test("getBestRoutes: picks agree with getRoutes' extremes (non-moon)", () => {
+  const all = getRoutes(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { rank: RankMode.All },
+  );
+  const picks = getBestRoutes(system, { obj: a, type: EndState.Orbit }, {
+    obj: b,
+    type: EndState.Orbit,
+  });
+  const minDur = Math.min(...all.map((r) => r.duration));
+  const minDv = Math.min(...all.map((r) => r.totalDeltaV));
+  const fastest = picks.reduce((m, r) => (r.duration < m.duration ? r : m));
+  const cheapest = picks.reduce((m, r) =>
+    r.totalDeltaV < m.totalDeltaV ? r : m
+  );
+  if (Math.abs(fastest.duration - minDur) > 1e-6) {
+    throw new Error("fastest pick is not the global min-duration route");
+  }
+  if (Math.abs(cheapest.totalDeltaV - minDv) > 1e-6) {
+    throw new Error("cheapest pick is not the global min-Δv route");
+  }
+});
+
+Deno.test("getBestRoutes: the star cannot be an endpoint", () => {
+  assertThrows(
+    () =>
+      getBestRoutes(system, { obj: system.star.id, type: EndState.Orbit }, {
+        obj: b,
+        type: EndState.Orbit,
+      }),
+    Error,
+    "star cannot be a travel endpoint",
+  );
+});
+
+// Moon endpoints: getBestRoutes delegates to getRoutes and picks from its front, so every
+// pick must be one of getRoutes' candidates (the two APIs stay in agreement).
+const moonEndpointCases: Array<
+  { name: string; from: () => string; to: () => string }
+> = [
+  {
+    name: "same-parent moon→moon",
+    from: () => giant42!.moons[0].id,
+    to: () => giant42!.moons[1].id,
+  },
+  {
+    name: "moon → non-parent planet",
+    from: () => giant42!.moons[0].id,
+    to: () => sys42.objects.find((o) => o.id !== giant42!.id)!.id,
+  },
+  {
+    name: "planet → moon",
+    from: () => sys42.objects.find((o) => o.id !== giant42!.id)!.id,
+    to: () => giant42!.moons[0].id,
+  },
+  {
+    name: "moon → moon across different parents",
+    from: () => sys42.objects.filter((o) => o.moons.length > 0)[0].moons[0].id,
+    to: () => sys42.objects.filter((o) => o.moons.length > 0)[1].moons[0].id,
+  },
+];
+
+for (const tc of moonEndpointCases) {
+  Deno.test(`getBestRoutes: ${tc.name} returns picks drawn from getRoutes' front`, () => {
+    if (!giant42) {
+      throw new Error("seed 42 expected to have a planet with >= 2 moons");
+    }
+    const from = { obj: tc.from(), type: EndState.Orbit };
+    const to = { obj: tc.to(), type: EndState.Orbit };
+    const all = getRoutes(sys42, from, to, { rank: RankMode.All });
+    const picks = getBestRoutes(sys42, from, to);
+
+    if (picks.length === 0) throw new Error("expected picks");
+    if (picks.length > 3) throw new Error("expected at most 3 picks");
+    // Every pick is one of getRoutes' candidate routes (by value).
+    for (const p of picks) {
+      if (!all.some((c) => sameRoute(p, c))) {
+        throw new Error("pick is not present in getRoutes' candidate set");
+      }
+      if (!(p.totalDeltaV > 0)) throw new Error("expected positive Δv");
+    }
+    // fastest pick is the global min-duration route; cheapest is the global min-Δv route.
+    const minDur = Math.min(...all.map((r) => r.duration));
+    const minDv = Math.min(...all.map((r) => r.totalDeltaV));
+    const fastest = picks.reduce((m, r) => (r.duration < m.duration ? r : m));
+    const cheapest = picks.reduce((m, r) =>
+      r.totalDeltaV < m.totalDeltaV ? r : m
+    );
+    if (Math.abs(fastest.duration - minDur) > 1e-9) {
+      throw new Error("fastest pick is not the global min-duration route");
+    }
+    if (Math.abs(cheapest.totalDeltaV - minDv) > 1e-9) {
+      throw new Error("cheapest pick is not the global min-Δv route");
+    }
+  });
+}
+
+Deno.test("getBestRoutes: moon endpoints are deterministic", () => {
+  if (!giant42) throw new Error("seed 42 expected a planet with >= 2 moons");
+  const from = { obj: giant42.moons[0].id, type: EndState.Orbit };
+  const to = { obj: giant42.moons[1].id, type: EndState.Orbit };
+  const r1 = getBestRoutes(sys42, from, to);
+  const r2 = getBestRoutes(sys42, from, to);
+  assertEquals(JSON.stringify(r1), JSON.stringify(r2));
 });
 
 Deno.test("getRoutes: moon → moon across different parents has two Transits and three legs", () => {

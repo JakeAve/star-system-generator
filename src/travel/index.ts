@@ -8,6 +8,7 @@ import {
   findSingleAssistRoutes,
   rankRoutes,
   searchBest,
+  selectBestRoutes,
   type UtopiaBox,
 } from "./search.ts";
 import type { BodyRef } from "./search.ts";
@@ -95,8 +96,11 @@ function flatten(
 }
 
 /**
- * Compute ranked direct travel routes between two non-moon bodies.
- * Phase 1: heliocentric, direct (no gravity assists), no moon endpoints.
+ * Compute ranked travel routes between two bodies. Planet↔planet transfers are
+ * heliocentric; moon endpoints are handled via a planetocentric leg (same-parent
+ * moon→moon) or cross-frame routing (everything else). Planet↔planet routes also
+ * include gravity-assist candidates up to `maxAssists` (default 2, capped at
+ * double-assist).
  */
 export function getRoutes(
   system: SolarSystem,
@@ -198,9 +202,13 @@ export function getRoutes(
  * Branch-and-bound counterpart to getRoutes. Instead of enumerating every candidate and
  * Pareto-filtering, it runs single-objective searches and returns the "picks": fastest,
  * cheapest, and (when `includeGoldilocks`) the goldilocks compromise — the feasible route
- * nearest the (minΔv, minTime) utopia corner. Same grid as getRoutes, so the picks match the
- * corresponding Pareto-front routes, but with the candidate-set pruned. Heliocentric
- * (non-moon) endpoints only.
+ * nearest the (minΔv, minTime) utopia corner.
+ *
+ * Planet↔planet endpoints use branch-and-bound (searchBest) over the same grid as getRoutes —
+ * the picks match the corresponding Pareto-front routes, but with the candidate set pruned to
+ * keep the assist search affordable. Moon endpoints have no assist variants, so their candidate
+ * sets are small; there it delegates to getRoutes and selects the same three picks, leaving the
+ * two APIs in agreement.
  */
 export function getBestRoutes(
   system: SolarSystem,
@@ -218,7 +226,10 @@ export function getBestRoutes(
     throw new Error("the star cannot be a travel endpoint");
   }
   if (f.isMoon || t.isMoon) {
-    throw new Error("getBestRoutes supports non-moon endpoints only");
+    // No gravity-assist variants exist for moon topologies, so the candidate set from getRoutes
+    // is small enough to enumerate fully; pick fastest/cheapest/goldilocks from it.
+    const all = getRoutes(system, from, to, { ...options, rank: RankMode.All });
+    return selectBestRoutes(all, includeGoldilocks);
   }
   const mu = muStar(system.star.mass);
   const assists = Math.min(options.maxAssists ?? 2, 2);

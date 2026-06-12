@@ -676,6 +676,63 @@ export interface SearchOpts {
   departWindowDays?: number; // cap the depart-time horizon (days from now)
 }
 
+/**
+ * Pick the fastest / cheapest / goldilocks routes from an already-enumerated candidate set,
+ * matching searchBest's objective semantics. Used for topologies the branch-and-bound search
+ * doesn't cover (moon endpoints): there are no gravity-assist variants there, so the candidate
+ * set from a single sweep is small and full enumeration via getRoutes is already cheap — this
+ * just selects the same three picks searchBest would, keeping getRoutes and getBestRoutes in
+ * agreement. Returns the deduped [fastest, goldilocks, cheapest], or [] for an empty input.
+ */
+export function selectBestRoutes(
+  routes: Route[],
+  includeGoldilocks = true,
+): Route[] {
+  if (routes.length === 0) return [];
+  // fastest: min duration, lexicographic tiebreak on Δv (matches obj "duration").
+  // cheapest: min Δv, lexicographic tiebreak on duration (matches obj "deltaV").
+  let fastest = routes[0];
+  let cheapest = routes[0];
+  for (const r of routes) {
+    if (
+      r.duration < fastest.duration ||
+      (r.duration === fastest.duration && r.totalDeltaV < fastest.totalDeltaV)
+    ) {
+      fastest = r;
+    }
+    if (
+      r.totalDeltaV < cheapest.totalDeltaV ||
+      (r.totalDeltaV === cheapest.totalDeltaV && r.duration < cheapest.duration)
+    ) {
+      cheapest = r;
+    }
+  }
+
+  let goldilocks: Route | null = null;
+  if (includeGoldilocks && fastest !== cheapest) {
+    const box: UtopiaBox = {
+      dvMin: cheapest.totalDeltaV,
+      dvMax: fastest.totalDeltaV,
+      durMin: fastest.duration,
+      durMax: cheapest.duration,
+    };
+    let best = Infinity;
+    for (const r of routes) {
+      const d = utopiaDist(r.totalDeltaV, r.duration, box);
+      if (d < best) {
+        best = d;
+        goldilocks = r;
+      }
+    }
+  }
+
+  const out: Route[] = [];
+  for (const r of [fastest, goldilocks, cheapest]) {
+    if (r && !out.includes(r)) out.push(r);
+  }
+  return out;
+}
+
 /** Normalised Euclidean distance from (dv, dur) to the utopia corner, clamped at the corner. */
 function utopiaDist(dv: number, dur: number, b: UtopiaBox): number {
   const dvR = Math.max(1e-9, b.dvMax - b.dvMin);
