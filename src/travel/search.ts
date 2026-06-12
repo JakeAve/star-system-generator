@@ -35,19 +35,29 @@ function defaultSweepOpts(
   mu: number,
   departWindowDays?: number,
 ) {
-  const outerM = Math.max(fromAu, toAu) * AU_M;
-  // Orbital period at the outer radius about a body of parameter mu: T = 2π√(a³/μ).
-  const periodDays =
-    (2 * Math.PI * Math.sqrt((outerM * outerM * outerM) / mu)) /
-    DAY_S;
+  // Orbital period at radius a about a body of parameter mu: T = 2π√(a³/μ).
+  const periodDaysAt = (au: number) => {
+    const m = au * AU_M;
+    return (2 * Math.PI * Math.sqrt((m * m * m) / mu)) / DAY_S;
+  };
+  const innerPeriod = periodDaysAt(Math.min(fromAu, toAu));
+  const outerPeriod = periodDaysAt(Math.max(fromAu, toAu));
+  // Launch windows recur on the synodic period (how often the two bodies return to the same
+  // relative geometry), not the orbital period. One synodic period samples every distinct
+  // departure geometry exactly once; the outer orbital period — the old horizon — overshoots
+  // badly for distant targets (centuries), smearing the fixed sample budget too coarsely to
+  // resolve a window. Near-coorbital bodies send the synodic period to infinity, so cap it at
+  // the outer period.
+  const synodicPeriod = 1 / Math.abs(1 / innerPeriod - 1 / outerPeriod);
+  const departHorizon = Math.min(synodicPeriod, outerPeriod);
   return {
     // Depart-time horizon: callers may cap it to the near term (e.g. one game turn). Unset, it
-    // spans a full outer-body period so every phasing/launch window is sampled. The tof range is
-    // always period-driven, so a near-term departure can still ride a multi-year transfer.
-    departHorizonDays: departWindowDays ?? periodDays,
+    // spans one synodic period. The tof range stays outer-period-driven, so a near-term
+    // departure can still ride a multi-year transfer.
+    departHorizonDays: departWindowDays ?? departHorizon,
     departSamples: 36,
-    tofMinDays: periodDays * 0.1,
-    tofMaxDays: periodDays * 0.9,
+    tofMinDays: outerPeriod * 0.1,
+    tofMaxDays: outerPeriod * 0.9,
     tofSamples: 36,
   };
 }

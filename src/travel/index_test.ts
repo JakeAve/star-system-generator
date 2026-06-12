@@ -3,6 +3,7 @@ import { generateSolarSystem } from "../core/generator.ts";
 import { getBestRoutes, getRoutes } from "./index.ts";
 import { EndState, RankMode, type Route, RouteNodeKind } from "./types.ts";
 import { sumPrecise } from "./sum.ts";
+import { AU_M, DAY_S, muStar } from "./units.ts";
 
 const system = generateSolarSystem({ seed: 1 });
 const a = system.objects[0].id;
@@ -428,5 +429,40 @@ Deno.test("duration: equals the precise sum of its components (getRoutes & getBe
     for (
       const r of getRoutes(sys42, wp(moon), wp(planet), { rank: RankMode.All })
     ) assertEquals(r.duration, expected(r));
+  }
+});
+
+// --- departure horizon tracks the synodic period, not the outer orbital period ----------
+
+Deno.test("getRoutes: direct departures fall within the synodic period, not the orbital period", () => {
+  const mu = muStar(system.star.mass);
+  const period = (au: number) =>
+    (2 * Math.PI * Math.sqrt((au * AU_M) ** 3 / mu)) / DAY_S;
+  const rIn = Math.min(
+    system.objects[0].orbitRadius,
+    system.objects[system.objects.length - 1].orbitRadius,
+  );
+  const rOut = Math.max(
+    system.objects[0].orbitRadius,
+    system.objects[system.objects.length - 1].orbitRadius,
+  );
+  const tIn = period(rIn), tOut = period(rOut);
+  const synodic = 1 / Math.abs(1 / tIn - 1 / tOut);
+  const horizon = Math.min(synodic, tOut);
+  // For this inner→outer pair the launch-window cycle is far shorter than the orbital period.
+  if (!(horizon < tOut * 0.5)) {
+    throw new Error("expected synodic horizon << outer orbital period");
+  }
+  const routes = getRoutes(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { maxAssists: 0, rank: RankMode.All },
+  );
+  const maxDepart = routes.reduce((m, r) => Math.max(m, r.departAt), 0);
+  if (!(maxDepart <= horizon + 1e-6)) {
+    throw new Error(
+      `direct departures should fall within the synodic horizon (max ${maxDepart} > ${horizon})`,
+    );
   }
 });
