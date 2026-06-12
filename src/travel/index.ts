@@ -277,10 +277,10 @@ export function getBestRoutes(
       durMax: cheapest.duration,
     };
     const dAnchor = (r: Route) => {
-      const dvR = Math.max(1e-9, box.dvMax - box.dvMin);
-      const durR = Math.max(1e-9, box.durMax - box.durMin);
-      const x = Math.max(0, (r.totalDeltaV - box.dvMin) / dvR);
-      const y = Math.max(0, (r.duration - box.durMin) / durR);
+      const dvR = Math.max(1e-9, box.dvMax! - box.dvMin!);
+      const durR = Math.max(1e-9, box.durMax! - box.durMin!);
+      const x = Math.max(0, (r.totalDeltaV - box.dvMin!) / dvR);
+      const y = Math.max(0, (r.duration - box.durMin!) / durR);
       return Math.sqrt(x * x + y * y);
     };
     const seedBest = Math.min(dAnchor(fastest), dAnchor(cheapest));

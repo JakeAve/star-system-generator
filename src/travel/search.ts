@@ -684,12 +684,18 @@ export function findDoubleAssistRoutes(
 
 export type Objective = "deltaV" | "duration" | "goldilocks";
 
-/** Normalisation box for the goldilocks objective: the (Δv, duration) extremes of the front. */
+/**
+ * Normalisation ranges for a balance ("goldilocks") objective. Each axis is optional; only the
+ * axes present participate in the utopia distance. Today's Δv×duration goldilocks supplies only
+ * the dv* and dur* fields; the arrival axis (arr*) is added for the Tier-C balances.
+ */
 export interface UtopiaBox {
-  dvMin: number;
-  dvMax: number;
-  durMin: number;
-  durMax: number;
+  dvMin?: number;
+  dvMax?: number;
+  durMin?: number;
+  durMax?: number;
+  arrMin?: number;
+  arrMax?: number;
 }
 
 export interface SearchOpts {
@@ -741,7 +747,7 @@ export function selectBestRoutes(
     };
     let best = Infinity;
     for (const r of routes) {
-      const d = utopiaDist(r.totalDeltaV, r.duration, box);
+      const d = utopiaDist(r.totalDeltaV, r.duration, r.departAt + r.duration, box);
       if (d < best) {
         best = d;
         goldilocks = r;
@@ -756,13 +762,36 @@ export function selectBestRoutes(
   return out;
 }
 
-/** Normalised Euclidean distance from (dv, dur) to the utopia corner, clamped at the corner. */
-function utopiaDist(dv: number, dur: number, b: UtopiaBox): number {
-  const dvR = Math.max(1e-9, b.dvMax - b.dvMin);
-  const durR = Math.max(1e-9, b.durMax - b.durMin);
-  const x = Math.max(0, (dv - b.dvMin) / dvR);
-  const y = Math.max(0, (dur - b.durMin) / durR);
-  return Math.sqrt(x * x + y * y);
+/**
+ * Normalised Euclidean distance from a point to the utopia corner of `b`, over whichever axes
+ * the box carries. Each present axis is normalised to its [min, max] range and clamped at 0 so
+ * a point at or past the corner contributes nothing (keeps the metric an admissible lower bound
+ * for branch-and-bound). `arr` is the arrival axis (departAt + duration); ignored when the box
+ * has no arr range.
+ */
+export function utopiaDist(
+  dv: number,
+  dur: number,
+  arr: number,
+  b: UtopiaBox,
+): number {
+  let sq = 0;
+  if (b.dvMin !== undefined) {
+    const r = Math.max(1e-9, (b.dvMax ?? b.dvMin) - b.dvMin);
+    const x = Math.max(0, (dv - b.dvMin) / r);
+    sq += x * x;
+  }
+  if (b.durMin !== undefined) {
+    const r = Math.max(1e-9, (b.durMax ?? b.durMin) - b.durMin);
+    const y = Math.max(0, (dur - b.durMin) / r);
+    sq += y * y;
+  }
+  if (b.arrMin !== undefined) {
+    const r = Math.max(1e-9, (b.arrMax ?? b.arrMin) - b.arrMin);
+    const z = Math.max(0, (arr - b.arrMin) / r);
+    sq += z * z;
+  }
+  return Math.sqrt(sq);
 }
 
 /** Closed-form terminal Δv (km/s) for one endpoint at a given v∞. */
@@ -806,7 +835,7 @@ export function searchBest(
       ? dv
       : obj === "duration"
       ? dur
-      : utopiaDist(dv, dur, box!);
+      : utopiaDist(dv, dur, 0, box!);
   // Secondary, lexicographic tiebreak: the min-duration (or min-Δv) route is rarely unique, so
   // among equal-primary routes prefer the one that also minimises the other axis. Without this
   // "fastest" can be a Δv-absurd route that merely ties on time (and would corrupt the box).

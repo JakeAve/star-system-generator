@@ -4,8 +4,9 @@ import {
   findDirectRoutes,
   findDoubleAssistRoutes,
   findSingleAssistRoutes,
+  utopiaDist,
 } from "./search.ts";
-import type { BodyRef } from "./search.ts";
+import type { BodyRef, UtopiaBox } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
 import { muBody, muStar, R_EARTH_M } from "./units.ts";
 import { EndState, RankMode, RouteNodeKind } from "./types.ts";
@@ -32,6 +33,30 @@ const toBody = {
   },
   endpoint: { mu: 4.28e13, radiusM: 3.39e6 },
 };
+
+Deno.test("utopiaDist: 2-axis (Δv, duration) box matches the legacy normalized distance", () => {
+  const box: UtopiaBox = { dvMin: 10, dvMax: 20, durMin: 100, durMax: 300 };
+  // A point at the utopia corner has distance 0; the opposite corner has distance √2.
+  // arrival is absent from the box, so the arr argument must be ignored.
+  assertAlmostEquals(utopiaDist(10, 100, 99999, box), 0, 1e-12);
+  assertAlmostEquals(utopiaDist(20, 300, 0, box), Math.SQRT2, 1e-12);
+  assertAlmostEquals(utopiaDist(15, 200, 12345, box), Math.hypot(0.5, 0.5), 1e-12);
+});
+
+Deno.test("utopiaDist: arrival axis participates only when the box carries arr ranges", () => {
+  const box: UtopiaBox = { dvMin: 0, dvMax: 10, arrMin: 1000, arrMax: 2000 };
+  // duration absent → ignored; arrival contributes.
+  assertAlmostEquals(utopiaDist(0, 5e9, 1000, box), 0, 1e-12);
+  assertAlmostEquals(utopiaDist(10, 0, 2000, box), Math.SQRT2, 1e-12);
+});
+
+Deno.test("utopiaDist: 3-axis triple box normalizes all three", () => {
+  const box: UtopiaBox = {
+    dvMin: 0, dvMax: 10, durMin: 0, durMax: 10, arrMin: 0, arrMax: 10,
+  };
+  assertAlmostEquals(utopiaDist(0, 0, 0, box), 0, 1e-12);
+  assertAlmostEquals(utopiaDist(10, 10, 10, box), Math.sqrt(3), 1e-12);
+});
 
 Deno.test("findDirectRoutes: returns a self-consistent orbit→orbit route", () => {
   const routes = findDirectRoutes(
