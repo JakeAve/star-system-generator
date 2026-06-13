@@ -139,7 +139,7 @@
 
           const orrery = createCanvasOrrery(document.body, {
             onPick: (id) => {
-              selectSingle(id);
+              highlightOnly(id);
               pickForRoute(id);
               const obj = animObjects.find((o) => o.id === id);
               if (obj) {
@@ -152,6 +152,15 @@
               if (state.focus.length === 0) return;
               state.mode = "frame";
               writeURL();
+            },
+            onRoutePick: (t) => {
+              if (t.kind === "node") {
+                console.log(`[route ${t.routeId}] node ${t.node.id} (${t.node.kind}) ` +
+                  `day ${t.node.time.toFixed(0)}, Δv ${t.node.deltaV.toFixed(2)} km/s`);
+              } else {
+                console.log(`[route ${t.routeId}] leg ${t.leg.fromBodyId} -> ${t.leg.toBodyId} ` +
+                  `tof ${t.leg.timeOfFlight.toFixed(0)} d, Δv ${t.leg.deltaV.toFixed(2)} km/s`);
+              }
             },
           });
 
@@ -193,7 +202,16 @@
             }
           }
 
-          function selectSingle(id) {
+          // Highlight a body without moving the camera (canvas click / panel row select).
+          function highlightOnly(id) {
+            state.hl = [id];
+            state.focus = [];
+            orrery.setHighlight([id]);
+            writeURL();
+          }
+
+          // Highlight AND fly/lock the camera to a body (the "Fly to" button only).
+          function flyTo(id) {
             state.hl = [id];
             state.focus = [id];
             state.mode = "lock";
@@ -212,8 +230,8 @@
           writeURL();
 
           buildPanel(data, animObjects, {
-            onFocus: (b) => selectSingle(b ? b.id : data.star.id),
-            onFlyTo: (b) => selectSingle(b ? b.id : data.star.id),
+            onFocus: (b) => highlightOnly(b ? b.id : data.star.id),
+            onFlyTo: (b) => flyTo(b ? b.id : data.star.id),
           });
           buildPlaybackWidget({
             onTimeScale: (ts) => orrery.setTimeScale(ts),

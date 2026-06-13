@@ -54,6 +54,7 @@ export type {
   RouteGhostView,
   RouteLegView,
   RouteNodeView,
+  RoutePickTarget,
   RouteView,
 } from "./src/view/route-view-model.ts";
 export type {

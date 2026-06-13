@@ -8,7 +8,8 @@ import {
   visualRadius,
 } from "../core/kinematics.ts";
 import { centroidOf, enclosingRadius } from "../view/framing.ts";
-import type { RouteView } from "../view/route-view-model.ts";
+import { chevronsAlong, hitTestRoutes } from "../view/route-view-model.ts";
+import type { RoutePickTarget, RouteView } from "../view/route-view-model.ts";
 
 const FLY_DURATION = 1.5;
 
@@ -47,6 +48,8 @@ export interface CanvasOrreryOptions {
   onSpacePick?: (au: number, phase: number) => void;
   /** Fired when the user manually pans/zooms while the camera was locked. */
   onLockBreak?: () => void;
+  /** Fired when the user taps a route leg or node (takes precedence over onPick). */
+  onRoutePick?: (target: RoutePickTarget) => void;
 }
 
 interface AnimObj {
@@ -76,8 +79,10 @@ export interface CanvasOrreryHandle {
   focus(ids: string[], mode: "lock" | "frame"): void;
   /** Set the highlighted (ringed) body ids. Unknown ids are skipped. */
   setHighlight(ids: string[]): void;
-  /** Draw a route overlay (ghost bodies + yellow transfer arcs + node markers).
-   *  Pass null to clear it. */
+  /** Draw one or more route overlays (ghost bodies + colored transfer arcs + node markers).
+   *  Replaces any current routes; pass [] to clear. */
+  setRoutes(routeViews: RouteView[]): void;
+  /** Convenience wrapper over setRoutes for a single route (or null to clear). */
   setRoute(routeView: RouteView | null): void;
   dispose(): void;
 }
@@ -102,7 +107,13 @@ export function createCanvasOrrery(
   let animObjectsById: Record<string, AnimObj> = {};
   let starfield: { x: number; y: number }[] = [];
   let highlightIds: Set<string> = new Set();
-  let currentRoute: RouteView | null = null;
+  let currentRoutes: RouteView[] = [];
+  // Marching-chevron animation: subtle directional flow along route legs.
+  // Tunables — spacing/size are screen px (divided by scale); speed is spacings/sec.
+  const CHEVRON_SPACING_PX = 46;
+  const CHEVRON_ARM_PX = 5;
+  const CHEVRON_SPEED = 0.5; // ~23 px/sec of flow at this spacing — deliberately gentle
+  let routePhase = 0;
   let elapsedDays = 0;
   let lastTime: number | null = null;
   let paused = false;
@@ -148,6 +159,11 @@ export function createCanvasOrrery(
   function handleTap(screenX: number, screenY: number) {
     const { x: wx, y: wy } = screenToWorld(screenX, screenY);
     const MIN_HIT = 20 / cam.scale;
+    const routeHit = hitTestRoutes(currentRoutes, wx, wy, MIN_HIT);
+    if (routeHit) {
+      opts.onRoutePick?.(routeHit);
+      return;
+    }
     let best: AnimObj | null = null, bestDist = Infinity;
     for (const obj of animObjects) {
       const d = Math.hypot(obj.worldX - wx, obj.worldY - wy);
@@ -367,48 +383,70 @@ export function createCanvasOrrery(
   }
 
   function drawRoute() {
-    if (!currentRoute) return;
+    if (currentRoutes.length === 0) return;
     ctx.save(); // isolate route styling (stroke/fill/lineWidth) from the rest of the frame
 
-    // Ghost bodies: faint filled discs where each node body sits at the route's times.
-    ctx.save();
-    ctx.globalAlpha = 0.35;
-    for (const g of currentRoute.ghosts) {
-      const r = Math.max(2 / cam.scale, g.visualR);
-      ctx.beginPath();
-      ctx.arc(g.x, g.y, r, 0, Math.PI * 2);
-      ctx.fillStyle = TYPE_COLORS[g.type] ?? "#ffffff";
-      ctx.fill();
-    }
-    ctx.restore();
+    for (const route of currentRoutes) {
+      const color = route.color ?? "#ffd633";
 
-    // Yellow transfer arcs.
-    ctx.strokeStyle = "#ffd633";
-    ctx.lineWidth = 2 / cam.scale;
-    for (const leg of currentRoute.legs) {
-      if (leg.points.length < 2) continue;
-      ctx.beginPath();
-      ctx.moveTo(leg.points[0].x, leg.points[0].y);
-      for (let i = 1; i < leg.points.length; i++) {
-        ctx.lineTo(leg.points[i].x, leg.points[i].y);
-      }
-      ctx.stroke();
-    }
-
-    // Node markers: filled dot for depart/arrive, hollow ring for flyby.
-    for (const n of currentRoute.nodes) {
-      const r = 4 / cam.scale;
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-      if (n.kind === "flyby") {
-        ctx.strokeStyle = "#ffd633";
-        ctx.lineWidth = 1.5 / cam.scale;
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = "#ffd633";
+      // Ghost bodies: faint body-tinted discs at the route's times.
+      ctx.save();
+      ctx.globalAlpha = 0.35;
+      for (const g of route.ghosts) {
+        const r = Math.max(2 / cam.scale, g.visualR);
+        ctx.beginPath();
+        ctx.arc(g.x, g.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = TYPE_COLORS[g.type] ?? "#ffffff";
         ctx.fill();
       }
+      ctx.restore();
+
+      // Transfer arcs (route color).
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2 / cam.scale;
+      for (const leg of route.legs) {
+        if (leg.points.length < 2) continue;
+        ctx.beginPath();
+        ctx.moveTo(leg.points[0].x, leg.points[0].y);
+        for (let i = 1; i < leg.points.length; i++) {
+          ctx.lineTo(leg.points[i].x, leg.points[i].y);
+        }
+        ctx.stroke();
+      }
+
+      // Marching chevrons: subtle arrows flowing toward the destination (direction of travel).
+      const spacing = CHEVRON_SPACING_PX / cam.scale;
+      const arm = CHEVRON_ARM_PX / cam.scale;
+      const spread = 2.5; // arms angled back from the tip (~143°)
+      ctx.lineWidth = 1.4 / cam.scale;
+      ctx.globalAlpha = 0.85;
+      for (const leg of route.legs) {
+        for (const c of chevronsAlong(leg.points, spacing, routePhase)) {
+          ctx.beginPath();
+          ctx.moveTo(c.x + Math.cos(c.angle + spread) * arm, c.y + Math.sin(c.angle + spread) * arm);
+          ctx.lineTo(c.x, c.y);
+          ctx.lineTo(c.x + Math.cos(c.angle - spread) * arm, c.y + Math.sin(c.angle - spread) * arm);
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // Node markers: filled dot for depart/arrive, hollow ring for flyby.
+      for (const n of route.nodes) {
+        const r = 4 / cam.scale;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+        if (n.kind === "flyby") {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5 / cam.scale;
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = color;
+          ctx.fill();
+        }
+      }
     }
+
     ctx.restore();
   }
 
@@ -531,6 +569,7 @@ export function createCanvasOrrery(
     }
     const delta = Math.min((time - lastTime) / 1000, 0.1);
     lastTime = time;
+    routePhase = (routePhase + delta * CHEVRON_SPEED) % 1; // flows even while sim is paused
     if (!paused) elapsedDays += delta * timeScale;
     updatePositions();
     if (flyState !== null) {
@@ -573,7 +612,7 @@ export function createCanvasOrrery(
     animObjectsById = {};
     starfield = [];
     highlightIds = new Set();
-    currentRoute = null;
+    currentRoutes = [];
     elapsedDays = 0;
     lastTime = null;
     paused = false;
@@ -632,8 +671,11 @@ export function createCanvasOrrery(
     },
     focus,
     setHighlight,
+    setRoutes(routeViews) {
+      currentRoutes = [...routeViews]; // copy so later caller mutation can't change the overlay
+    },
     setRoute(routeView) {
-      currentRoute = routeView;
+      currentRoutes = routeView ? [routeView] : [];
     },
     dispose() {
       clearScene();

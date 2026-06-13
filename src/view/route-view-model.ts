@@ -8,17 +8,26 @@ import { buildViewModel, type ViewBody } from "./view-model.ts";
 
 export interface RouteLegView {
   centralBodyId: string;
+  fromBodyId: string;
+  toBodyId: string;
+  departTime: number; // day
+  arriveTime: number; // day
+  timeOfFlight: number; // days
+  deltaV: number; // km/s, leg injection burn
+  transfer: { a: number; e: number; argPeriapsis: number; nu1: number; nu2: number };
   /** World-unit polyline tracing the leg's transfer arc (nu1 -> nu2). */
   points: { x: number; y: number }[];
 }
 
 export interface RouteNodeView {
-  id: string;
+  id: string; // body id
   kind: RouteNodeKind;
   x: number;
   y: number;
   time: number; // absolute day
   deltaV: number; // km/s
+  vInfinity?: number; // km/s, transit nodes
+  flyby?: { periapsisRadius: number; vInfinity: number; turnAngle: number };
 }
 
 export interface RouteGhostView {
@@ -30,9 +39,127 @@ export interface RouteGhostView {
 }
 
 export interface RouteView {
+  id: string; // caller-supplied; returned in onRoutePick targets
+  color?: string; // whole-route color for arc + node markers; engine default "#ffd633"
   legs: RouteLegView[];
   nodes: RouteNodeView[];
   ghosts: RouteGhostView[];
+}
+
+export type RoutePickTarget =
+  | { kind: "node"; routeId: string; node: RouteNodeView }
+  | { kind: "leg"; routeId: string; leg: RouteLegView };
+
+/** Shortest distance from point (px,py) to segment (ax,ay)-(bx,by). */
+function pointToSegmentDistance(
+  px: number, py: number,
+  ax: number, ay: number,
+  bx: number, by: number,
+): number {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  let t = lenSq === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const cx = ax + t * dx, cy = ay + t * dy;
+  return Math.hypot(px - cx, py - cy);
+}
+
+/**
+ * Hit-test a world-space point against route geometry. For each route, a node within `radius`
+ * wins over that route's legs (a node sits on leg endpoints, so clicking a junction selects the
+ * node); otherwise the route's nearest leg within `radius` is its candidate. Across routes, the
+ * candidate with the smallest distance wins — so a near leg on one route is not overridden by a
+ * far node on another. Returns null when nothing is within `radius`. Pure: no DOM, no engine state.
+ */
+export function hitTestRoutes(
+  routes: RouteView[],
+  x: number,
+  y: number,
+  radius: number,
+): RoutePickTarget | null {
+  let best: { d: number; target: RoutePickTarget } | null = null;
+
+  for (const route of routes) {
+    // Per-route: nearest node within radius takes priority (junction); else nearest leg.
+    let nodeBest: { d: number; node: RouteNodeView } | null = null;
+    for (const node of route.nodes) {
+      const d = Math.hypot(node.x - x, node.y - y);
+      if (d <= radius && (!nodeBest || d < nodeBest.d)) nodeBest = { d, node };
+    }
+
+    let cand: { d: number; target: RoutePickTarget } | null = null;
+    if (nodeBest) {
+      cand = { d: nodeBest.d, target: { kind: "node", routeId: route.id, node: nodeBest.node } };
+    } else {
+      let legBest: { d: number; leg: RouteLegView } | null = null;
+      for (const leg of route.legs) {
+        for (let i = 1; i < leg.points.length; i++) {
+          const a = leg.points[i - 1], b = leg.points[i];
+          const d = pointToSegmentDistance(x, y, a.x, a.y, b.x, b.y);
+          if (d <= radius && (!legBest || d < legBest.d)) legBest = { d, leg };
+        }
+      }
+      if (legBest) {
+        cand = { d: legBest.d, target: { kind: "leg", routeId: route.id, leg: legBest.leg } };
+      }
+    }
+
+    if (cand && (!best || cand.d < best.d)) best = cand;
+  }
+
+  return best ? best.target : null;
+}
+
+/** A chevron placement along a route polyline: a point and the travel-direction angle (rad). */
+export interface Chevron {
+  x: number;
+  y: number;
+  angle: number; // radians, pointing toward the polyline's end (direction of travel)
+}
+
+/**
+ * Place chevron markers along a polyline at `spacing` (world units), shifted forward by
+ * `phase` ∈ [0,1) of one spacing for animated flow. Each chevron's `angle` points along the
+ * local segment toward the polyline's end (depart -> arrive), so they read as travel direction.
+ * Pure: no DOM, no engine state. Returns [] for degenerate input.
+ */
+export function chevronsAlong(
+  points: { x: number; y: number }[],
+  spacing: number,
+  phase: number,
+): Chevron[] {
+  if (points.length < 2 || spacing <= 0) return [];
+  const segs: { len: number; ang: number; x0: number; y0: number }[] = [];
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    const dx = points[i].x - points[i - 1].x;
+    const dy = points[i].y - points[i - 1].y;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) continue;
+    segs.push({ len, ang: Math.atan2(dy, dx), x0: points[i - 1].x, y0: points[i - 1].y });
+    total += len;
+  }
+  if (total === 0) return [];
+
+  const out: Chevron[] = [];
+  for (let k = 0; ; k++) {
+    const s = (k + phase) * spacing;
+    if (s > total) break;
+    let acc = 0;
+    for (const sg of segs) {
+      if (s <= acc + sg.len) {
+        const t = sg.len > 0 ? (s - acc) / sg.len : 0;
+        out.push({
+          x: sg.x0 + Math.cos(sg.ang) * sg.len * t,
+          y: sg.y0 + Math.sin(sg.ang) * sg.len * t,
+          angle: sg.ang,
+        });
+        break;
+      }
+      acc += sg.len;
+    }
+  }
+  return out;
 }
 
 const ARC_SAMPLES = 48;
@@ -81,7 +208,11 @@ function sampleArc(
  * star is fixed at the origin; planetocentric legs anchor their central body at the leg's
  * departTime (a sub-pixel approximation for short escape/capture legs).
  */
-export function buildRouteViewModel(system: SolarSystem, route: Route): RouteView {
+export function buildRouteViewModel(
+  system: SolarSystem,
+  route: Route,
+  opts: { id?: string; color?: string } = {},
+): RouteView {
   const starId = system.star.id;
 
   // Leg arcs.
@@ -95,6 +226,13 @@ export function buildRouteViewModel(system: SolarSystem, route: Route): RouteVie
     const auToWorld = heliocentric ? AU_SCALE : AU_SCALE * MOON_ORBIT_SCALE;
     return {
       centralBodyId: leg.centralBodyId,
+      fromBodyId: leg.fromBodyId,
+      toBodyId: leg.toBodyId,
+      departTime: leg.departTime,
+      arriveTime: leg.arriveTime,
+      timeOfFlight: leg.timeOfFlight,
+      deltaV: leg.deltaV,
+      transfer: leg.transfer,
       points: sampleArc(leg.transfer, centralWorld, auToWorld),
     };
   });
@@ -113,6 +251,8 @@ export function buildRouteViewModel(system: SolarSystem, route: Route): RouteVie
       y: body.position.y,
       time: n.time,
       deltaV: n.deltaV,
+      vInfinity: n.vInfinity,
+      flyby: n.flyby,
     });
     const key = `${n.bodyId}@${n.time}`;
     if (!seenGhost.has(key)) {
@@ -127,5 +267,5 @@ export function buildRouteViewModel(system: SolarSystem, route: Route): RouteVie
     }
   }
 
-  return { legs, nodes, ghosts };
+  return { id: opts.id ?? route.notation, color: opts.color, legs, nodes, ghosts };
 }
