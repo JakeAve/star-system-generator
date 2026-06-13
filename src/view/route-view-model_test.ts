@@ -51,3 +51,40 @@ Deno.test("buildRouteViewModel produces leg polylines, nodes, and ghosts in worl
   // Ghosts exist for the node bodies.
   if (view.ghosts.length === 0) throw new Error("expected ghost bodies");
 });
+
+Deno.test("buildRouteViewModel: id/color opts and enriched leg/node fields", () => {
+  const sys = generateSolarSystem({ seed: 16 });
+  const planets = sys.objects.filter((o) => o.type !== "asteroid" && o.moons !== undefined);
+  const from = planets[0].id, to = planets[1].id;
+  const route = getBestRoutes(
+    sys,
+    { obj: from, type: EndState.Orbit },
+    { obj: to, type: EndState.Orbit },
+  )[0];
+
+  // Default id = notation, color undefined.
+  const def = buildRouteViewModel(sys, route);
+  assertEquals(def.id, route.notation);
+  assertEquals(def.color, undefined);
+
+  // Opts honored.
+  const view = buildRouteViewModel(sys, route, { id: "fleet-A", color: "#ff3333" });
+  assertEquals(view.id, "fleet-A");
+  assertEquals(view.color, "#ff3333");
+
+  // Leg view carries the source leg's descriptors.
+  const leg0 = view.legs[0], src = route.legs[0];
+  assertEquals(leg0.fromBodyId, src.fromBodyId);
+  assertEquals(leg0.toBodyId, src.toBodyId);
+  assertEquals(leg0.departTime, src.departTime);
+  assertEquals(leg0.arriveTime, src.arriveTime);
+  assertEquals(leg0.timeOfFlight, src.timeOfFlight);
+  assertEquals(leg0.deltaV, src.deltaV);
+  assertEquals(leg0.transfer.a, src.transfer.a);
+  assertEquals(leg0.transfer.argPeriapsis, src.transfer.argPeriapsis);
+
+  // Node view carries kind + optional vInfinity (undefined on plain depart/arrive is fine).
+  const node0 = view.nodes[0], nsrc = route.nodes[0];
+  assertEquals(node0.kind, nsrc.kind);
+  assertEquals(node0.vInfinity, nsrc.vInfinity);
+});

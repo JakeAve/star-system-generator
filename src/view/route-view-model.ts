@@ -8,17 +8,26 @@ import { buildViewModel, type ViewBody } from "./view-model.ts";
 
 export interface RouteLegView {
   centralBodyId: string;
+  fromBodyId: string;
+  toBodyId: string;
+  departTime: number; // day
+  arriveTime: number; // day
+  timeOfFlight: number; // days
+  deltaV: number; // km/s, leg injection burn
+  transfer: { a: number; e: number; argPeriapsis: number; nu1: number; nu2: number };
   /** World-unit polyline tracing the leg's transfer arc (nu1 -> nu2). */
   points: { x: number; y: number }[];
 }
 
 export interface RouteNodeView {
-  id: string;
+  id: string; // body id
   kind: RouteNodeKind;
   x: number;
   y: number;
   time: number; // absolute day
   deltaV: number; // km/s
+  vInfinity?: number; // km/s, transit nodes
+  flyby?: { periapsisRadius: number; vInfinity: number; turnAngle: number };
 }
 
 export interface RouteGhostView {
@@ -30,6 +39,8 @@ export interface RouteGhostView {
 }
 
 export interface RouteView {
+  id: string; // caller-supplied; returned in onRoutePick targets
+  color?: string; // whole-route color for arc + node markers; engine default "#ffd633"
   legs: RouteLegView[];
   nodes: RouteNodeView[];
   ghosts: RouteGhostView[];
@@ -81,7 +92,11 @@ function sampleArc(
  * star is fixed at the origin; planetocentric legs anchor their central body at the leg's
  * departTime (a sub-pixel approximation for short escape/capture legs).
  */
-export function buildRouteViewModel(system: SolarSystem, route: Route): RouteView {
+export function buildRouteViewModel(
+  system: SolarSystem,
+  route: Route,
+  opts: { id?: string; color?: string } = {},
+): RouteView {
   const starId = system.star.id;
 
   // Leg arcs.
@@ -95,6 +110,13 @@ export function buildRouteViewModel(system: SolarSystem, route: Route): RouteVie
     const auToWorld = heliocentric ? AU_SCALE : AU_SCALE * MOON_ORBIT_SCALE;
     return {
       centralBodyId: leg.centralBodyId,
+      fromBodyId: leg.fromBodyId,
+      toBodyId: leg.toBodyId,
+      departTime: leg.departTime,
+      arriveTime: leg.arriveTime,
+      timeOfFlight: leg.timeOfFlight,
+      deltaV: leg.deltaV,
+      transfer: leg.transfer,
       points: sampleArc(leg.transfer, centralWorld, auToWorld),
     };
   });
@@ -113,6 +135,8 @@ export function buildRouteViewModel(system: SolarSystem, route: Route): RouteVie
       y: body.position.y,
       time: n.time,
       deltaV: n.deltaV,
+      vInfinity: n.vInfinity,
+      flyby: n.flyby,
     });
     const key = `${n.bodyId}@${n.time}`;
     if (!seenGhost.has(key)) {
@@ -127,5 +151,5 @@ export function buildRouteViewModel(system: SolarSystem, route: Route): RouteVie
     }
   }
 
-  return { legs, nodes, ghosts };
+  return { id: opts.id ?? route.notation, color: opts.color, legs, nodes, ghosts };
 }
