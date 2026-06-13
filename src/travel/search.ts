@@ -1,5 +1,5 @@
 // src/travel/search.ts
-import { conic, type OrbitElements, stateAt } from "./state.ts";
+import { type OrbitElements, stateAt, transferConic, type TransferConic } from "./state.ts";
 import {
   type ReframeSweep,
   sweepTransfers,
@@ -281,7 +281,7 @@ interface Vec {
 interface LegSolve {
   v1: Vec; // heliocentric velocity at the leg's start
   v2: Vec; // heliocentric velocity at the leg's end
-  conic: { aAu: number; e: number };
+  conic: TransferConic;
 }
 
 /** Solve one heliocentric Lambert leg, rejecting singular geometry and non-finite results. */
@@ -297,7 +297,7 @@ function solveLeg(
   if (Math.abs(crossZ) < COLLINEAR_EPS * r1 * r2) return null;
   const lam = solveLambert(p1, p2, tofDays * DAY_S, mu, true);
   if (!Number.isFinite(lam.v1.x) || !Number.isFinite(lam.v2.x)) return null;
-  const c = conic(p1, lam.v1, mu);
+  const c = transferConic(p1, lam.v1, p2, mu);
   if (!Number.isFinite(c.aAu) || !Number.isFinite(c.e)) return null;
   return { v1: lam.v1, v2: lam.v2, conic: c };
 }
@@ -331,7 +331,7 @@ function flybyVia(
 interface FlybyStep {
   via: BodyRef;
   inboundTof: number; // days, the leg arriving at this flyby
-  inboundConic: { aAu: number; e: number };
+  inboundConic: TransferConic;
   fb: FlybyResult;
 }
 
@@ -350,7 +350,7 @@ function buildAssistRoute(
   departDay: number,
   steps: FlybyStep[],
   finalTof: number,
-  finalConic: { aAu: number; e: number },
+  finalConic: TransferConic,
   vInfDepart: number,
   vInfArrive: number,
 ): Route {
