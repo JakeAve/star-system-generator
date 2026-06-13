@@ -900,6 +900,54 @@ export function dedupeRoutes(routes: (Route | null)[]): Route[] {
   return out;
 }
 
+/** Return a copy of `r` with every absolute time advanced by `deltaDays` (0 → returns `r`). */
+function shiftRoute(r: Route, deltaDays: number): Route {
+  if (deltaDays === 0) return r;
+  return {
+    ...r,
+    departAt: r.departAt + deltaDays,
+    nodes: r.nodes.map((n) => ({ ...n, time: n.time + deltaDays })),
+    legs: r.legs.map((l) => ({
+      ...l,
+      departTime: l.departTime + deltaDays,
+      arriveTime: l.arriveTime + deltaDays,
+    })),
+  };
+}
+
+/**
+ * Project tagged routes into the player window at `nowDay` (= t0). For each tagged route, the
+ * soonest in-window occurrence is t_soonest = D + n*·T_recur with n* = max(0, ceil((t0−D)/T)). A
+ * route is eligible iff t_soonest < t0 + windowDays (always eligible when no window); eligible
+ * routes are time-shifted to t_soonest. The Lambert-derived Δv/geometry/duration is the first-cycle
+ * value (eccentricity re-solve is deferred). Untagged routes (the fixed default path) pass through
+ * unchanged — projection is a no-op when phaseDay/recurDays are absent. At t0=0 the projection is
+ * the identity for tagged direct routes (D ≥ 0 ⇒ n* = 0).
+ */
+export function projectRoutes(
+  routes: Route[],
+  nowDay: number,
+  windowDays?: number,
+): Route[] {
+  const out: Route[] = [];
+  for (const r of routes) {
+    if (
+      r.phaseDay === undefined || r.recurDays === undefined ||
+      !Number.isFinite(r.recurDays) || r.recurDays <= 0
+    ) {
+      out.push(r);
+      continue;
+    }
+    const D = r.phaseDay;
+    const T = r.recurDays;
+    const n = Math.max(0, Math.ceil((nowDay - D) / T));
+    const tSoonest = D + n * T;
+    if (windowDays !== undefined && tSoonest >= nowDay + windowDays) continue;
+    out.push(shiftRoute(r, n * T));
+  }
+  return out;
+}
+
 /** The four Tier-C balance boxes, derived from the three anchors. Shared by the enumerated
  * (selectBestRoutes2) and branch-and-bound (getBestRoutes2) paths so they stay in agreement. */
 export function balanceBoxes(
