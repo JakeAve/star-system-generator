@@ -1,4 +1,4 @@
-import { assertAlmostEquals, assertEquals } from "@std/assert";
+import { assertAlmostEquals, assertEquals, assertThrows } from "@std/assert";
 import { centroidOf, enclosingRadius } from "./framing.ts";
 
 Deno.test("centroidOf: single point returns that point", () => {
@@ -11,6 +11,10 @@ Deno.test("centroidOf: averages 2D points", () => {
 
 Deno.test("centroidOf: averages 3D points", () => {
   assertEquals(centroidOf([[0, 0, 0], [6, 3, 9]]), [3, 1.5, 4.5]);
+});
+
+Deno.test("centroidOf: throws on empty input", () => {
+  assertThrows(() => centroidOf([]), Error, "at least one point");
 });
 
 Deno.test("enclosingRadius: zero for a single point at center", () => {
