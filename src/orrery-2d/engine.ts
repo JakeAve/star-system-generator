@@ -7,6 +7,7 @@ import {
   SOLAR_TO_EARTH_RADII,
   visualRadius,
 } from "../core/kinematics.ts";
+import { centroidOf, enclosingRadius } from "../view/framing.ts";
 
 const FLY_DURATION = 1.5;
 
@@ -43,6 +44,8 @@ const SPECTRAL_STAR_COLOR: Record<string, string> = {
 export interface CanvasOrreryOptions {
   onPick?: (id: string) => void;
   onSpacePick?: (au: number, phase: number) => void;
+  /** Fired when the user manually pans/zooms while the camera was locked. */
+  onLockBreak?: () => void;
 }
 
 interface AnimObj {
@@ -66,7 +69,12 @@ export interface CanvasOrreryHandle {
   setTimeScale(scale: number): void;
   pause(): void;
   resume(): void;
-  focus(id: string): void;
+  /** Move the camera to the given body ids. `lock` tracks their centroid every
+   *  frame; `frame` fits them once then leaves the camera free. Unknown ids are
+   *  skipped; an empty/all-unknown set is a no-op. */
+  focus(ids: string[], mode: "lock" | "frame"): void;
+  /** Set the highlighted (ringed) body ids. Unknown ids are skipped. */
+  setHighlight(ids: string[]): void;
   dispose(): void;
 }
 
@@ -89,7 +97,7 @@ export function createCanvasOrrery(
   let animObjects: AnimObj[] = [];
   let animObjectsById: Record<string, AnimObj> = {};
   let starfield: { x: number; y: number }[] = [];
-  let selectedId: string | null = null;
+  let highlightIds: Set<string> = new Set();
   let elapsedDays = 0;
   let lastTime: number | null = null;
   let paused = false;
@@ -99,12 +107,14 @@ export function createCanvasOrrery(
       startX: number;
       startY: number;
       startScale: number;
-      target: AnimObj;
+      endX: number;
+      endY: number;
       targetScale: number | null;
+      lockTargets: AnimObj[];
       progress: number;
     }
     | null = null;
-  let lockedTarget: AnimObj | null = null;
+  let lockedTargets: AnimObj[] = [];
   let rafId = 0;
   let currentSeed = 0;
 
@@ -122,6 +132,14 @@ export function createCanvasOrrery(
     };
   }
 
+  function breakLock() {
+    const wasLocking = lockedTargets.length > 0 ||
+      (flyState?.lockTargets.length ?? 0) > 0;
+    lockedTargets = [];
+    if (flyState) flyState.lockTargets = [];
+    if (wasLocking) opts.onLockBreak?.();
+  }
+
   function handleTap(screenX: number, screenY: number) {
     const { x: wx, y: wy } = screenToWorld(screenX, screenY);
     const MIN_HIT = 20 / cam.scale;
@@ -135,7 +153,6 @@ export function createCanvasOrrery(
       }
     }
     if (best) {
-      focus(best.id);
       opts.onPick?.(best.id);
     } else {
       const au = Math.hypot(wx, wy) / AU_SCALE;
@@ -147,10 +164,10 @@ export function createCanvasOrrery(
   const onMouseDown = (e: MouseEvent) => {
     dragStart = { x: e.clientX, y: e.clientY };
     camAtDrag = { x: cam.x, y: cam.y };
-    lockedTarget = null;
   };
   const onMouseMove = (e: MouseEvent) => {
     if (!dragStart || !camAtDrag) return;
+    breakLock();
     cam.x = camAtDrag.x - (e.clientX - dragStart.x) / cam.scale;
     cam.y = camAtDrag.y - (e.clientY - dragStart.y) / cam.scale;
   };
@@ -168,7 +185,7 @@ export function createCanvasOrrery(
   };
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
-    lockedTarget = null;
+    breakLock();
     const factor = e.deltaY < 0 ? 1.1 : 0.909;
     const before = screenToWorld(e.clientX, e.clientY);
     cam.scale = Math.max(0.01, Math.min(500, cam.scale * factor));
@@ -178,7 +195,6 @@ export function createCanvasOrrery(
   };
   const onTouchStart = (e: TouchEvent) => {
     e.preventDefault();
-    lockedTarget = null;
     for (const t of Array.from(e.changedTouches)) {
       touchCache[t.identifier] = { x: t.clientX, y: t.clientY };
     }
@@ -198,6 +214,7 @@ export function createCanvasOrrery(
   };
   const onTouchMove = (e: TouchEvent) => {
     e.preventDefault();
+    breakLock();
     for (const t of Array.from(e.changedTouches)) {
       touchCache[t.identifier] = { x: t.clientX, y: t.clientY };
     }
@@ -322,11 +339,11 @@ export function createCanvasOrrery(
       const r = Math.max(2 / cam.scale, obj.visualR);
       ctx.save();
       ctx.translate(obj.worldX, obj.worldY);
-      if (obj.id === selectedId) {
+      if (highlightIds.has(obj.id)) {
         ctx.beginPath();
-        ctx.arc(0, 0, r + 3 / cam.scale, 0, Math.PI * 2);
-        ctx.strokeStyle = "#6ab0d4";
-        ctx.lineWidth = 1.5 / cam.scale;
+        ctx.arc(0, 0, r + 4 / cam.scale, 0, Math.PI * 2);
+        ctx.strokeStyle = "#7fdfff";
+        ctx.lineWidth = 2.5 / cam.scale;
         ctx.stroke();
       }
       ctx.beginPath();
@@ -424,23 +441,35 @@ export function createCanvasOrrery(
     }
   }
 
-  function focus(id: string) {
-    selectedId = id;
-    const obj = animObjectsById[id];
-    if (!obj) return;
+  function focus(ids: string[], mode: "lock" | "frame") {
+    const objs = ids
+      .map((id) => animObjectsById[id])
+      .filter((o): o is AnimObj => Boolean(o));
+    if (objs.length === 0) return;
+    const pts = objs.map((o) => [o.worldX, o.worldY]);
+    const center = centroidOf(pts);
+    const maxVisualR = Math.max(...objs.map((o) => o.visualR));
+    const radius = enclosingRadius(pts, center) + maxVisualR;
     const minDim = Math.min(canvas.width, canvas.height);
     const targetScale = Math.max(
       0.01,
-      Math.min(500, (minDim * 0.2) / Math.max(obj.visualR, 1e-6)),
+      Math.min(500, (minDim / 2) * 0.4 / Math.max(radius, 1e-6)),
     );
     flyState = {
       startX: cam.x,
       startY: cam.y,
       startScale: cam.scale,
-      target: obj,
+      endX: center[0],
+      endY: center[1],
       targetScale,
+      lockTargets: mode === "lock" ? objs : [],
       progress: 0,
     };
+    lockedTargets = [];
+  }
+
+  function setHighlight(ids: string[]) {
+    highlightIds = new Set(ids.filter((id) => id in animObjectsById));
   }
 
   function animate(time: number) {
@@ -456,20 +485,21 @@ export function createCanvasOrrery(
     if (flyState !== null) {
       flyState.progress = Math.min(flyState.progress + delta / FLY_DURATION, 1);
       const t = easeInOutCubic(flyState.progress);
-      cam.x = flyState.startX + (flyState.target.worldX - flyState.startX) * t;
-      cam.y = flyState.startY + (flyState.target.worldY - flyState.startY) * t;
+      cam.x = flyState.startX + (flyState.endX - flyState.startX) * t;
+      cam.y = flyState.startY + (flyState.endY - flyState.startY) * t;
       if (flyState.targetScale !== null) {
         const ls = Math.log(flyState.startScale);
         const lt = Math.log(flyState.targetScale);
         cam.scale = Math.exp(ls + (lt - ls) * t);
       }
       if (flyState.progress >= 1) {
-        lockedTarget = flyState.target;
+        lockedTargets = flyState.lockTargets;
         flyState = null;
       }
-    } else if (lockedTarget !== null) {
-      cam.x = lockedTarget.worldX;
-      cam.y = lockedTarget.worldY;
+    } else if (lockedTargets.length > 0) {
+      const c = centroidOf(lockedTargets.map((o) => [o.worldX, o.worldY]));
+      cam.x = c[0];
+      cam.y = c[1];
     }
     drawStarfield();
     applyTransform();
@@ -485,13 +515,13 @@ export function createCanvasOrrery(
     animObjects = [];
     animObjectsById = {};
     starfield = [];
-    selectedId = null;
+    highlightIds = new Set();
     elapsedDays = 0;
     lastTime = null;
     paused = false;
     timeScale = 1;
     flyState = null;
-    lockedTarget = null;
+    lockedTargets = [];
     dragStart = null;
     camAtDrag = null;
     touchCache = {};
@@ -543,6 +573,7 @@ export function createCanvasOrrery(
       paused = false;
     },
     focus,
+    setHighlight,
     dispose() {
       clearScene();
       canvas.removeEventListener("mousedown", onMouseDown);
