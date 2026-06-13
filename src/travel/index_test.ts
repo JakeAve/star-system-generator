@@ -1,6 +1,6 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
-import { getBestRoutes, getBestRoutes2, getRoutes } from "./index.ts";
+import { getBestRoutes, getBestRoutes2, getBestRoutes3, getRoutes } from "./index.ts";
 import { EndState, RankMode, type Route, RouteNodeKind } from "./types.ts";
 import { sumPrecise } from "./sum.ts";
 import { AU_M, DAY_S, muStar } from "./units.ts";
@@ -529,4 +529,64 @@ Deno.test("getBestRoutes2: synodic cap makes a huge window match the default for
   const capped = getBestRoutes2(system, wp(a), wp(b), { departWindowDays: huge, maxAssists: 0 });
   const dflt = getBestRoutes2(system, wp(a), wp(b), { maxAssists: 0 });
   assertEquals(JSON.stringify(capped), JSON.stringify(dflt));
+});
+
+// --- getBestRoutes3 --------------------------------------------------------------------
+
+Deno.test("getBestRoutes3: returns at most 7 value-distinct picks", () => {
+  const picks = getBestRoutes3(system, wp(a), wp(b));
+  assertEquals(picks.length <= 7, true);
+  const keys = new Set(picks.map((r) => `${r.departAt}|${r.duration}|${r.notation}`));
+  assertEquals(keys.size, picks.length); // all distinct
+});
+
+Deno.test("getBestRoutes3: anchors reach the picked-set extrema", () => {
+  const picks = getBestRoutes3(system, wp(a), wp(b));
+  if (picks.length === 0) return;
+  const arr = (r: Route) => r.departAt + r.duration;
+  const minDv = Math.min(...picks.map((r) => r.totalDeltaV));
+  const minDur = Math.min(...picks.map((r) => r.duration));
+  const minArr = Math.min(...picks.map((r) => arr(r)));
+  assertEquals(picks.some((r) => r.totalDeltaV === minDv), true);
+  assertEquals(picks.some((r) => r.duration === minDur), true);
+  assertEquals(picks.some((r) => arr(r) === minArr), true);
+});
+
+Deno.test("getBestRoutes3: deterministic over (system, from, to, options)", () => {
+  const x = getBestRoutes3(system, wp(a), wp(b));
+  const y = getBestRoutes3(system, wp(a), wp(b));
+  assertEquals(JSON.stringify(x), JSON.stringify(y));
+});
+
+Deno.test("getBestRoutes3: the star cannot be an endpoint", () => {
+  assertThrows(() => getBestRoutes3(system, wp(system.star.id), wp(b)));
+});
+
+Deno.test("getBestRoutes3: nowDay>0 shifts departures to on-or-after now", () => {
+  const picks = getBestRoutes3(system, wp(a), wp(b), {
+    departWindowDays: 4000,
+    sweep: {
+      kind: "resolutionTarget",
+      deltaD: 20, minD: 8, maxD: 60, deltaT: 40, minT: 8, maxT: 60,
+      nowDay: 2000,
+    },
+  });
+  for (const r of picks) assertEquals(r.departAt >= 2000 - 1e-6, true);
+});
+
+Deno.test("getBestRoutes3: moon endpoint returns picks from the cross-frame set", () => {
+  if (!giant42) throw new Error("seed 42 expected a planet with >= 2 moons");
+  const picks = getBestRoutes3(
+    sys42,
+    { obj: giant42.moons[0].id, type: EndState.Orbit },
+    { obj: giant42.moons[1].id, type: EndState.Orbit },
+  );
+  assertEquals(Array.isArray(picks), true);
+  assertEquals(picks.length <= 7, true);
+});
+
+Deno.test("getBestRoutes3: control getBestRoutes2 is unaffected by a fixed sweep option", () => {
+  const c1 = getBestRoutes2(system, wp(a), wp(b));
+  const c2 = getBestRoutes2(system, wp(a), wp(b), { sweep: { kind: "fixed" } });
+  assertEquals(JSON.stringify(c1), JSON.stringify(c2));
 });

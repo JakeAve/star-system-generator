@@ -8,6 +8,7 @@ import {
   findDirectRoutes,
   findDoubleAssistRoutes,
   findSingleAssistRoutes,
+  projectRoutes,
   rankRoutes,
   searchBest,
   selectBestRoutes,
@@ -23,9 +24,11 @@ import {
   type EndState,
   RankMode,
   type Route,
+  type SweepMode,
   type TravelOptions,
   type Waypoint,
 } from "./types.ts";
+import { DEFAULT_REFRAME } from "./recurrence.ts";
 
 /** Planet/giant bodies are the only eligible gravity-assist flyby targets. */
 const FLYBY_TYPES = new Set<ObjectType>([
@@ -398,4 +401,91 @@ export function getBestRoutes2(
   const triple = balance(boxes.triple, [cheapest, fastest, soonest]);
 
   return dedupeRoutes([cheapest, fastest, soonest, cf, cs, fs, triple]);
+}
+
+/** Build the default resolution-target sweep mode for getBestRoutes3 from DEFAULT_REFRAME. */
+function defaultReframe(
+  nowDay: number,
+): Extract<SweepMode, { kind: "resolutionTarget" }> {
+  return {
+    kind: "resolutionTarget",
+    deltaD: DEFAULT_REFRAME.deltaD,
+    minD: DEFAULT_REFRAME.minD,
+    maxD: DEFAULT_REFRAME.maxD,
+    deltaT: DEFAULT_REFRAME.deltaT,
+    minT: DEFAULT_REFRAME.minT,
+    maxT: DEFAULT_REFRAME.maxT,
+    nowDay,
+  };
+}
+
+/**
+ * Third, parallel route function: the full schedule-aware reframe (kept beside getBestRoutes and
+ * getBestRoutes2 as a benchmark control). Instead of branch-and-bound, it SCANS once at
+ * resolution-target density over the recurrence horizon (synodic for direct, T_combined for
+ * assist), PROJECTS every tagged opportunity to its soonest occurrence at/after `nowDay` within
+ * the window, then SELECTS the 7 Tier-C picks via selectBestRoutes2. Slowest of the three by
+ * design — no pruning. Sampling is opt-in (`options.sweep`); when the caller passes no
+ * resolutionTarget sweep, getBestRoutes3 supplies the DEFAULT_REFRAME mode (nowDay 0). Moon
+ * endpoints have no assist variants, so they delegate to getRoutes (with the reframe sweep) and
+ * select from the projected cross-frame candidates.
+ */
+export function getBestRoutes3(
+  system: SolarSystem,
+  from: Waypoint,
+  to: Waypoint,
+  options: TravelOptions = {},
+): Route[] {
+  const index = flatten(system);
+  const f = index.get(from.obj);
+  const t = index.get(to.obj);
+  if (!f) throw new Error(`unknown body: ${from.obj}`);
+  if (!t) throw new Error(`unknown body: ${to.obj}`);
+  if (f.obj.type === ObjectType.Star || t.obj.type === ObjectType.Star) {
+    throw new Error("the star cannot be a travel endpoint");
+  }
+  // The reframe sweep: caller-supplied resolutionTarget mode, else the DEFAULT_REFRAME defaults.
+  const sweep = options.sweep?.kind === "resolutionTarget"
+    ? options.sweep
+    : defaultReframe(0);
+  const nowDay = sweep.nowDay;
+  const scanOpts: TravelOptions = { ...options, rank: RankMode.All, sweep };
+
+  if (f.isMoon || t.isMoon) {
+    const all = getRoutes(system, from, to, scanOpts);
+    const projected = projectRoutes(all, nowDay, options.departWindowDays);
+    return selectBestRoutes2(projected);
+  }
+
+  const mu = muStar(system.star.mass);
+  const assists = Math.min(options.maxAssists ?? 2, 2);
+  const flybyBodies: BodyRef[] = [];
+  for (const o of system.objects) {
+    if (o.id === f.obj.id || o.id === t.obj.id) continue;
+    if (FLYBY_TYPES.has(o.type)) flybyBodies.push(bodyRefOf(o));
+  }
+  const fromRef = bodyRefOf(f.obj);
+  const toRef = bodyRefOf(t.obj);
+
+  // Scan once (no branch-and-bound): direct + single + double assist, all tagged for projection.
+  let candidates = findDirectRoutes(
+    fromRef, toRef, from.type, to.type, mu, system.star.id, scanOpts,
+  );
+  if (assists >= 1) {
+    candidates = candidates.concat(
+      findSingleAssistRoutes(
+        fromRef, toRef, from.type, to.type, flybyBodies, mu, system.star.id, scanOpts,
+      ),
+    );
+  }
+  if (assists >= 2) {
+    candidates = candidates.concat(
+      findDoubleAssistRoutes(
+        fromRef, toRef, from.type, to.type, flybyBodies, mu, system.star.id, scanOpts,
+      ),
+    );
+  }
+
+  const projected = projectRoutes(candidates, nowDay, options.departWindowDays);
+  return selectBestRoutes2(projected);
 }
