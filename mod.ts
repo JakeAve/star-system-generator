@@ -52,6 +52,7 @@ export {
 export {
   buildRouteViewModel,
   routeViewForPick,
+  routeViewsForPick,
 } from "./src/view/route-view-model.ts";
 export type {
   RouteGhostView,

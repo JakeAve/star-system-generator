@@ -4,6 +4,7 @@ import {
   chevronsAlong,
   hitTestRoutes,
   routeViewForPick,
+  routeViewsForPick,
 } from "./route-view-model.ts";
 import type { RouteView } from "./route-view-model.ts";
 import { buildViewModel } from "./view-model.ts";
@@ -248,5 +249,47 @@ Deno.test("routeViewForPick: the current day shifts the departure window", () =>
   }
   if (atBig.nodes[0].time < big) {
     throw new Error("day-big route departed before current day");
+  }
+});
+
+Deno.test("routeViewsForPick: returns an array of RouteViews with distinct colors", () => {
+  const sys = twoPlanetSystem();
+  const planets = sys.objects.filter((o) =>
+    o.type !== "asteroid" && o.moons !== undefined
+  );
+  if (planets.length < 2) throw new Error("fixture needs >= 2 planets");
+  const views = routeViewsForPick(sys, planets[0].id, planets[1].id, 0);
+  if (views.length === 0) throw new Error("expected at least one route view");
+  // Every view has a non-empty color.
+  for (const v of views) {
+    if (!v.color) throw new Error("expected a color on each view");
+  }
+  // Colors are distinct across views (if more than one returned).
+  const colors = views.map((v) => v.color);
+  const unique = new Set(colors);
+  if (unique.size !== colors.length) {
+    throw new Error("duplicate colors in multi-route overlay");
+  }
+});
+
+Deno.test("routeViewsForPick: all departures are at/after currentDay", () => {
+  const sys = twoPlanetSystem();
+  const planets = sys.objects.filter((o) =>
+    o.type !== "asteroid" && o.moons !== undefined
+  );
+  if (planets.length < 2) throw new Error("fixture needs >= 2 planets");
+  const currentDay = 3000;
+  const views = routeViewsForPick(
+    sys,
+    planets[0].id,
+    planets[1].id,
+    currentDay,
+  );
+  for (const v of views) {
+    if (v.nodes[0].time < currentDay) {
+      throw new Error(
+        `departure ${v.nodes[0].time} before currentDay ${currentDay}`,
+      );
+    }
   }
 });

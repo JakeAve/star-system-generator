@@ -119,6 +119,8 @@ let sheetEl = null, styleEl = null;
 let contentEl, detailEl, listEl;
 let activeRow = null;
 let panelCallbacks = {};
+let routeState = { phase: "idle", fromId: null };
+let currentDetailObj = null;
 let bodySelectedController = null;
 let currentHeight = PEEK_PX;
 
@@ -261,6 +263,7 @@ function renderDetailPlaceholder() {
 
 function showDetail(obj) {
   if (!obj) return;
+  currentDetailObj = obj;
   for (const child of [...detailEl.children]) {
     if (child.id !== "cs-handle") child.remove();
   }
@@ -285,6 +288,29 @@ function showDetail(obj) {
   });
 
   head.append(left, flyBtn);
+
+  // Route button(s): label depends on current route-picking phase.
+  if (obj.type !== "star") {
+    const makeRouteBtn = (id, label, action) => {
+      const btn = document.createElement("button");
+      btn.id = id;
+      btn.textContent = label;
+      btn.addEventListener("click", () => panelCallbacks.onRouteAction?.(action, obj.id));
+      return btn;
+    };
+
+    if (routeState.phase === "idle") {
+      head.append(makeRouteBtn("cs-route-start", "⊕ Start Route", "start"));
+    } else if (routeState.fromId === obj.id) {
+      head.append(makeRouteBtn("cs-route-cancel", "✕ Cancel Route", "cancel"));
+    } else {
+      head.append(
+        makeRouteBtn("cs-route-finish", "✓ Finish Route", "finish"),
+        makeRouteBtn("cs-route-cancel", "✕ Cancel Route", "cancel"),
+      );
+    }
+  }
+
   detailEl.appendChild(head);
 
   const EARTH_DENSITY_GCC = 5.51;
@@ -369,9 +395,18 @@ export function buildPanel(seed, animObjects, callbacks) {
   window.matchMedia("(min-width: 900px)").addEventListener("change", () => {
     setHeight(currentHeight, false);
   }, { signal: bodySelectedController.signal });
+
+  return {
+    setRouteState(state) {
+      routeState = state;
+      if (currentDetailObj) showDetail(currentDetailObj);
+    },
+  };
 }
 
 export function clearPanel() {
+  currentDetailObj = null;
+  routeState = { phase: "idle", fromId: null };
   sheetEl?.remove();
   styleEl?.remove();
   sheetEl = styleEl = null;
@@ -382,6 +417,7 @@ export function clearPanel() {
 }
 
 export function clearActive() {
+  currentDetailObj = null;
   if (activeRow) activeRow.classList.remove("cs-active");
   activeRow = null;
   if (detailEl) renderDetailPlaceholder();

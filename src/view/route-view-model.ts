@@ -309,6 +309,36 @@ export function buildRouteViewModel(
   };
 }
 
+/** Colors assigned positionally to getBestRoutes picks. Slot meaning shifts when fewer than 3
+ *  distinct picks are returned (dedup can collapse goldilocks into an anchor). */
+const ROUTE_PALETTE = ["#4fc3f7", "#ffd633", "#ef5350"];
+
+/**
+ * Compute all picks from getBestRoutes for a departure on/after `currentDay` and convert
+ * each to a RouteView with a distinct color. Returns an empty array when no routes exist.
+ * Intended for multi-route overlay display; call `orrery.setRoutes(views)` with the result.
+ */
+export function routeViewsForPick(
+  system: SolarSystem,
+  fromId: string,
+  toId: string,
+  currentDay: number,
+  opts: { includeGoldilocks?: boolean } = {},
+): RouteView[] {
+  const routes = getBestRoutes(
+    system,
+    { obj: fromId, type: EndState.Orbit },
+    { obj: toId, type: EndState.Orbit },
+    { startWindow: currentDay },
+    opts.includeGoldilocks ?? true,
+  );
+  return routes.map((route, i) =>
+    buildRouteViewModel(system, route, {
+      color: ROUTE_PALETTE[i] ?? ROUTE_PALETTE[0],
+    })
+  );
+}
+
 /**
  * Compute the best route between two bodies for a departure on/after `currentDay`, and convert it
  * to a RouteView ready for an engine to draw. `currentDay` is the renderer's absolute sim day; it
