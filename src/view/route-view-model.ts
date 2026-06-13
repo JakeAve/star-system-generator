@@ -46,6 +46,64 @@ export interface RouteView {
   ghosts: RouteGhostView[];
 }
 
+export type RoutePickTarget =
+  | { kind: "node"; routeId: string; node: RouteNodeView }
+  | { kind: "leg"; routeId: string; leg: RouteLegView };
+
+/** Shortest distance from point (px,py) to segment (ax,ay)-(bx,by). */
+function pointToSegmentDistance(
+  px: number, py: number,
+  ax: number, ay: number,
+  bx: number, by: number,
+): number {
+  const dx = bx - ax, dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  let t = lenSq === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const cx = ax + t * dx, cy = ay + t * dy;
+  return Math.hypot(px - cx, py - cy);
+}
+
+/**
+ * Hit-test a world-space point against route geometry. Tests nodes first (point within `radius`
+ * of a node), then legs (min point-to-segment distance over the polyline), across all routes;
+ * the nearest match wins, and a node beats a leg at equal distance (junction -> node). Returns
+ * null when nothing is within `radius`. Pure: no DOM, no engine state.
+ */
+export function hitTestRoutes(
+  routes: RouteView[],
+  x: number,
+  y: number,
+  radius: number,
+): RoutePickTarget | null {
+  let bestNode: { d: number; routeId: string; node: RouteNodeView } | null = null;
+  let bestLeg: { d: number; routeId: string; leg: RouteLegView } | null = null;
+
+  for (const route of routes) {
+    for (const node of route.nodes) {
+      const d = Math.hypot(node.x - x, node.y - y);
+      if (d <= radius && (!bestNode || d < bestNode.d)) {
+        bestNode = { d, routeId: route.id, node };
+      }
+    }
+    for (const leg of route.legs) {
+      for (let i = 1; i < leg.points.length; i++) {
+        const a = leg.points[i - 1], b = leg.points[i];
+        const d = pointToSegmentDistance(x, y, a.x, a.y, b.x, b.y);
+        if (d <= radius && (!bestLeg || d < bestLeg.d)) {
+          bestLeg = { d, routeId: route.id, leg };
+        }
+      }
+    }
+  }
+
+  // Node beats leg unconditionally — a node sits on leg endpoints and clicking a junction
+  // should always select the node, not the leg arc.
+  if (bestNode) return { kind: "node", routeId: bestNode.routeId, node: bestNode.node };
+  if (bestLeg) return { kind: "leg", routeId: bestLeg.routeId, leg: bestLeg.leg };
+  return null;
+}
+
 const ARC_SAMPLES = 48;
 
 /** World position + body record of each body at `day`, via the system view-model. */

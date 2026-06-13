@@ -1,9 +1,10 @@
 import { assertAlmostEquals, assertEquals } from "@std/assert";
-import { buildRouteViewModel } from "./route-view-model.ts";
+import { buildRouteViewModel, hitTestRoutes } from "./route-view-model.ts";
+import type { RouteView } from "./route-view-model.ts";
 import { buildViewModel } from "./view-model.ts";
 import { generateSolarSystem } from "../core/generator.ts";
 import { getBestRoutes } from "../travel/index.ts";
-import { EndState } from "../travel/types.ts";
+import { EndState, RouteNodeKind } from "../travel/types.ts";
 
 function twoPlanetSystem() {
   // A deterministic seed that yields >= 2 planets; pick from the generator.
@@ -52,6 +53,7 @@ Deno.test("buildRouteViewModel produces leg polylines, nodes, and ghosts in worl
   if (view.ghosts.length === 0) throw new Error("expected ghost bodies");
 });
 
+
 Deno.test("buildRouteViewModel: id/color opts and enriched leg/node fields", () => {
   const sys = generateSolarSystem({ seed: 16 });
   const planets = sys.objects.filter((o) => o.type !== "asteroid" && o.moons !== undefined);
@@ -87,4 +89,57 @@ Deno.test("buildRouteViewModel: id/color opts and enriched leg/node fields", () 
   const node0 = view.nodes[0], nsrc = route.nodes[0];
   assertEquals(node0.kind, nsrc.kind);
   assertEquals(node0.vInfinity, nsrc.vInfinity);
+});
+
+function fakeRoute(id: string, opts: {
+  nodes?: { x: number; y: number }[];
+  legPoints?: { x: number; y: number }[];
+}): RouteView {
+  return {
+    id,
+    legs: opts.legPoints
+      ? [{
+        centralBodyId: "star", fromBodyId: "a", toBodyId: "b",
+        departTime: 0, arriveTime: 10, timeOfFlight: 10, deltaV: 1,
+        transfer: { a: 1, e: 0, argPeriapsis: 0, nu1: 0, nu2: Math.PI },
+        points: opts.legPoints,
+      }]
+      : [],
+    nodes: (opts.nodes ?? []).map((p, i) => ({
+      id: `n${i}`, kind: RouteNodeKind.Depart, x: p.x, y: p.y, time: 0, deltaV: 0,
+    })),
+    ghosts: [],
+  };
+}
+
+Deno.test("hitTestRoutes: hits a node within radius", () => {
+  const r = fakeRoute("R", { nodes: [{ x: 100, y: 100 }] });
+  const hit = hitTestRoutes([r], 103, 99, 10);
+  assertEquals(hit?.kind, "node");
+  assertEquals(hit?.routeId, "R");
+});
+
+Deno.test("hitTestRoutes: hits a leg segment away from any node", () => {
+  const r = fakeRoute("R", { legPoints: [{ x: 0, y: 0 }, { x: 100, y: 0 }] });
+  const hit = hitTestRoutes([r], 50, 4, 10);
+  assertEquals(hit?.kind, "leg");
+  assertEquals(hit?.routeId, "R");
+});
+
+Deno.test("hitTestRoutes: node beats leg at a shared endpoint", () => {
+  const r = fakeRoute("R", { nodes: [{ x: 0, y: 0 }], legPoints: [{ x: 0, y: 0 }, { x: 100, y: 0 }] });
+  const hit = hitTestRoutes([r], 1, 0, 10);
+  assertEquals(hit?.kind, "node");
+});
+
+Deno.test("hitTestRoutes: nearest route wins", () => {
+  const a = fakeRoute("A", { nodes: [{ x: 0, y: 0 }] });
+  const b = fakeRoute("B", { nodes: [{ x: 5, y: 0 }] });
+  const hit = hitTestRoutes([a, b], 4, 0, 10);
+  assertEquals(hit?.routeId, "B");
+});
+
+Deno.test("hitTestRoutes: returns null outside radius", () => {
+  const r = fakeRoute("R", { nodes: [{ x: 100, y: 100 }], legPoints: [{ x: 0, y: 0 }, { x: 50, y: 0 }] });
+  assertEquals(hitTestRoutes([r], 500, 500, 10), null);
 });
