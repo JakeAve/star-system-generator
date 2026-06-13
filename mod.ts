@@ -21,6 +21,12 @@ export {
 } from "./src/core/kinematics.ts";
 export { buildViewModel } from "./src/view/view-model.ts";
 export type { ViewBody } from "./src/view/view-model.ts";
+export {
+  parseViewState,
+  resolveFocusMode,
+  serializeViewState,
+} from "./src/view/url-state.ts";
+export type { FocusMode, ViewState } from "./src/view/url-state.ts";
 export type {
   ArchetypeProfile,
   CelestialObject,

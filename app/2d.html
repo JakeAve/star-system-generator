@@ -73,6 +73,9 @@
       import {
         buildViewModel,
         generateSolarSystem,
+        parseViewState,
+        resolveFocusMode,
+        serializeViewState,
       } from "./star-seeder.bundle.js";
       import { createCanvasOrrery } from "./orrery-2d.bundle.js";
       import { loadSystem, saveSystem } from "./storage.js";
@@ -116,9 +119,24 @@
         if (data) {
           if (loadingEl) loadingEl.remove();
           const animObjects = buildViewModel(data, 0);
+          const knownIds = new Set(animObjects.map((o) => o.id));
+          const initial = parseViewState(location.search);
+          const state = {
+            hl: initial.hl.filter((id) => knownIds.has(id)),
+            focus: initial.focus.filter((id) => knownIds.has(id)),
+            mode: initial.mode,
+          };
+
+          function writeURL() {
+            const qs = serializeViewState(state);
+            const url = location.pathname + (qs ? "?" + qs : "") +
+              location.hash;
+            history.replaceState(null, "", url);
+          }
+
           const orrery = createCanvasOrrery(document.body, {
             onPick: (id) => {
-              orrery.focus(id);
+              selectSingle(id);
               const obj = animObjects.find((o) => o.id === id);
               if (obj) {
                 document.dispatchEvent(
@@ -126,11 +144,34 @@
                 );
               }
             },
+            onLockBreak: () => {
+              if (state.focus.length === 0) return;
+              state.mode = "frame";
+              writeURL();
+            },
           });
+
+          function selectSingle(id) {
+            state.hl = [id];
+            state.focus = [id];
+            state.mode = "lock";
+            orrery.setHighlight([id]);
+            orrery.focus([id], "lock");
+            writeURL();
+          }
+
           orrery.setSystem(data);
+
+          if (state.hl.length) orrery.setHighlight(state.hl);
+          if (state.focus.length) {
+            state.mode = resolveFocusMode(state.focus, state.mode);
+            orrery.focus(state.focus, state.mode);
+          }
+          writeURL();
+
           buildPanel(data, animObjects, {
-            onFocus: (b) => orrery.focus(b ? b.id : "star"),
-            onFlyTo: (b) => orrery.focus(b ? b.id : "star"),
+            onFocus: (b) => selectSingle(b ? b.id : data.star.id),
+            onFlyTo: (b) => selectSingle(b ? b.id : data.star.id),
           });
           buildPlaybackWidget({
             onTimeScale: (ts) => orrery.setTimeScale(ts),
