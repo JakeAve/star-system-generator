@@ -1,5 +1,10 @@
 import { assertAlmostEquals, assertEquals } from "@std/assert";
-import { buildRouteViewModel, hitTestRoutes, chevronsAlong} from "./route-view-model.ts";
+import {
+  buildRouteViewModel,
+  chevronsAlong,
+  hitTestRoutes,
+  routeViewForPick,
+} from "./route-view-model.ts";
 import type { RouteView } from "./route-view-model.ts";
 import { buildViewModel } from "./view-model.ts";
 import { generateSolarSystem } from "../core/generator.ts";
@@ -13,8 +18,12 @@ function twoPlanetSystem() {
 
 Deno.test("buildRouteViewModel produces leg polylines, nodes, and ghosts in world units", () => {
   const sys = twoPlanetSystem();
-  const planets = sys.objects.filter((o) => o.type !== "asteroid" && o.moons !== undefined);
-  if (planets.length < 2) throw new Error("fixture system needs >= 2 planets; pick another seed");
+  const planets = sys.objects.filter((o) =>
+    o.type !== "asteroid" && o.moons !== undefined
+  );
+  if (planets.length < 2) {
+    throw new Error("fixture system needs >= 2 planets; pick another seed");
+  }
   const from = planets[0].id;
   const to = planets[1].id;
   const route = getBestRoutes(
@@ -31,7 +40,9 @@ Deno.test("buildRouteViewModel produces leg polylines, nodes, and ghosts in worl
   for (const leg of view.legs) {
     if (leg.points.length < 2) throw new Error("leg polyline too short");
     for (const p of leg.points) {
-      if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) throw new Error("non-finite point");
+      if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) {
+        throw new Error("non-finite point");
+      }
     }
   }
 
@@ -53,10 +64,11 @@ Deno.test("buildRouteViewModel produces leg polylines, nodes, and ghosts in worl
   if (view.ghosts.length === 0) throw new Error("expected ghost bodies");
 });
 
-
 Deno.test("buildRouteViewModel: id/color opts and enriched leg/node fields", () => {
   const sys = generateSolarSystem({ seed: 16 });
-  const planets = sys.objects.filter((o) => o.type !== "asteroid" && o.moons !== undefined);
+  const planets = sys.objects.filter((o) =>
+    o.type !== "asteroid" && o.moons !== undefined
+  );
   const from = planets[0].id, to = planets[1].id;
   const route = getBestRoutes(
     sys,
@@ -70,7 +82,10 @@ Deno.test("buildRouteViewModel: id/color opts and enriched leg/node fields", () 
   assertEquals(def.color, undefined);
 
   // Opts honored.
-  const view = buildRouteViewModel(sys, route, { id: "fleet-A", color: "#ff3333" });
+  const view = buildRouteViewModel(sys, route, {
+    id: "fleet-A",
+    color: "#ff3333",
+  });
   assertEquals(view.id, "fleet-A");
   assertEquals(view.color, "#ff3333");
 
@@ -99,14 +114,24 @@ function fakeRoute(id: string, opts: {
     id,
     legs: opts.legPoints
       ? [{
-        centralBodyId: "star", fromBodyId: "a", toBodyId: "b",
-        departTime: 0, arriveTime: 10, timeOfFlight: 10, deltaV: 1,
+        centralBodyId: "star",
+        fromBodyId: "a",
+        toBodyId: "b",
+        departTime: 0,
+        arriveTime: 10,
+        timeOfFlight: 10,
+        deltaV: 1,
         transfer: { a: 1, e: 0, argPeriapsis: 0, nu1: 0, nu2: Math.PI },
         points: opts.legPoints,
       }]
       : [],
     nodes: (opts.nodes ?? []).map((p, i) => ({
-      id: `n${i}`, kind: RouteNodeKind.Depart, x: p.x, y: p.y, time: 0, deltaV: 0,
+      id: `n${i}`,
+      kind: RouteNodeKind.Depart,
+      x: p.x,
+      y: p.y,
+      time: 0,
+      deltaV: 0,
     })),
     ghosts: [],
   };
@@ -127,7 +152,10 @@ Deno.test("hitTestRoutes: hits a leg segment away from any node", () => {
 });
 
 Deno.test("hitTestRoutes: node beats leg at a shared endpoint", () => {
-  const r = fakeRoute("R", { nodes: [{ x: 0, y: 0 }], legPoints: [{ x: 0, y: 0 }, { x: 100, y: 0 }] });
+  const r = fakeRoute("R", {
+    nodes: [{ x: 0, y: 0 }],
+    legPoints: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+  });
   const hit = hitTestRoutes([r], 1, 0, 10);
   assertEquals(hit?.kind, "node");
 });
@@ -149,7 +177,10 @@ Deno.test("hitTestRoutes: a near leg beats a farther node on another route", () 
 });
 
 Deno.test("hitTestRoutes: returns null outside radius", () => {
-  const r = fakeRoute("R", { nodes: [{ x: 100, y: 100 }], legPoints: [{ x: 0, y: 0 }, { x: 50, y: 0 }] });
+  const r = fakeRoute("R", {
+    nodes: [{ x: 100, y: 100 }],
+    legPoints: [{ x: 0, y: 0 }, { x: 50, y: 0 }],
+  });
   assertEquals(hitTestRoutes([r], 500, 500, 10), null);
 });
 
@@ -178,4 +209,44 @@ Deno.test("chevronsAlong: angle follows the bend across segments", () => {
 Deno.test("chevronsAlong: degenerate input returns empty", () => {
   assertEquals(chevronsAlong([{ x: 0, y: 0 }], 25, 0), []);
   assertEquals(chevronsAlong([{ x: 0, y: 0 }, { x: 10, y: 0 }], 0, 0), []);
+});
+
+Deno.test("routeViewForPick: departure is at/after the current day", () => {
+  const sys = twoPlanetSystem();
+  const planets = sys.objects.filter((o) =>
+    o.type !== "asteroid" && o.moons !== undefined
+  );
+  if (planets.length < 2) {
+    throw new Error("fixture needs >= 2 planets; pick another seed");
+  }
+  const view = routeViewForPick(sys, planets[0].id, planets[1].id, 4000);
+  if (!view) throw new Error("expected a route view");
+  // nodes[0] is the departure node; it must be at/after the current day.
+  if (view.nodes[0].time < 4000) {
+    throw new Error(`departure ${view.nodes[0].time} before current day 4000`);
+  }
+});
+
+Deno.test("routeViewForPick: the current day shifts the departure window", () => {
+  const sys = twoPlanetSystem();
+  const planets = sys.objects.filter((o) =>
+    o.type !== "asteroid" && o.moons !== undefined
+  );
+  if (planets.length < 2) {
+    throw new Error("fixture needs >= 2 planets; pick another seed");
+  }
+  const from = planets[0].id;
+  const to = planets[1].id;
+  const big = 1_000_000;
+  const atZero = routeViewForPick(sys, from, to, 0);
+  const atBig = routeViewForPick(sys, from, to, big);
+  if (!atZero || !atBig) throw new Error("expected route views");
+  // The day-0 pick departs within one recurrence of epoch (far before `big`); the day-`big`
+  // pick departs at/after `big`. Together this proves the window tracks the current day.
+  if (atZero.nodes[0].time >= big) {
+    throw new Error("day-0 route did not depart near epoch");
+  }
+  if (atBig.nodes[0].time < big) {
+    throw new Error("day-big route departed before current day");
+  }
 });

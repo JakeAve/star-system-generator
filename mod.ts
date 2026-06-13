@@ -49,7 +49,10 @@ export {
   getBestRoutes3,
   getRoutes,
 } from "./src/travel/index.ts";
-export { buildRouteViewModel } from "./src/view/route-view-model.ts";
+export {
+  buildRouteViewModel,
+  routeViewForPick,
+} from "./src/view/route-view-model.ts";
 export type {
   RouteGhostView,
   RouteLegView,

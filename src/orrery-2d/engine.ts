@@ -84,6 +84,8 @@ export interface CanvasOrreryHandle {
   setRoutes(routeViews: RouteView[]): void;
   /** Convenience wrapper over setRoutes for a single route (or null to clear). */
   setRoute(routeView: RouteView | null): void;
+  /** The renderer's current simulation time in days (advances while playing). */
+  getCurrentDay(): number;
   dispose(): void;
 }
 
@@ -423,9 +425,15 @@ export function createCanvasOrrery(
       for (const leg of route.legs) {
         for (const c of chevronsAlong(leg.points, spacing, routePhase)) {
           ctx.beginPath();
-          ctx.moveTo(c.x + Math.cos(c.angle + spread) * arm, c.y + Math.sin(c.angle + spread) * arm);
+          ctx.moveTo(
+            c.x + Math.cos(c.angle + spread) * arm,
+            c.y + Math.sin(c.angle + spread) * arm,
+          );
           ctx.lineTo(c.x, c.y);
-          ctx.lineTo(c.x + Math.cos(c.angle - spread) * arm, c.y + Math.sin(c.angle - spread) * arm);
+          ctx.lineTo(
+            c.x + Math.cos(c.angle - spread) * arm,
+            c.y + Math.sin(c.angle - spread) * arm,
+          );
           ctx.stroke();
         }
       }
@@ -676,6 +684,9 @@ export function createCanvasOrrery(
     },
     setRoute(routeView) {
       currentRoutes = routeView ? [routeView] : [];
+    },
+    getCurrentDay() {
+      return elapsedDays;
     },
     dispose() {
       clearScene();

@@ -4,6 +4,8 @@
 import type { SolarSystem } from "../core/types.ts";
 import { AU_SCALE, MOON_ORBIT_SCALE } from "../core/kinematics.ts";
 import type { Route, RouteNodeKind } from "../travel/types.ts";
+import { EndState } from "../travel/types.ts";
+import { getBestRoutes } from "../travel/index.ts";
 import { buildViewModel, type ViewBody } from "./view-model.ts";
 
 export interface RouteLegView {
@@ -14,7 +16,13 @@ export interface RouteLegView {
   arriveTime: number; // day
   timeOfFlight: number; // days
   deltaV: number; // km/s, leg injection burn
-  transfer: { a: number; e: number; argPeriapsis: number; nu1: number; nu2: number };
+  transfer: {
+    a: number;
+    e: number;
+    argPeriapsis: number;
+    nu1: number;
+    nu2: number;
+  };
   /** World-unit polyline tracing the leg's transfer arc (nu1 -> nu2). */
   points: { x: number; y: number }[];
 }
@@ -52,9 +60,12 @@ export type RoutePickTarget =
 
 /** Shortest distance from point (px,py) to segment (ax,ay)-(bx,by). */
 function pointToSegmentDistance(
-  px: number, py: number,
-  ax: number, ay: number,
-  bx: number, by: number,
+  px: number,
+  py: number,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
 ): number {
   const dx = bx - ax, dy = by - ay;
   const lenSq = dx * dx + dy * dy;
@@ -89,7 +100,10 @@ export function hitTestRoutes(
 
     let cand: { d: number; target: RoutePickTarget } | null = null;
     if (nodeBest) {
-      cand = { d: nodeBest.d, target: { kind: "node", routeId: route.id, node: nodeBest.node } };
+      cand = {
+        d: nodeBest.d,
+        target: { kind: "node", routeId: route.id, node: nodeBest.node },
+      };
     } else {
       let legBest: { d: number; leg: RouteLegView } | null = null;
       for (const leg of route.legs) {
@@ -100,7 +114,10 @@ export function hitTestRoutes(
         }
       }
       if (legBest) {
-        cand = { d: legBest.d, target: { kind: "leg", routeId: route.id, leg: legBest.leg } };
+        cand = {
+          d: legBest.d,
+          target: { kind: "leg", routeId: route.id, leg: legBest.leg },
+        };
       }
     }
 
@@ -136,13 +153,18 @@ export function chevronsAlong(
     const dy = points[i].y - points[i - 1].y;
     const len = Math.hypot(dx, dy);
     if (len === 0) continue;
-    segs.push({ len, ang: Math.atan2(dy, dx), x0: points[i - 1].x, y0: points[i - 1].y });
+    segs.push({
+      len,
+      ang: Math.atan2(dy, dx),
+      x0: points[i - 1].x,
+      y0: points[i - 1].y,
+    });
     total += len;
   }
   if (total === 0) return [];
 
   const out: Chevron[] = [];
-  for (let k = 0; ; k++) {
+  for (let k = 0;; k++) {
     const s = (k + phase) * spacing;
     if (s > total) break;
     let acc = 0;
@@ -178,7 +200,13 @@ function bodyAt(system: SolarSystem, day: number): Map<string, ViewBody> {
  * scales moon orbits — so the arc stays aligned with the moon node/ghost positions.
  */
 function sampleArc(
-  transfer: { a: number; e: number; argPeriapsis: number; nu1: number; nu2: number },
+  transfer: {
+    a: number;
+    e: number;
+    argPeriapsis: number;
+    nu1: number;
+    nu2: number;
+  },
   centralWorld: { x: number; y: number },
   auToWorld: number,
 ): { x: number; y: number }[] {
@@ -197,7 +225,10 @@ function sampleArc(
     const yp = r * Math.sin(nu);
     const xAu = xp * cosw - yp * sinw;
     const yAu = xp * sinw + yp * cosw;
-    pts.push({ x: centralWorld.x + xAu * auToWorld, y: centralWorld.y + yAu * auToWorld });
+    pts.push({
+      x: centralWorld.x + xAu * auToWorld,
+      y: centralWorld.y + yAu * auToWorld,
+    });
   }
   return pts;
 }
@@ -221,7 +252,9 @@ export function buildRouteViewModel(
     let centralWorld = { x: 0, y: 0 };
     if (!heliocentric) {
       const central = bodyAt(system, leg.departTime).get(leg.centralBodyId);
-      if (central) centralWorld = { x: central.position.x, y: central.position.y };
+      if (central) {
+        centralWorld = { x: central.position.x, y: central.position.y };
+      }
     }
     const auToWorld = heliocentric ? AU_SCALE : AU_SCALE * MOON_ORBIT_SCALE;
     return {
@@ -267,5 +300,36 @@ export function buildRouteViewModel(
     }
   }
 
-  return { id: opts.id ?? route.notation, color: opts.color, legs, nodes, ghosts };
+  return {
+    id: opts.id ?? route.notation,
+    color: opts.color,
+    legs,
+    nodes,
+    ghosts,
+  };
+}
+
+/**
+ * Compute the best route between two bodies for a departure on/after `currentDay`, and convert it
+ * to a RouteView ready for an engine to draw. `currentDay` is the renderer's absolute sim day; it
+ * is passed straight through as the travel `startWindow`, so the returned route departs at/after
+ * the current epoch instead of day 0. Returns null when no route is found (the same "no route"
+ * signal the caller already handles). Both endpoints orbit-to-orbit.
+ */
+export function routeViewForPick(
+  system: SolarSystem,
+  fromId: string,
+  toId: string,
+  currentDay: number,
+  opts: { id?: string; color?: string } = {},
+): RouteView | null {
+  const routes = getBestRoutes(
+    system,
+    { obj: fromId, type: EndState.Orbit },
+    { obj: toId, type: EndState.Orbit },
+    { startWindow: currentDay },
+  );
+  const route = routes[0];
+  if (!route) return null;
+  return buildRouteViewModel(system, route, opts);
 }

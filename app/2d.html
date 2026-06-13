@@ -71,13 +71,11 @@
     <div id="loading">LOADING...</div>
     <script type="module">
       import {
-        buildRouteViewModel,
         buildViewModel,
-        EndState,
         generateSolarSystem,
-        getBestRoutes,
         parseViewState,
         resolveFocusMode,
+        routeViewForPick,
         serializeViewState,
       } from "./star-seeder.bundle.js";
       import { createCanvasOrrery } from "./orrery-2d.bundle.js";
@@ -168,18 +166,13 @@
 
           function drawRouteFor(fromId, toId) {
             try {
-              const routes = getBestRoutes(
-                data,
-                { obj: fromId, type: EndState.Orbit },
-                { obj: toId, type: EndState.Orbit },
-              );
-              const route = routes[0];
-              if (!route) {
+              const view = routeViewForPick(data, fromId, toId, orrery.getCurrentDay());
+              if (!view) {
                 orrery.setRoute(null);
                 console.warn(`No route found ${fromId} -> ${toId}`);
                 return;
               }
-              orrery.setRoute(buildRouteViewModel(data, route));
+              orrery.setRoute(view);
             } catch (err) {
               orrery.setRoute(null);
               console.warn(`Route error: ${err.message}`);
