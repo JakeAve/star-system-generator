@@ -142,7 +142,7 @@ function toRoute(
       departTime: legDepart,
       arriveTime: legArrive,
       timeOfFlight: c.tofDays,
-      transfer: { a: c.aAu, e: c.e },
+      transfer: { a: c.aAu, e: c.e, argPeriapsis: c.argPeriapsis, nu1: c.nu1, nu2: c.nu2 },
       deltaV: 0, // Phase 1: leg energy lives in the terminals; per-leg burns added in later phases
     }],
     departAt,
@@ -388,7 +388,13 @@ function buildAssistRoute(
       departTime: legDepart,
       arriveTime,
       timeOfFlight: step.inboundTof,
-      transfer: { a: step.inboundConic.aAu, e: step.inboundConic.e },
+      transfer: {
+        a: step.inboundConic.aAu,
+        e: step.inboundConic.e,
+        argPeriapsis: step.inboundConic.argPeriapsis,
+        nu1: step.inboundConic.nu1,
+        nu2: step.inboundConic.nu2,
+      },
       deltaV: 0,
     });
     const flybyDv = mpsToKmps(step.fb.deltaV);
@@ -415,7 +421,13 @@ function buildAssistRoute(
     departTime: legDepart,
     arriveTime: destArrive,
     timeOfFlight: finalTof,
-    transfer: { a: finalConic.aAu, e: finalConic.e },
+    transfer: {
+      a: finalConic.aAu,
+      e: finalConic.e,
+      argPeriapsis: finalConic.argPeriapsis,
+      nu1: finalConic.nu1,
+      nu2: finalConic.nu2,
+    },
     deltaV: 0,
   });
   const arriveTime = destArrive + arriveTerminal.duration;

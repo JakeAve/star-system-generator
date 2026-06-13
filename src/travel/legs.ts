@@ -25,6 +25,9 @@ export function planetoAppendage(
   tofDays: number;
   aAu: number;
   e: number;
+  argPeriapsis: number;
+  nu1: number;
+  nu2: number;
 } {
   const rLow = parent.radiusM;
   const rMoon = moonOrbitRadiusM;
@@ -35,6 +38,10 @@ export function planetoAppendage(
     tofDays: sToDay(h.tof),
     aAu: mToAu((rLow + rMoon) / 2),
     e: Math.abs(rMoon - rLow) / (rMoon + rLow),
+    // Schematic Hohmann half-ellipse: periapsis on the frame +x axis, sweeping to apoapsis.
+    argPeriapsis: 0,
+    nu1: 0,
+    nu2: Math.PI,
   };
 }
 
@@ -111,7 +118,13 @@ export function buildCrossFrameRoute(
       departTime: legDepart,
       arriveTime: helioDepart,
       timeOfFlight: fromAp.tofDays,
-      transfer: { a: fromAp.aAu, e: fromAp.e },
+      transfer: {
+        a: fromAp.aAu,
+        e: fromAp.e,
+        argPeriapsis: fromAp.argPeriapsis,
+        nu1: fromAp.nu1,
+        nu2: fromAp.nu2,
+      },
       deltaV: mpsToKmps(fromAp.legDeltaVMps),
     });
     nodes.push({
@@ -132,7 +145,7 @@ export function buildCrossFrameRoute(
     departTime: helioDepart,
     arriveTime: helioArrive,
     timeOfFlight: c.tofDays,
-    transfer: { a: c.aAu, e: c.e },
+    transfer: { a: c.aAu, e: c.e, argPeriapsis: c.argPeriapsis, nu1: c.nu1, nu2: c.nu2 },
     deltaV: 0,
   });
 
@@ -154,7 +167,13 @@ export function buildCrossFrameRoute(
       departTime: helioArrive,
       arriveTime,
       timeOfFlight: toAp.tofDays,
-      transfer: { a: toAp.aAu, e: toAp.e },
+      transfer: {
+        a: toAp.aAu,
+        e: toAp.e,
+        argPeriapsis: toAp.argPeriapsis,
+        nu1: toAp.nu1,
+        nu2: toAp.nu2,
+      },
       deltaV: mpsToKmps(toAp.legDeltaVMps),
     });
   }
