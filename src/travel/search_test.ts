@@ -4,6 +4,7 @@ import {
   findDirectRoutes,
   findDoubleAssistRoutes,
   findSingleAssistRoutes,
+  projectRoutes,
   searchBest,
   selectBestRoutes2,
   utopiaDist,
@@ -11,7 +12,7 @@ import {
 import type { BodyRef, UtopiaBox } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
 import { AU_M, DAY_S, muBody, muStar, R_EARTH_M } from "./units.ts";
-import { EndState, RankMode, RouteNodeKind } from "./types.ts";
+import { EndState, RankMode, type Route, RouteNodeKind } from "./types.ts";
 
 const MU = muStar(1);
 
@@ -547,4 +548,169 @@ Deno.test("selectBestRoutes2: returns the 7 picks deduped, each matching a brute
 
 Deno.test("selectBestRoutes2: empty input yields no picks", () => {
   assertEquals(selectBestRoutes2([]).length, 0);
+});
+
+Deno.test("findDirectRoutes: reframe mode tags every route with phaseDay/recurDays", () => {
+  const routes = findDirectRoutes(
+    fromBody,
+    toBody,
+    EndState.Orbit,
+    EndState.Orbit,
+    MU,
+    "star",
+    {
+      rank: RankMode.All,
+      sweep: { kind: "resolutionTarget", deltaD: 10, minD: 6, maxD: 60, deltaT: 20, minT: 6, maxT: 60, nowDay: 0 },
+    },
+  );
+  assertEquals(routes.length > 0, true);
+  for (const r of routes) {
+    assertEquals(r.phaseDay, r.departAt); // unshifted: D == departAt
+    assertEquals(typeof r.recurDays, "number");
+    assertEquals(Number.isFinite(r.recurDays!), true);
+  }
+});
+
+Deno.test("findDirectRoutes: fixed mode (no sweep) leaves routes untagged", () => {
+  const routes = findDirectRoutes(
+    fromBody, toBody, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All },
+  );
+  for (const r of routes) {
+    assertEquals(r.phaseDay, undefined);
+    assertEquals(r.recurDays, undefined);
+  }
+});
+
+Deno.test("findSingleAssistRoutes: reframe mode tags assist routes with finite recurDays", () => {
+  const via: BodyRef = {
+    id: "v1",
+    elements: { orbitRadiusAu: 0.7, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.25 },
+    endpoint: { mu: 3.2e14, radiusM: 6e6 },
+  };
+  const routes = findSingleAssistRoutes(
+    fromBody,
+    toBody,
+    EndState.Orbit,
+    EndState.Orbit,
+    [via],
+    MU,
+    "star",
+    {
+      rank: RankMode.All,
+      sweep: { kind: "resolutionTarget", deltaD: 30, minD: 4, maxD: 16, deltaT: 60, minT: 4, maxT: 16, nowDay: 0 },
+    },
+  );
+  if (routes.length === 0) return; // geometry-dependent; tagging is the assertion when present
+  for (const r of routes) {
+    assertEquals(typeof r.recurDays, "number");
+    assertEquals(Number.isFinite(r.recurDays!), true);
+    assertEquals(r.recurDays! > 0, true);
+    assertEquals(r.phaseDay, r.departAt); // assist departAt is the depart sample
+  }
+});
+
+Deno.test("findSingleAssistRoutes: fixed mode leaves assist routes untagged", () => {
+  const via: BodyRef = {
+    id: "v1",
+    elements: { orbitRadiusAu: 0.7, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.25 },
+    endpoint: { mu: 3.2e14, radiusM: 6e6 },
+  };
+  const routes = findSingleAssistRoutes(
+    fromBody, toBody, EndState.Orbit, EndState.Orbit, [via], MU, "star", { rank: RankMode.All },
+  );
+  for (const r of routes) {
+    assertEquals(r.phaseDay, undefined);
+    assertEquals(r.recurDays, undefined);
+  }
+});
+
+// A minimal tagged route: phaseDay D = 10, recurDays T = 100, a 40-day flight.
+function taggedRoute(): Route {
+  return {
+    bodies: ["a", "b"],
+    nodes: [
+      { bodyId: "a", time: 10, kind: RouteNodeKind.Depart, deltaV: 0 },
+      { bodyId: "b", time: 50, kind: RouteNodeKind.Arrive, deltaV: 0 },
+    ],
+    legs: [{
+      fromBodyId: "a", toBodyId: "b", centralBodyId: "star",
+      departTime: 10, arriveTime: 50, timeOfFlight: 40, transfer: { a: 1, e: 0 }, deltaV: 0,
+    }],
+    departAt: 10,
+    duration: 40,
+    totalDeltaV: 5,
+    notation: "a > b",
+    phaseDay: 10,
+    recurDays: 100,
+  };
+}
+
+Deno.test("projectRoutes: nowDay=0 is the identity (no shift, all eligible)", () => {
+  const out = projectRoutes([taggedRoute()], 0);
+  assertEquals(out.length, 1);
+  assertEquals(out[0].departAt, 10);
+  assertEquals(out[0].nodes[1].time, 50);
+});
+
+Deno.test("projectRoutes: nowDay past the phase day shifts to the soonest recurrence", () => {
+  // nowDay 250, D 10, T 100 → n* = ceil((250-10)/100) = 3 → t_soonest = 310, shift = 300.
+  const out = projectRoutes([taggedRoute()], 250);
+  assertEquals(out.length, 1);
+  assertEquals(out[0].departAt, 310);
+  assertEquals(out[0].nodes[0].time, 310);
+  assertEquals(out[0].nodes[1].time, 350);
+  assertEquals(out[0].legs[0].departTime, 310);
+  assertEquals(out[0].legs[0].arriveTime, 350);
+  assertEquals(out[0].duration, 40); // schedule-invariant fields unchanged
+  assertEquals(out[0].totalDeltaV, 5);
+});
+
+Deno.test("projectRoutes: window filters out opportunities that recur past the horizon", () => {
+  // nowDay 0, window 200 → t_soonest = 10 < 200 → eligible.
+  assertEquals(projectRoutes([taggedRoute()], 0, 200).length, 1);
+  // nowDay 250, window 50 → t_soonest = 310 ≥ 250+50=300 → ineligible, dropped.
+  assertEquals(projectRoutes([taggedRoute()], 250, 50).length, 0);
+});
+
+Deno.test("projectRoutes: untagged (fixed-path) routes pass through unchanged", () => {
+  const r = taggedRoute();
+  delete r.phaseDay;
+  delete r.recurDays;
+  const out = projectRoutes([r], 9999, 1);
+  assertEquals(out.length, 1);
+  assertEquals(out[0].departAt, 10); // never shifted, never filtered
+});
+
+Deno.test("projectRoutes: cross-frame route (phaseDay ≠ departAt) shifts by exact n·T", () => {
+  // Mimic a moon-origin route: departAt precedes the spine sample (phaseDay) by an appendage
+  // offset. The shift must be an exact multiple of T so the recurrence geometry is preserved.
+  const r: Route = {
+    bodies: ["m", "p"],
+    nodes: [
+      { bodyId: "m", time: 3, kind: RouteNodeKind.Depart, deltaV: 0 },
+      { bodyId: "p", time: 60, kind: RouteNodeKind.Arrive, deltaV: 0 },
+    ],
+    legs: [{
+      fromBodyId: "m", toBodyId: "p", centralBodyId: "star",
+      departTime: 3, arriveTime: 60, timeOfFlight: 57, transfer: { a: 1, e: 0 }, deltaV: 0,
+    }],
+    departAt: 3, // route leaves the moon at day 3...
+    duration: 57,
+    totalDeltaV: 8,
+    notation: "m > p",
+    phaseDay: 10, // ...but the heliocentric spine sample (canonical phase) is day 10
+    recurDays: 100,
+  };
+  // nowDay = 0 → n* = 0 → identity (no shift), even though phaseDay ≠ departAt.
+  const id = projectRoutes([r], 0);
+  assertEquals(id.length, 1);
+  assertEquals(id[0].departAt, 3);
+  assertEquals(id[0].nodes[1].time, 60);
+  // nowDay = 250 → n* = ceil((250-10)/100) = 3 → shift = 300 (exact multiple of T).
+  const shifted = projectRoutes([r], 250);
+  assertEquals(shifted.length, 1);
+  assertEquals(shifted[0].departAt, 303); // 3 + 300, NOT 310
+  assertEquals(shifted[0].nodes[0].time, 303);
+  assertEquals(shifted[0].nodes[1].time, 360);
+  assertEquals(shifted[0].duration, 57);
 });
