@@ -634,7 +634,7 @@ function taggedRoute(): Route {
     ],
     legs: [{
       fromBodyId: "a", toBodyId: "b", centralBodyId: "star",
-      departTime: 10, arriveTime: 50, timeOfFlight: 40, transfer: { a: 1, e: 0 }, deltaV: 0,
+      departTime: 10, arriveTime: 50, timeOfFlight: 40, transfer: { a: 1, e: 0, argPeriapsis: 0, nu1: 0, nu2: Math.PI }, deltaV: 0,
     }],
     departAt: 10,
     duration: 40,
@@ -692,7 +692,7 @@ Deno.test("projectRoutes: cross-frame route (phaseDay ≠ departAt) shifts by ex
     ],
     legs: [{
       fromBodyId: "m", toBodyId: "p", centralBodyId: "star",
-      departTime: 3, arriveTime: 60, timeOfFlight: 57, transfer: { a: 1, e: 0 }, deltaV: 0,
+      departTime: 3, arriveTime: 60, timeOfFlight: 57, transfer: { a: 1, e: 0, argPeriapsis: 0, nu1: 0, nu2: Math.PI }, deltaV: 0,
     }],
     departAt: 3, // route leaves the moon at day 3...
     duration: 57,
@@ -713,4 +713,47 @@ Deno.test("projectRoutes: cross-frame route (phaseDay ≠ departAt) shifts by ex
   assertEquals(shifted[0].nodes[0].time, 303);
   assertEquals(shifted[0].nodes[1].time, 360);
   assertEquals(shifted[0].duration, 57);
+});
+
+Deno.test("findDirectRoutes: each leg carries a full transfer conic (orientation + nu span)", () => {
+  // --- reuse the exact setup from the existing planetocentric/heliocentric direct test ---
+  const muPlanet = muBody(300); // ~gas-giant central body
+  const moonA = {
+    id: "mA",
+    elements: {
+      orbitRadiusAu: 0.10,
+      eccentricity: 0,
+      periapsisAngle: 0,
+      orbitalPhase: 0,
+    },
+    endpoint: { mu: muBody(0.02), radiusM: 1.7e6 },
+  };
+  const moonB = {
+    id: "mB",
+    elements: {
+      orbitRadiusAu: 0.16,
+      eccentricity: 0,
+      periapsisAngle: 0,
+      orbitalPhase: 0.4,
+    },
+    endpoint: { mu: muBody(0.02), radiusM: 1.7e6 },
+  };
+  const routes = findDirectRoutes(
+    moonA,
+    moonB,
+    EndState.Orbit,
+    EndState.Orbit,
+    muPlanet,
+    "planet",
+    {},
+  );
+  if (routes.length === 0) throw new Error("expected routes");
+  const t = routes[0].legs[0].transfer;
+  if (!Number.isFinite(t.argPeriapsis)) throw new Error("argPeriapsis missing");
+  if (!Number.isFinite(t.nu1) || !Number.isFinite(t.nu2)) {
+    throw new Error("nu span missing");
+  }
+  if (!Number.isFinite(t.a) || !Number.isFinite(t.e)) {
+    throw new Error("a/e missing");
+  }
 });

@@ -1,5 +1,5 @@
 import { assertAlmostEquals } from "@std/assert";
-import { conic, stateAt } from "./state.ts";
+import { conic, stateAt, transferConic } from "./state.ts";
 import { AU_M, muStar } from "./units.ts";
 
 const MU = muStar(1); // 1 solar mass central body
@@ -65,4 +65,33 @@ Deno.test("conic: recovers a and e from a state vector", () => {
   const c = conic(s.position, s.velocity, MU);
   assertAlmostEquals(c.aAu, a, 1e-6);
   assertAlmostEquals(c.e, e, 1e-6);
+});
+
+Deno.test("transferConic recovers orientation and swept anomaly span from a known ellipse", () => {
+  // A known prograde ellipse about a 1-solar-mass star.
+  const mu = muStar(1);
+  const el = {
+    orbitRadiusAu: 1.5,
+    eccentricity: 0.2,
+    periapsisAngle: 0.7, // argument of periapsis we expect to recover
+    orbitalPhase: 0,
+  };
+  const s1 = stateAt(el, mu, 0);
+  const s2 = stateAt(el, mu, 80); // 80 days later along the same orbit
+  const tc = transferConic(s1.position, s1.velocity, s2.position, mu);
+
+  // a and e match the source orbit.
+  assertAlmostEquals(tc.aAu, 1.5, 1e-3);
+  assertAlmostEquals(tc.e, 0.2, 1e-3);
+  // argPeriapsis matches the source argument of periapsis.
+  assertAlmostEquals(tc.argPeriapsis, 0.7, 1e-3);
+  // Sampling the conic at nu1 reproduces r1's direction (perifocal -> world).
+  const ang1 = Math.atan2(s1.position.y, s1.position.x);
+  assertAlmostEquals(((tc.nu1 + tc.argPeriapsis) % (2 * Math.PI)), ((ang1) + 2 * Math.PI) % (2 * Math.PI), 1e-3);
+  // Prograde motion sweeps forward: nu2 > nu1.
+  if (!(tc.nu2 > tc.nu1)) throw new Error(`expected nu2 > nu1, got ${tc.nu1} -> ${tc.nu2}`);
+  // Backward-compatible a/e agree with the legacy conic().
+  const c = conic(s1.position, s1.velocity, mu);
+  assertAlmostEquals(tc.aAu, c.aAu, 1e-9);
+  assertAlmostEquals(tc.e, c.e, 1e-9);
 });

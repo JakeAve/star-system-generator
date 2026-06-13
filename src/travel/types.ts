@@ -64,7 +64,13 @@ export interface RouteLeg {
   departTime: number; // day
   arriveTime: number; // day
   timeOfFlight: number; // days
-  transfer: { a: number; e: number }; // a in AU about centralBodyId
+  transfer: {
+    a: number; // AU, semi-major axis about centralBodyId
+    e: number; // eccentricity
+    argPeriapsis: number; // radians, argument of periapsis in the centralBodyId frame
+    nu1: number; // radians, true anomaly at departure
+    nu2: number; // radians, true anomaly at arrival (nu1 -> nu2 in swept direction)
+  };
   deltaV: number; // km/s; injection at leg start
 }
 
