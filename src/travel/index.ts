@@ -2,6 +2,8 @@
 import type { CelestialObject, SolarSystem } from "../core/types.ts";
 import { ObjectType } from "../core/types.ts";
 import {
+  balanceBoxes,
+  dedupeRoutes,
   findCrossFrameRoutes,
   findDirectRoutes,
   findDoubleAssistRoutes,
@@ -9,7 +11,9 @@ import {
   rankRoutes,
   searchBest,
   selectBestRoutes,
+  selectBestRoutes2,
   type UtopiaBox,
+  utopiaDist,
 } from "./search.ts";
 import type { BodyRef } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
@@ -276,13 +280,8 @@ export function getBestRoutes(
       durMin: fastest.duration,
       durMax: cheapest.duration,
     };
-    const dAnchor = (r: Route) => {
-      const dvR = Math.max(1e-9, box.dvMax - box.dvMin);
-      const durR = Math.max(1e-9, box.durMax - box.durMin);
-      const x = Math.max(0, (r.totalDeltaV - box.dvMin) / dvR);
-      const y = Math.max(0, (r.duration - box.durMin) / durR);
-      return Math.sqrt(x * x + y * y);
-    };
+    const dAnchor = (r: Route) =>
+      utopiaDist(r.totalDeltaV, r.duration, r.departAt + r.duration, box);
     const seedBest = Math.min(dAnchor(fastest), dAnchor(cheapest));
     const seedRoute = dAnchor(fastest) <= dAnchor(cheapest)
       ? fastest
@@ -311,4 +310,92 @@ export function getBestRoutes(
     if (r && !out.includes(r)) out.push(r);
   }
   return out;
+}
+
+/**
+ * Experimental Tier-C counterpart to getBestRoutes (kept beside it as a benchmark control). Runs
+ * the three single-objective anchors (cheapest/fastest/soonest) as branch-and-bound passes, then
+ * four balance passes seeded from those anchors (cheapest×fastest, cheapest×soonest,
+ * fastest×soonest, and the triple), value-dedupes, and returns a bare Route[]. The default
+ * departure horizon is one synodic period; a departWindowDays restricts direct departures to
+ * [0, min(window, T_syn)). Moon endpoints have no assist variants, so they delegate to getRoutes
+ * and select the same seven picks via selectBestRoutes2.
+ */
+export function getBestRoutes2(
+  system: SolarSystem,
+  from: Waypoint,
+  to: Waypoint,
+  options: TravelOptions = {},
+): Route[] {
+  const index = flatten(system);
+  const f = index.get(from.obj);
+  const t = index.get(to.obj);
+  if (!f) throw new Error(`unknown body: ${from.obj}`);
+  if (!t) throw new Error(`unknown body: ${to.obj}`);
+  if (f.obj.type === ObjectType.Star || t.obj.type === ObjectType.Star) {
+    throw new Error("the star cannot be a travel endpoint");
+  }
+  if (f.isMoon || t.isMoon) {
+    const all = getRoutes(system, from, to, { ...options, rank: RankMode.All });
+    return selectBestRoutes2(all);
+  }
+  const mu = muStar(system.star.mass);
+  const assists = Math.min(options.maxAssists ?? 2, 2);
+  const flybyBodies: BodyRef[] = [];
+  for (const o of system.objects) {
+    if (o.id === f.obj.id || o.id === t.obj.id) continue;
+    if (FLYBY_TYPES.has(o.type)) flybyBodies.push(bodyRefOf(o));
+  }
+  const fromRef = bodyRefOf(f.obj);
+  const toRef = bodyRefOf(t.obj);
+
+  const passOpts = {
+    departWindowDays: options.departWindowDays,
+    capDirectDepartAtSynodic: true as const,
+  };
+  const anchor = (obj: "deltaV" | "duration" | "arrival") =>
+    searchBest(
+      obj,
+      fromRef,
+      toRef,
+      from.type,
+      to.type,
+      flybyBodies,
+      mu,
+      system.star.id,
+      assists,
+      passOpts,
+    );
+  const cheapest = anchor("deltaV");
+  const fastest = anchor("duration");
+  const soonest = anchor("arrival");
+  // searchBest sees the same feasible set for every objective, so the anchors are all-or-nothing.
+  // Without a complete anchor set there are no boxes to optimise; return whatever anchors exist.
+  if (!cheapest || !fastest || !soonest) {
+    return dedupeRoutes([cheapest, fastest, soonest]);
+  }
+
+  const balance = (box: UtopiaBox, anchors: Route[]): Route | null => {
+    let initialBest = Infinity;
+    let initialIncumbent: Route | null = null;
+    for (const r of anchors) {
+      const d = utopiaDist(r.totalDeltaV, r.duration, r.departAt + r.duration, box);
+      if (d < initialBest) {
+        initialBest = d;
+        initialIncumbent = r;
+      }
+    }
+    return searchBest(
+      "goldilocks", fromRef, toRef, from.type, to.type, flybyBodies, mu, system.star.id, assists,
+      { box, initialBest, initialIncumbent, ...passOpts },
+    );
+  };
+
+  const boxes = balanceBoxes(cheapest, fastest, soonest);
+  const cf = balance(boxes.cf, [cheapest, fastest]);
+  const cs = balance(boxes.cs, [cheapest, soonest]);
+  const fs = balance(boxes.fs, [fastest, soonest]);
+  const triple = balance(boxes.triple, [cheapest, fastest, soonest]);
+
+  return dedupeRoutes([cheapest, fastest, soonest, cf, cs, fs, triple]);
 }

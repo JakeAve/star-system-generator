@@ -682,14 +682,20 @@ export function findDoubleAssistRoutes(
 // valid lower bound there too. Searching the same grid means the optimum is identical to the
 // corresponding Pareto-front pick; only the wasted work differs.
 
-export type Objective = "deltaV" | "duration" | "goldilocks";
+export type Objective = "deltaV" | "duration" | "arrival" | "goldilocks";
 
-/** Normalisation box for the goldilocks objective: the (Δv, duration) extremes of the front. */
+/**
+ * Normalisation ranges for a balance ("goldilocks") objective. Each axis is optional; only the
+ * axes present participate in the utopia distance. Today's Δv×duration goldilocks supplies only
+ * the dv* and dur* fields; the arrival axis (arr*) is added for the Tier-C balances.
+ */
 export interface UtopiaBox {
-  dvMin: number;
-  dvMax: number;
-  durMin: number;
-  durMax: number;
+  dvMin?: number;
+  dvMax?: number;
+  durMin?: number;
+  durMax?: number;
+  arrMin?: number;
+  arrMax?: number;
 }
 
 export interface SearchOpts {
@@ -697,6 +703,10 @@ export interface SearchOpts {
   initialBest?: number; // seed the incumbent bound (e.g. anchor distance for goldilocks)
   initialIncumbent?: Route | null;
   departWindowDays?: number; // cap the depart-time horizon (days from now)
+  // When set with a departWindowDays, the depth-0 (direct) departure horizon is additionally
+  // capped at one synodic period: beyond it is only repeats of geometries already sampled, so a
+  // wide game window must not push a direct departure to a needlessly-late recurrence.
+  capDirectDepartAtSynodic?: boolean;
 }
 
 /**
@@ -741,7 +751,7 @@ export function selectBestRoutes(
     };
     let best = Infinity;
     for (const r of routes) {
-      const d = utopiaDist(r.totalDeltaV, r.duration, box);
+      const d = utopiaDist(r.totalDeltaV, r.duration, r.departAt + r.duration, box);
       if (d < best) {
         best = d;
         goldilocks = r;
@@ -756,13 +766,132 @@ export function selectBestRoutes(
   return out;
 }
 
-/** Normalised Euclidean distance from (dv, dur) to the utopia corner, clamped at the corner. */
-function utopiaDist(dv: number, dur: number, b: UtopiaBox): number {
-  const dvR = Math.max(1e-9, b.dvMax - b.dvMin);
-  const durR = Math.max(1e-9, b.durMax - b.durMin);
-  const x = Math.max(0, (dv - b.dvMin) / dvR);
-  const y = Math.max(0, (dur - b.durMin) / durR);
-  return Math.sqrt(x * x + y * y);
+/** Value-identity key for a route: schedule (departAt + duration) plus the body/flyby chain. */
+function routeKey(r: Route): string {
+  return `${r.departAt}|${r.duration}|${r.notation}`;
+}
+
+/** Dedupe routes by value (schedule + notation), dropping nulls, preserving first-seen order. */
+export function dedupeRoutes(routes: (Route | null)[]): Route[] {
+  const seen = new Set<string>();
+  const out: Route[] = [];
+  for (const r of routes) {
+    if (!r) continue;
+    const k = routeKey(r);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(r);
+  }
+  return out;
+}
+
+/** The four Tier-C balance boxes, derived from the three anchors. Shared by the enumerated
+ * (selectBestRoutes2) and branch-and-bound (getBestRoutes2) paths so they stay in agreement. */
+export function balanceBoxes(
+  cheapest: Route,
+  fastest: Route,
+  soonest: Route,
+): { cf: UtopiaBox; cs: UtopiaBox; fs: UtopiaBox; triple: UtopiaBox } {
+  const arr = (r: Route) => r.departAt + r.duration;
+  return {
+    cf: {
+      dvMin: cheapest.totalDeltaV, dvMax: fastest.totalDeltaV,
+      durMin: fastest.duration, durMax: cheapest.duration,
+    },
+    cs: {
+      dvMin: cheapest.totalDeltaV, dvMax: soonest.totalDeltaV,
+      arrMin: arr(soonest), arrMax: arr(cheapest),
+    },
+    fs: {
+      durMin: fastest.duration, durMax: soonest.duration,
+      arrMin: arr(soonest), arrMax: arr(fastest),
+    },
+    triple: {
+      dvMin: cheapest.totalDeltaV, dvMax: Math.max(fastest.totalDeltaV, soonest.totalDeltaV),
+      durMin: fastest.duration, durMax: Math.max(cheapest.duration, soonest.duration),
+      arrMin: arr(soonest), arrMax: Math.max(arr(cheapest), arr(fastest)),
+    },
+  };
+}
+
+/**
+ * Tier-C counterpart to selectBestRoutes: pick the 3 anchors (cheapest/fastest/soonest) and the
+ * 4 balances (cheapest×fastest, cheapest×soonest, fastest×soonest, triple) from an already
+ * enumerated candidate set, then value-dedupe. Used for moon topologies (no assist variants, so
+ * the candidate set from getRoutes is small and full enumeration is cheap), keeping getBestRoutes2
+ * and getRoutes in agreement — mirrors selectBestRoutes' role for the old getBestRoutes.
+ */
+export function selectBestRoutes2(routes: Route[]): Route[] {
+  if (routes.length === 0) return [];
+  const arr = (r: Route) => r.departAt + r.duration;
+  const pickMin = (
+    primary: (r: Route) => number,
+    secondary: (r: Route) => number,
+  ): Route => {
+    let best = routes[0];
+    for (const r of routes) {
+      if (
+        primary(r) < primary(best) ||
+        (primary(r) === primary(best) && secondary(r) < secondary(best))
+      ) best = r;
+    }
+    return best;
+  };
+  const cheapest = pickMin((r) => r.totalDeltaV, arr);
+  const fastest = pickMin((r) => r.duration, (r) => r.totalDeltaV);
+  const soonest = pickMin(arr, (r) => r.totalDeltaV);
+
+  const nearest = (box: UtopiaBox): Route => {
+    let best = routes[0];
+    let bestD = Infinity;
+    for (const r of routes) {
+      const d = utopiaDist(r.totalDeltaV, r.duration, arr(r), box);
+      if (d < bestD) {
+        bestD = d;
+        best = r;
+      }
+    }
+    return best;
+  };
+  const boxes = balanceBoxes(cheapest, fastest, soonest);
+  const cf = nearest(boxes.cf);
+  const cs = nearest(boxes.cs);
+  const fs = nearest(boxes.fs);
+  const triple = nearest(boxes.triple);
+
+  return dedupeRoutes([cheapest, fastest, soonest, cf, cs, fs, triple]);
+}
+
+/**
+ * Normalised Euclidean distance from a point to the utopia corner of `b`, over whichever axes
+ * the box carries. Each present axis is normalised to its [min, max] range and clamped at 0 so
+ * a point at or past the corner contributes nothing (keeps the metric an admissible lower bound
+ * for branch-and-bound). `arr` is the arrival axis (departAt + duration); ignored when the box
+ * has no arr range.
+ */
+export function utopiaDist(
+  dv: number,
+  dur: number,
+  arr: number,
+  b: UtopiaBox,
+): number {
+  let sq = 0;
+  if (b.dvMin !== undefined) {
+    const r = Math.max(1e-9, (b.dvMax ?? b.dvMin) - b.dvMin);
+    const x = Math.max(0, (dv - b.dvMin) / r);
+    sq += x * x;
+  }
+  if (b.durMin !== undefined) {
+    const r = Math.max(1e-9, (b.durMax ?? b.durMin) - b.durMin);
+    const y = Math.max(0, (dur - b.durMin) / r);
+    sq += y * y;
+  }
+  if (b.arrMin !== undefined) {
+    const r = Math.max(1e-9, (b.arrMax ?? b.arrMin) - b.arrMin);
+    const z = Math.max(0, (arr - b.arrMin) / r);
+    sq += z * z;
+  }
+  return Math.sqrt(sq);
 }
 
 /** Closed-form terminal Δv (km/s) for one endpoint at a given v∞. */
@@ -799,19 +928,21 @@ export function searchBest(
   // and flyby Δv is already computed for feasibility, so this is cheap.)
   const needDv = true;
 
-  // Objective score from a (Δv, duration) pair. Fed partial lower bounds while pruning and
-  // full totals at a completion; utopiaDist clamps at the corner so partials stay admissible.
-  const score = (dv: number, dur: number): number =>
+  // Objective score from a (Δv, duration, departDay) triple. arrival = departDay + duration.
+  // Fed partial lower bounds while pruning and full totals at a completion; utopiaDist clamps at
+  // the corner so partials stay admissible.
+  const score = (dv: number, dur: number, departDay: number): number =>
     obj === "deltaV"
       ? dv
       : obj === "duration"
       ? dur
-      : utopiaDist(dv, dur, box!);
-  // Secondary, lexicographic tiebreak: the min-duration (or min-Δv) route is rarely unique, so
-  // among equal-primary routes prefer the one that also minimises the other axis. Without this
-  // "fastest" can be a Δv-absurd route that merely ties on time (and would corrupt the box).
+      : obj === "arrival"
+      ? departDay + dur
+      : utopiaDist(dv, dur, departDay + dur, box!);
+  // Lexicographic secondary tiebreak among equal-primary routes: deltaV prefers least duration;
+  // duration and arrival prefer least Δv; goldilocks has no secondary.
   const secondaryOf = (dv: number, dur: number): number =>
-    obj === "deltaV" ? dur : obj === "duration" ? dv : 0;
+    obj === "deltaV" ? dur : (obj === "duration" || obj === "arrival") ? dv : 0;
 
   let bestP = opts.initialBest ?? Infinity;
   let incumbent: Route | null = opts.initialIncumbent ?? null;
@@ -819,8 +950,13 @@ export function searchBest(
     ? secondaryOf(incumbent.totalDeltaV, incumbent.duration)
     : Infinity;
   // Accept a completed candidate if it improves the primary, or ties it with a better secondary.
-  const tryAccept = (dv: number, dur: number, make: () => Route) => {
-    const p = score(dv, dur);
+  const tryAccept = (
+    dv: number,
+    dur: number,
+    departDay: number,
+    make: () => Route,
+  ) => {
+    const p = score(dv, dur, departDay);
     if (p > bestP) return;
     const s = secondaryOf(dv, dur);
     if (p === bestP && s >= bestS) return;
@@ -831,12 +967,24 @@ export function searchBest(
 
   // Depth 0 — direct. Cost is computed closed-form before materialising the Route, so only an
   // improving candidate allocates.
-  const directOpts = defaultSweepOpts(
+  let directOpts = defaultSweepOpts(
     from.elements.orbitRadiusAu,
     to.elements.orbitRadiusAu,
     mu,
     opts.departWindowDays,
   );
+  if (opts.capDirectDepartAtSynodic && opts.departWindowDays !== undefined) {
+    // The synodic horizon is what defaultSweepOpts uses when no window is given.
+    const synodicHorizon = defaultSweepOpts(
+      from.elements.orbitRadiusAu,
+      to.elements.orbitRadiusAu,
+      mu,
+      undefined,
+    ).departHorizonDays;
+    if (directOpts.departHorizonDays > synodicHorizon) {
+      directOpts = { ...directOpts, departHorizonDays: synodicHorizon };
+    }
+  }
   for (const c of sweepTransfers(from.elements, to.elements, mu, directOpts)) {
     const dv = needDv
       ? terminalDv(from.endpoint, fromState, c.vInfDepart, "depart") +
@@ -845,6 +993,7 @@ export function searchBest(
     tryAccept(
       dv,
       c.tofDays,
+      c.departDay,
       () => toRoute(from, to, fromState, toState, centralId, c),
     );
   }
@@ -877,7 +1026,7 @@ export function searchBest(
           const tof1 = opt1.tofMinDays + j * t1Step;
           if (tof1 <= 0) continue;
           // Pre-leg LB knows only Σtof; monotonic in j (tof ascends) → break, not continue.
-          if (score(0, tof1) > bestP) break;
+          if (score(0, tof1, departDay) > bestP) break;
           const flybyDay = departDay + tof1;
           const sVia = stateAt(via.elements, mu, flybyDay);
           const leg1 = solveLeg(sFrom.position, sVia.position, tof1, mu);
@@ -888,11 +1037,11 @@ export function searchBest(
             ? terminalDv(from.endpoint, fromState, vInfDepart, "depart")
             : 0;
           // departDv is not monotonic in j → continue, not break.
-          if (score(departDv, tof1) > bestP) continue;
+          if (score(departDv, tof1, departDay) > bestP) continue;
           for (let k = 0; k < ASSIST_TOF_SAMPLES; k++) {
             const tof2 = opt2.tofMinDays + k * t2Step;
             if (tof2 <= 0) continue;
-            if (score(departDv, tof1 + tof2) > bestP) break;
+            if (score(departDv, tof1 + tof2, departDay) > bestP) break;
             const sTo = stateAt(to.elements, mu, flybyDay + tof2);
             const leg2 = solveLeg(sVia.position, sTo.position, tof2, mu);
             if (!leg2) continue;
@@ -909,6 +1058,7 @@ export function searchBest(
               // Match buildAssistRoute's duration exactly so the comparison key and the
               // stored route.duration are bit-identical.
               sumPrecise([tof1, tof2]),
+              departDay,
               () =>
                 buildAssistRoute(
                   from,
@@ -979,7 +1129,7 @@ export function searchBest(
           for (let j = 0; j < DOUBLE_TOF_SAMPLES; j++) {
             const tof1 = opt1.tofMinDays + j * t1Step;
             if (tof1 <= 0) continue;
-            if (score(0, tof1) > bestP) break;
+            if (score(0, tof1, departDay) > bestP) break;
             const f1Day = departDay + tof1;
             const sF1 = stateAt(f1.elements, mu, f1Day);
             const leg1 = solveLeg(sFrom.position, sF1.position, tof1, mu);
@@ -989,11 +1139,11 @@ export function searchBest(
             const departDv = needDv
               ? terminalDv(from.endpoint, fromState, vInfDepart, "depart")
               : 0;
-            if (score(departDv, tof1) > bestP) continue;
+            if (score(departDv, tof1, departDay) > bestP) continue;
             for (let k = 0; k < DOUBLE_TOF_SAMPLES; k++) {
               const tof2 = opt2.tofMinDays + k * t2Step;
               if (tof2 <= 0) continue;
-              if (score(departDv, tof1 + tof2) > bestP) break;
+              if (score(departDv, tof1 + tof2, departDay) > bestP) break;
               const f2Day = f1Day + tof2;
               const sF2 = stateAt(f2.elements, mu, f2Day);
               const leg2 = solveLeg(sF1.position, sF2.position, tof2, mu);
@@ -1001,11 +1151,11 @@ export function searchBest(
               const fb1 = flybyVia(f1, sF1.velocity, leg1.v2, leg2.v1);
               if (!fb1) continue;
               const dvKnown2 = needDv ? departDv + mpsToKmps(fb1.deltaV) : 0;
-              if (score(dvKnown2, tof1 + tof2) > bestP) continue;
+              if (score(dvKnown2, tof1 + tof2, departDay) > bestP) continue;
               for (let l = 0; l < DOUBLE_TOF_SAMPLES; l++) {
                 const tof3 = opt3.tofMinDays + l * t3Step;
                 if (tof3 <= 0) continue;
-                if (score(dvKnown2, tof1 + tof2 + tof3) > bestP) break;
+                if (score(dvKnown2, tof1 + tof2 + tof3, departDay) > bestP) break;
                 const sTo = stateAt(to.elements, mu, f2Day + tof3);
                 const leg3 = solveLeg(sF2.position, sTo.position, tof3, mu);
                 if (!leg3) continue;
@@ -1020,6 +1170,7 @@ export function searchBest(
                 tryAccept(
                   fullDv,
                   sumPrecise([tof1, tof2, tof3]),
+                  departDay,
                   () =>
                     buildAssistRoute(
                       from,

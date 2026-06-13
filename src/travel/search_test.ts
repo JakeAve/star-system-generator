@@ -4,10 +4,13 @@ import {
   findDirectRoutes,
   findDoubleAssistRoutes,
   findSingleAssistRoutes,
+  searchBest,
+  selectBestRoutes2,
+  utopiaDist,
 } from "./search.ts";
-import type { BodyRef } from "./search.ts";
+import type { BodyRef, UtopiaBox } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
-import { muBody, muStar, R_EARTH_M } from "./units.ts";
+import { AU_M, DAY_S, muBody, muStar, R_EARTH_M } from "./units.ts";
 import { EndState, RankMode, RouteNodeKind } from "./types.ts";
 
 const MU = muStar(1);
@@ -32,6 +35,30 @@ const toBody = {
   },
   endpoint: { mu: 4.28e13, radiusM: 3.39e6 },
 };
+
+Deno.test("utopiaDist: 2-axis (Δv, duration) box matches the legacy normalized distance", () => {
+  const box: UtopiaBox = { dvMin: 10, dvMax: 20, durMin: 100, durMax: 300 };
+  // A point at the utopia corner has distance 0; the opposite corner has distance √2.
+  // arrival is absent from the box, so the arr argument must be ignored.
+  assertAlmostEquals(utopiaDist(10, 100, 99999, box), 0, 1e-12);
+  assertAlmostEquals(utopiaDist(20, 300, 0, box), Math.SQRT2, 1e-12);
+  assertAlmostEquals(utopiaDist(15, 200, 12345, box), Math.hypot(0.5, 0.5), 1e-12);
+});
+
+Deno.test("utopiaDist: arrival axis participates only when the box carries arr ranges", () => {
+  const box: UtopiaBox = { dvMin: 0, dvMax: 10, arrMin: 1000, arrMax: 2000 };
+  // duration absent → ignored; arrival contributes.
+  assertAlmostEquals(utopiaDist(0, 5e9, 1000, box), 0, 1e-12);
+  assertAlmostEquals(utopiaDist(10, 0, 2000, box), Math.SQRT2, 1e-12);
+});
+
+Deno.test("utopiaDist: 3-axis triple box normalizes all three", () => {
+  const box: UtopiaBox = {
+    dvMin: 0, dvMax: 10, durMin: 0, durMax: 10, arrMin: 0, arrMax: 10,
+  };
+  assertAlmostEquals(utopiaDist(0, 0, 0, box), 0, 1e-12);
+  assertAlmostEquals(utopiaDist(10, 10, 10, box), Math.sqrt(3), 1e-12);
+});
 
 Deno.test("findDirectRoutes: returns a self-consistent orbit→orbit route", () => {
   const routes = findDirectRoutes(
@@ -388,6 +415,70 @@ Deno.test("findDoubleAssistRoutes: deterministic", () => {
   assertEquals(JSON.stringify(a), JSON.stringify(b));
 });
 
+Deno.test("searchBest: arrival objective minimizes departAt + duration", () => {
+  const best = searchBest(
+    "arrival", inner, outer, EndState.Orbit, EndState.Orbit, [giant], MU, "star", 2, {},
+  );
+  if (!best) throw new Error("expected a route");
+  const arrival = best.departAt + best.duration;
+  const all = findSingleAssistRoutes(
+    inner, outer, EndState.Orbit, EndState.Orbit, [giant], MU, "star", { rank: RankMode.All },
+  ).concat(
+    findDirectRoutes(inner, outer, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All }),
+  );
+  const minArrival = Math.min(...all.map((r) => r.departAt + r.duration));
+  assertAlmostEquals(arrival, minArrival, 1e-6);
+});
+
+Deno.test("searchBest: arrival ties broken by least Δv", () => {
+  const best = searchBest(
+    "arrival", inner, outer, EndState.Orbit, EndState.Orbit, [giant], MU, "star", 2, {},
+  )!;
+  const all = findDirectRoutes(
+    inner, outer, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All },
+  );
+  const bestArr = best.departAt + best.duration;
+  for (const r of all) {
+    if (Math.abs((r.departAt + r.duration) - bestArr) < 1e-9) {
+      if (r.totalDeltaV < best.totalDeltaV - 1e-9) {
+        throw new Error("arrival tiebreak failed to pick least Δv");
+      }
+    }
+  }
+});
+
+Deno.test("searchBest: capDirectDepartAtSynodic bounds a direct departure to one synodic period", () => {
+  const huge = 100000;
+  const capped = searchBest(
+    "deltaV", fromBody, toBody, EndState.Orbit, EndState.Orbit, [], MU, "star", 0,
+    { departWindowDays: huge, capDirectDepartAtSynodic: true },
+  )!;
+  if (!Number.isFinite(capped.departAt)) throw new Error("expected finite departAt");
+
+  // Synodic horizon, mirroring defaultSweepOpts (not exported): orbital period
+  // T = 2π√(a³/μ) in days; synodic = 1/|1/T_in − 1/T_out|, capped at the outer period.
+  const periodDays = (au: number) => {
+    const m = au * AU_M;
+    return (2 * Math.PI * Math.sqrt((m * m * m) / MU)) / DAY_S;
+  };
+  const tIn = periodDays(Math.min(fromBody.elements.orbitRadiusAu, toBody.elements.orbitRadiusAu));
+  const tOut = periodDays(Math.max(fromBody.elements.orbitRadiusAu, toBody.elements.orbitRadiusAu));
+  const horizon = Math.min(1 / Math.abs(1 / tIn - 1 / tOut), tOut);
+
+  // The cap must bound the direct departure to within one synodic horizon.
+  if (capped.departAt > horizon + 1e-6) {
+    throw new Error(`expected departAt <= ${horizon}, got ${capped.departAt}`);
+  }
+  // And it must actually pull the departure in vs. the huge uncapped window.
+  const uncapped = searchBest(
+    "deltaV", fromBody, toBody, EndState.Orbit, EndState.Orbit, [], MU, "star", 0,
+    { departWindowDays: huge },
+  )!;
+  if (!(capped.departAt < uncapped.departAt)) {
+    throw new Error("cap did not pull the departure in");
+  }
+});
+
 Deno.test("findCrossFrameRoutes: planet → moon produces Transit-bearing routes", () => {
   const mu = muStar(1); // 1 solar mass
   const from: CrossFrameEndpoint = {
@@ -430,4 +521,30 @@ Deno.test("findCrossFrameRoutes: planet → moon produces Transit-bearing routes
     if (!(r.departAt >= 0)) throw new Error("departAt must be non-negative");
     if (!(r.totalDeltaV > 0)) throw new Error("positive Δv");
   }
+});
+
+Deno.test("selectBestRoutes2: returns the 7 picks deduped, each matching a brute-force scan", () => {
+  const all = findDirectRoutes(
+    fromBody, toBody, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All },
+  );
+  const picks = selectBestRoutes2(all);
+  if (picks.length === 0) throw new Error("expected picks");
+
+  const arr = (r: typeof all[number]) => r.departAt + r.duration;
+  const min = (f: (r: typeof all[number]) => number) =>
+    all.reduce((a, b) => (f(b) < f(a) ? b : a));
+  const key = (r: typeof all[number]) => `${r.departAt}|${r.duration}|${r.notation}`;
+  const keys = new Set(picks.map(key));
+  if (!keys.has(key(min((r) => r.totalDeltaV)))) throw new Error("cheapest missing");
+  if (!keys.has(key(min((r) => r.duration)))) throw new Error("fastest missing");
+  if (!keys.has(key(min(arr)))) throw new Error("soonest missing");
+  for (const p of picks) {
+    if (!all.some((r) => key(r) === key(p))) throw new Error("pick not from candidate set");
+  }
+  assertEquals(picks.length, new Set(picks.map(key)).size);
+  if (picks.length > 7) throw new Error("more than 7 picks");
+});
+
+Deno.test("selectBestRoutes2: empty input yields no picks", () => {
+  assertEquals(selectBestRoutes2([]).length, 0);
 });
