@@ -497,9 +497,14 @@ export function createCanvasOrrery(
         flyState = null;
       }
     } else if (lockedTargets.length > 0) {
-      const c = centroidOf(lockedTargets.map((o) => [o.worldX, o.worldY]));
-      cam.x = c[0];
-      cam.y = c[1];
+      let sx = 0;
+      let sy = 0;
+      for (const o of lockedTargets) {
+        sx += o.worldX;
+        sy += o.worldY;
+      }
+      cam.x = sx / lockedTargets.length;
+      cam.y = sy / lockedTargets.length;
     }
     drawStarfield();
     applyTransform();
