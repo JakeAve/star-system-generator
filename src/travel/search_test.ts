@@ -548,3 +548,34 @@ Deno.test("selectBestRoutes2: returns the 7 picks deduped, each matching a brute
 Deno.test("selectBestRoutes2: empty input yields no picks", () => {
   assertEquals(selectBestRoutes2([]).length, 0);
 });
+
+Deno.test("findDirectRoutes: reframe mode tags every route with phaseDay/recurDays", () => {
+  const routes = findDirectRoutes(
+    fromBody,
+    toBody,
+    EndState.Orbit,
+    EndState.Orbit,
+    MU,
+    "star",
+    {
+      rank: RankMode.All,
+      sweep: { kind: "resolutionTarget", deltaD: 10, minD: 6, maxD: 60, deltaT: 20, minT: 6, maxT: 60, nowDay: 0 },
+    },
+  );
+  assertEquals(routes.length > 0, true);
+  for (const r of routes) {
+    assertEquals(r.phaseDay, r.departAt); // unshifted: D == departAt
+    assertEquals(typeof r.recurDays, "number");
+    assertEquals(Number.isFinite(r.recurDays!), true);
+  }
+});
+
+Deno.test("findDirectRoutes: fixed mode (no sweep) leaves routes untagged", () => {
+  const routes = findDirectRoutes(
+    fromBody, toBody, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All },
+  );
+  for (const r of routes) {
+    assertEquals(r.phaseDay, undefined);
+    assertEquals(r.recurDays, undefined);
+  }
+});

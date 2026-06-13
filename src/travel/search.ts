@@ -1,6 +1,11 @@
 // src/travel/search.ts
 import { conic, type OrbitElements, stateAt } from "./state.ts";
-import { sweepTransfers, type TransferCandidate } from "./transfers.ts";
+import {
+  type ReframeSweep,
+  sweepTransfers,
+  type TransferCandidate,
+} from "./transfers.ts";
+import { orbitalPeriodDays, synodicPeriodDays } from "./recurrence.ts";
 import { buildTerminal, type EndpointBody } from "./terminal.ts";
 import { solveLambert } from "./lambert.ts";
 import { evaluateFlyby, type FlybyResult } from "./flyby.ts";
@@ -13,7 +18,7 @@ import {
   RouteNodeKind,
   type TravelOptions,
 } from "./types.ts";
-import { AU_M, DAY_S, mpsToKmps } from "./units.ts";
+import { DAY_S, mpsToKmps } from "./units.ts";
 import { buildCrossFrameRoute, type CrossFrameEndpoint } from "./legs.ts";
 import { sumPrecise } from "./sum.ts";
 
@@ -34,31 +39,44 @@ function defaultSweepOpts(
   toAu: number,
   mu: number,
   departWindowDays?: number,
+  reframe?: boolean,
 ) {
-  // Orbital period at radius a about a body of parameter mu: T = 2π√(a³/μ).
-  const periodDaysAt = (au: number) => {
-    const m = au * AU_M;
-    return (2 * Math.PI * Math.sqrt((m * m * m) / mu)) / DAY_S;
-  };
-  const innerPeriod = periodDaysAt(Math.min(fromAu, toAu));
-  const outerPeriod = periodDaysAt(Math.max(fromAu, toAu));
+  const innerPeriod = orbitalPeriodDays(Math.min(fromAu, toAu), mu);
+  const outerPeriod = orbitalPeriodDays(Math.max(fromAu, toAu), mu);
   // Launch windows recur on the synodic period (how often the two bodies return to the same
   // relative geometry), not the orbital period. One synodic period samples every distinct
-  // departure geometry exactly once; the outer orbital period — the old horizon — overshoots
-  // badly for distant targets (centuries), smearing the fixed sample budget too coarsely to
-  // resolve a window. Near-coorbital bodies send the synodic period to infinity, so cap it at
+  // departure geometry exactly once; near-coorbital bodies send it to infinity, so cap it at
   // the outer period.
-  const synodicPeriod = 1 / Math.abs(1 / innerPeriod - 1 / outerPeriod);
-  const departHorizon = Math.min(synodicPeriod, outerPeriod);
+  const synodicPeriod = synodicPeriodDays(innerPeriod, outerPeriod);
+  const recurDays = Math.min(synodicPeriod, outerPeriod);
+  // Default (fixed) horizon: the player window if given, else one synodic recurrence. The reframe
+  // additionally caps the window at the recurrence period — beyond it is only repeats of sampled
+  // geometries, and projection (getBestRoutes3) maps each opportunity into the window instead.
+  const departHorizonDays = reframe
+    ? Math.min(departWindowDays ?? Infinity, recurDays)
+    : (departWindowDays ?? recurDays);
   return {
-    // Depart-time horizon: callers may cap it to the near term (e.g. one game turn). Unset, it
-    // spans one synodic period. The tof range stays outer-period-driven, so a near-term
-    // departure can still ride a multi-year transfer.
-    departHorizonDays: departWindowDays ?? departHorizon,
+    departHorizonDays,
     departSamples: 36,
     tofMinDays: outerPeriod * 0.1,
     tofMaxDays: outerPeriod * 0.9,
     tofSamples: 36,
+    recurDays,
+  };
+}
+
+/** Build the porkchop reframe overrides from options.sweep for a given recurrence period.
+ * Returns undefined unless options.sweep is the resolutionTarget mode. */
+function reframeFor(
+  options: TravelOptions,
+  recurDays: number,
+): ReframeSweep | undefined {
+  const s = options.sweep;
+  if (!s || s.kind !== "resolutionTarget") return undefined;
+  return {
+    deltaD: s.deltaD, minD: s.minD, maxD: s.maxD,
+    deltaT: s.deltaT, minT: s.minT, maxT: s.maxT,
+    recurDays,
   };
 }
 
@@ -126,6 +144,9 @@ function toRoute(
     ]),
     totalDeltaV,
     notation: `${from.id}@${CODE[fromState]} > ${to.id}@${CODE[toState]}`,
+    ...(c.phaseDay !== undefined
+      ? { phaseDay: c.phaseDay, recurDays: c.recurDays }
+      : {}),
   };
 }
 
@@ -170,17 +191,16 @@ export function findDirectRoutes(
   centralId: string,
   options: TravelOptions,
 ): Route[] {
-  const cands = sweepTransfers(
-    from.elements,
-    to.elements,
+  const reframeOn = options.sweep?.kind === "resolutionTarget";
+  const opts = defaultSweepOpts(
+    from.elements.orbitRadiusAu,
+    to.elements.orbitRadiusAu,
     mu,
-    defaultSweepOpts(
-      from.elements.orbitRadiusAu,
-      to.elements.orbitRadiusAu,
-      mu,
-      options.departWindowDays,
-    ),
+    options.departWindowDays,
+    reframeOn,
   );
+  const reframe = reframeFor(options, opts.recurDays);
+  const cands = sweepTransfers(from.elements, to.elements, mu, opts, reframe);
   const routes = cands.map((c) =>
     toRoute(from, to, fromState, toState, centralId, c)
   );
@@ -199,21 +219,32 @@ export function findCrossFrameRoutes(
   mu: number,
   options: TravelOptions,
 ): Route[] {
+  const reframeOn = options.sweep?.kind === "resolutionTarget";
+  const opts = defaultSweepOpts(
+    from.anchorElements.orbitRadiusAu,
+    to.anchorElements.orbitRadiusAu,
+    mu,
+    options.departWindowDays,
+    reframeOn,
+  );
+  const reframe = reframeFor(options, opts.recurDays);
   const cands = sweepTransfers(
     from.anchorElements,
     to.anchorElements,
     mu,
-    defaultSweepOpts(
-      from.anchorElements.orbitRadiusAu,
-      to.anchorElements.orbitRadiusAu,
-      mu,
-      options.departWindowDays,
-    ),
+    opts,
+    reframe,
   );
   const routes: Route[] = [];
   for (const c of cands) {
     const r = buildCrossFrameRoute(from, to, centralId, c);
-    if (r) routes.push(r);
+    if (r) {
+      if (c.phaseDay !== undefined) {
+        r.phaseDay = c.phaseDay;
+        r.recurDays = c.recurDays;
+      }
+      routes.push(r);
+    }
   }
   return rankRoutes(routes, options);
 }

@@ -2,6 +2,7 @@
 import { solveLambert } from "./lambert.ts";
 import { conic, type OrbitElements, stateAt } from "./state.ts";
 import { DAY_S } from "./units.ts";
+import { reframeCount } from "./recurrence.ts";
 
 export interface Hohmann {
   dvDepart: number; // m/s
@@ -33,6 +34,8 @@ export interface TransferCandidate {
   vInfArrive: number; // m/s, |v2 - vBodyAtArrive|
   aAu: number; // transfer conic
   e: number;
+  phaseDay?: number; // reframe: canonical depart sample D (== departDay here)
+  recurDays?: number; // reframe: recurrence period T_recur to tag the candidate with
 }
 
 export interface SweepOpts {
@@ -41,6 +44,18 @@ export interface SweepOpts {
   tofMinDays: number;
   tofMaxDays: number;
   tofSamples: number;
+}
+
+/** Resolution-target overrides for sweepTransfers: fixed spacing on each axis plus the recurrence
+ * period to stamp on every emitted candidate. When present, departSamples/tofSamples are ignored. */
+export interface ReframeSweep {
+  deltaD: number;
+  minD: number;
+  maxD: number;
+  deltaT: number;
+  minT: number;
+  maxT: number;
+  recurDays: number;
 }
 
 /** Relative threshold for skipping near-collinear (transfer angle ≈ 0 or π) geometries
@@ -61,16 +76,34 @@ export function sweepTransfers(
   to: OrbitElements,
   mu: number,
   opts: SweepOpts,
+  reframe?: ReframeSweep,
 ): TransferCandidate[] {
   const out: TransferCandidate[] = [];
-  const dStep = opts.departHorizonDays / Math.max(1, opts.departSamples - 1);
-  const tStep = (opts.tofMaxDays - opts.tofMinDays) /
-    Math.max(1, opts.tofSamples - 1);
-  for (let i = 0; i < opts.departSamples; i++) {
+  let departSamples: number, dStep: number;
+  let tofSamples: number, tStep: number;
+  if (reframe) {
+    const d = reframeCount(opts.departHorizonDays, reframe.deltaD, reframe.minD, reframe.maxD);
+    const t = reframeCount(
+      opts.tofMaxDays - opts.tofMinDays,
+      reframe.deltaT,
+      reframe.minT,
+      reframe.maxT,
+    );
+    departSamples = d.count;
+    dStep = d.step;
+    tofSamples = t.count;
+    tStep = t.step;
+  } else {
+    departSamples = opts.departSamples;
+    dStep = opts.departHorizonDays / Math.max(1, opts.departSamples - 1);
+    tofSamples = opts.tofSamples;
+    tStep = (opts.tofMaxDays - opts.tofMinDays) / Math.max(1, opts.tofSamples - 1);
+  }
+  for (let i = 0; i < departSamples; i++) {
     const departDay = i * dStep;
     const sFrom = stateAt(from, mu, departDay);
     const r1 = Math.hypot(sFrom.position.x, sFrom.position.y);
-    for (let j = 0; j < opts.tofSamples; j++) {
+    for (let j = 0; j < tofSamples; j++) {
       const tofDays = opts.tofMinDays + j * tStep;
       if (tofDays <= 0) continue;
       const arriveDay = departDay + tofDays;
@@ -109,6 +142,9 @@ export function sweepTransfers(
         vInfArrive,
         aAu: c.aAu,
         e: c.e,
+        ...(reframe
+          ? { phaseDay: departDay, recurDays: reframe.recurDays }
+          : {}),
       });
     }
   }

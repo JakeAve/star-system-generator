@@ -1,4 +1,4 @@
-import { assertAlmostEquals } from "@std/assert";
+import { assertAlmostEquals, assertEquals } from "@std/assert";
 import { hohmann, sweepTransfers } from "./transfers.ts";
 import { AU_M, muStar } from "./units.ts";
 
@@ -98,5 +98,56 @@ Deno.test("sweepTransfers: discards physically-absurd v∞ artifacts", () => {
     if (c.vInfDepart > 1e6 || c.vInfArrive > 1e6) {
       throw new Error(`absurd v∞ leaked: ${c.vInfDepart}, ${c.vInfArrive}`);
     }
+  }
+});
+
+Deno.test("sweepTransfers: reframe samples depart at exact Δd spacing and tags candidates", () => {
+  const mu = muStar(1);
+  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 };
+  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3 };
+  const opts = {
+    departHorizonDays: 60,
+    departSamples: 0, // ignored under reframe
+    tofMinDays: 50,
+    tofMaxDays: 130,
+    tofSamples: 0, // ignored under reframe
+  };
+  const reframe = {
+    deltaD: 5, minD: 4, maxD: 120, deltaT: 10, minT: 4, maxT: 120, recurDays: 200,
+  };
+  const cands = sweepTransfers(from, to, mu, opts, reframe);
+  for (const c of cands) {
+    assertEquals(c.recurDays, 200);
+    assertEquals(c.phaseDay, c.departDay);
+  }
+  const departs = [...new Set(cands.map((c) => c.departDay))].sort((a, b) => a - b);
+  for (const d of departs) assertAlmostEquals((d / 5) % 1, 0, 1e-9);
+});
+
+Deno.test("sweepTransfers: reframe windows nest (narrow depart set ⊆ wide depart set)", () => {
+  const mu = muStar(1);
+  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 };
+  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3 };
+  const reframe = {
+    deltaD: 5, minD: 4, maxD: 120, deltaT: 10, minT: 4, maxT: 120, recurDays: 500,
+  };
+  const base = { departSamples: 0, tofMinDays: 50, tofMaxDays: 130, tofSamples: 0 };
+  const wide = sweepTransfers(from, to, mu, { ...base, departHorizonDays: 100 }, reframe);
+  const narrow = sweepTransfers(from, to, mu, { ...base, departHorizonDays: 40 }, reframe);
+  const wideSet = new Set(wide.map((c) => Math.round(c.departDay * 1e6) / 1e6));
+  const narrowDeparts = [...new Set(narrow.map((c) => Math.round(c.departDay * 1e6) / 1e6))];
+  for (const d of narrowDeparts) assertEquals(wideSet.has(d), true);
+});
+
+Deno.test("sweepTransfers: no reframe arg leaves candidates untagged (fixed path)", () => {
+  const mu = muStar(1);
+  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 };
+  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3 };
+  const cands = sweepTransfers(from, to, mu, {
+    departHorizonDays: 200, departSamples: 12, tofMinDays: 50, tofMaxDays: 130, tofSamples: 12,
+  });
+  for (const c of cands) {
+    assertEquals(c.phaseDay, undefined);
+    assertEquals(c.recurDays, undefined);
   }
 });
