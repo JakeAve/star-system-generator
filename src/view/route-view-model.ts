@@ -65,10 +65,11 @@ function pointToSegmentDistance(
 }
 
 /**
- * Hit-test a world-space point against route geometry. Tests nodes first (point within `radius`
- * of a node), then legs (min point-to-segment distance over the polyline), across all routes;
- * the nearest match wins, and a node beats a leg at equal distance (junction -> node). Returns
- * null when nothing is within `radius`. Pure: no DOM, no engine state.
+ * Hit-test a world-space point against route geometry. For each route, a node within `radius`
+ * wins over that route's legs (a node sits on leg endpoints, so clicking a junction selects the
+ * node); otherwise the route's nearest leg within `radius` is its candidate. Across routes, the
+ * candidate with the smallest distance wins — so a near leg on one route is not overridden by a
+ * far node on another. Returns null when nothing is within `radius`. Pure: no DOM, no engine state.
  */
 export function hitTestRoutes(
   routes: RouteView[],
@@ -76,32 +77,37 @@ export function hitTestRoutes(
   y: number,
   radius: number,
 ): RoutePickTarget | null {
-  let bestNode: { d: number; routeId: string; node: RouteNodeView } | null = null;
-  let bestLeg: { d: number; routeId: string; leg: RouteLegView } | null = null;
+  let best: { d: number; target: RoutePickTarget } | null = null;
 
   for (const route of routes) {
+    // Per-route: nearest node within radius takes priority (junction); else nearest leg.
+    let nodeBest: { d: number; node: RouteNodeView } | null = null;
     for (const node of route.nodes) {
       const d = Math.hypot(node.x - x, node.y - y);
-      if (d <= radius && (!bestNode || d < bestNode.d)) {
-        bestNode = { d, routeId: route.id, node };
-      }
+      if (d <= radius && (!nodeBest || d < nodeBest.d)) nodeBest = { d, node };
     }
-    for (const leg of route.legs) {
-      for (let i = 1; i < leg.points.length; i++) {
-        const a = leg.points[i - 1], b = leg.points[i];
-        const d = pointToSegmentDistance(x, y, a.x, a.y, b.x, b.y);
-        if (d <= radius && (!bestLeg || d < bestLeg.d)) {
-          bestLeg = { d, routeId: route.id, leg };
+
+    let cand: { d: number; target: RoutePickTarget } | null = null;
+    if (nodeBest) {
+      cand = { d: nodeBest.d, target: { kind: "node", routeId: route.id, node: nodeBest.node } };
+    } else {
+      let legBest: { d: number; leg: RouteLegView } | null = null;
+      for (const leg of route.legs) {
+        for (let i = 1; i < leg.points.length; i++) {
+          const a = leg.points[i - 1], b = leg.points[i];
+          const d = pointToSegmentDistance(x, y, a.x, a.y, b.x, b.y);
+          if (d <= radius && (!legBest || d < legBest.d)) legBest = { d, leg };
         }
       }
+      if (legBest) {
+        cand = { d: legBest.d, target: { kind: "leg", routeId: route.id, leg: legBest.leg } };
+      }
     }
+
+    if (cand && (!best || cand.d < best.d)) best = cand;
   }
 
-  // Node beats leg unconditionally — a node sits on leg endpoints and clicking a junction
-  // should always select the node, not the leg arc.
-  if (bestNode) return { kind: "node", routeId: bestNode.routeId, node: bestNode.node };
-  if (bestLeg) return { kind: "leg", routeId: bestLeg.routeId, leg: bestLeg.leg };
-  return null;
+  return best ? best.target : null;
 }
 
 const ARC_SAMPLES = 48;

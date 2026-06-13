@@ -648,7 +648,7 @@ export function createCanvasOrrery(
     focus,
     setHighlight,
     setRoutes(routeViews) {
-      currentRoutes = routeViews;
+      currentRoutes = [...routeViews]; // copy so later caller mutation can't change the overlay
     },
     setRoute(routeView) {
       currentRoutes = routeView ? [routeView] : [];

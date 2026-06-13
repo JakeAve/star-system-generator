@@ -139,6 +139,15 @@ Deno.test("hitTestRoutes: nearest route wins", () => {
   assertEquals(hit?.routeId, "B");
 });
 
+Deno.test("hitTestRoutes: a near leg beats a farther node on another route", () => {
+  // Route A: a leg along y=0. Route B: a node off to the side, within radius but farther.
+  const a = fakeRoute("A", { legPoints: [{ x: 0, y: 0 }, { x: 100, y: 0 }] });
+  const b = fakeRoute("B", { nodes: [{ x: 50, y: 9 }] });
+  const hit = hitTestRoutes([a, b], 50, 2, 10); // leg dist 2 < node dist 7
+  assertEquals(hit?.kind, "leg");
+  assertEquals(hit?.routeId, "A");
+});
+
 Deno.test("hitTestRoutes: returns null outside radius", () => {
   const r = fakeRoute("R", { nodes: [{ x: 100, y: 100 }], legPoints: [{ x: 0, y: 0 }, { x: 50, y: 0 }] });
   assertEquals(hitTestRoutes([r], 500, 500, 10), null);
