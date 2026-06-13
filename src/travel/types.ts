@@ -114,6 +114,12 @@ export interface TravelOptions {
   rank?: RankMode; // default Pareto
   topN?: number;
   weights?: { time: number; deltaV: number };
-  departWindowDays?: number; // cap depart times to [0, window) days from now; default = outer period
+  departWindowDays?: number; // legacy: cap depart times to [0, window) days; superseded by startWindow/endWindow
+  // Absolute-day departure bounds for getBestRoutes / getBestRoutes2: the departure window is
+  // [startWindow, endWindow). startWindow defaults to 0; when endWindow is omitted the horizon
+  // falls back to departWindowDays (else one synodic recurrence). These bound departure, not
+  // arrival — a route may arrive after endWindow.
+  startWindow?: number;
+  endWindow?: number;
   sweep?: SweepMode; // default "fixed"; "resolutionTarget" enables the getBestRoutes3 reframe
 }

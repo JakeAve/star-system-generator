@@ -15,6 +15,7 @@ import {
   selectBestRoutes2,
   type UtopiaBox,
   utopiaDist,
+  validateWindow,
 } from "./search.ts";
 import type { BodyRef } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
@@ -115,6 +116,7 @@ export function getRoutes(
   to: Waypoint,
   options: TravelOptions = {},
 ): Route[] {
+  validateWindow(options);
   const index = flatten(system);
   const f = index.get(from.obj);
   const t = index.get(to.obj);
@@ -162,7 +164,12 @@ export function getRoutes(
     to.type,
     mu,
     system.star.id,
-    { rank: RankMode.All, departWindowDays: options.departWindowDays },
+    {
+      rank: RankMode.All,
+      departWindowDays: options.departWindowDays,
+      startWindow: options.startWindow,
+      endWindow: options.endWindow,
+    },
   );
   // Default maxAssists is 2; the search is capped at depth 2 (double assist).
   const assists = Math.min(options.maxAssists ?? 2, 2);
@@ -185,7 +192,12 @@ export function getRoutes(
       flybyBodies,
       mu,
       system.star.id,
-      { rank: RankMode.All, departWindowDays: options.departWindowDays },
+      {
+        rank: RankMode.All,
+        departWindowDays: options.departWindowDays,
+        startWindow: options.startWindow,
+        endWindow: options.endWindow,
+      },
     ),
   );
   if (assists >= 2) {
@@ -198,7 +210,12 @@ export function getRoutes(
         flybyBodies,
         mu,
         system.star.id,
-        { rank: RankMode.All, departWindowDays: options.departWindowDays },
+        {
+          rank: RankMode.All,
+          departWindowDays: options.departWindowDays,
+          startWindow: options.startWindow,
+          endWindow: options.endWindow,
+        },
       ),
     );
   }
@@ -224,6 +241,7 @@ export function getBestRoutes(
   options: TravelOptions = {},
   includeGoldilocks = true,
 ): Route[] {
+  validateWindow(options);
   const index = flatten(system);
   const f = index.get(from.obj);
   const t = index.get(to.obj);
@@ -247,7 +265,11 @@ export function getBestRoutes(
   }
   const fromRef = bodyRefOf(f.obj);
   const toRef = bodyRefOf(t.obj);
-  const window = { departWindowDays: options.departWindowDays };
+  const window = {
+    departWindowDays: options.departWindowDays,
+    startWindow: options.startWindow,
+    endWindow: options.endWindow,
+  };
   const fastest = searchBest(
     "duration",
     fromRef,
@@ -304,6 +326,8 @@ export function getBestRoutes(
         initialBest: seedBest,
         initialIncumbent: seedRoute,
         departWindowDays: options.departWindowDays,
+        startWindow: options.startWindow,
+        endWindow: options.endWindow,
       },
     );
   }
@@ -330,6 +354,7 @@ export function getBestRoutes2(
   to: Waypoint,
   options: TravelOptions = {},
 ): Route[] {
+  validateWindow(options);
   const index = flatten(system);
   const f = index.get(from.obj);
   const t = index.get(to.obj);
@@ -354,6 +379,8 @@ export function getBestRoutes2(
 
   const passOpts = {
     departWindowDays: options.departWindowDays,
+    startWindow: options.startWindow,
+    endWindow: options.endWindow,
     capDirectDepartAtSynodic: true as const,
   };
   const anchor = (obj: "deltaV" | "duration" | "arrival") =>
@@ -382,14 +409,27 @@ export function getBestRoutes2(
     let initialBest = Infinity;
     let initialIncumbent: Route | null = null;
     for (const r of anchors) {
-      const d = utopiaDist(r.totalDeltaV, r.duration, r.departAt + r.duration, box);
+      const d = utopiaDist(
+        r.totalDeltaV,
+        r.duration,
+        r.departAt + r.duration,
+        box,
+      );
       if (d < initialBest) {
         initialBest = d;
         initialIncumbent = r;
       }
     }
     return searchBest(
-      "goldilocks", fromRef, toRef, from.type, to.type, flybyBodies, mu, system.star.id, assists,
+      "goldilocks",
+      fromRef,
+      toRef,
+      from.type,
+      to.type,
+      flybyBodies,
+      mu,
+      system.star.id,
+      assists,
       { box, initialBest, initialIncumbent, ...passOpts },
     );
   };
@@ -480,19 +520,39 @@ export function getBestRoutes3(
 
   // Scan once (no branch-and-bound): direct + single + double assist, all tagged for projection.
   let candidates = findDirectRoutes(
-    fromRef, toRef, from.type, to.type, mu, system.star.id, scanOpts,
+    fromRef,
+    toRef,
+    from.type,
+    to.type,
+    mu,
+    system.star.id,
+    scanOpts,
   );
   if (assists >= 1) {
     candidates = candidates.concat(
       findSingleAssistRoutes(
-        fromRef, toRef, from.type, to.type, flybyBodies, mu, system.star.id, scanOpts,
+        fromRef,
+        toRef,
+        from.type,
+        to.type,
+        flybyBodies,
+        mu,
+        system.star.id,
+        scanOpts,
       ),
     );
   }
   if (assists >= 2) {
     candidates = candidates.concat(
       findDoubleAssistRoutes(
-        fromRef, toRef, from.type, to.type, flybyBodies, mu, system.star.id, scanOpts,
+        fromRef,
+        toRef,
+        from.type,
+        to.type,
+        flybyBodies,
+        mu,
+        system.star.id,
+        scanOpts,
       ),
     );
   }

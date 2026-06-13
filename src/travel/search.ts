@@ -1,5 +1,10 @@
 // src/travel/search.ts
-import { type OrbitElements, stateAt, transferConic, type TransferConic } from "./state.ts";
+import {
+  type OrbitElements,
+  stateAt,
+  type TransferConic,
+  transferConic,
+} from "./state.ts";
 import {
   type ReframeSweep,
   sweepTransfers,
@@ -40,11 +45,47 @@ const CODE: Record<EndState, string> = {
   [EndState.Intercept]: "i",
 };
 
+/**
+ * Validate the absolute-day departure bounds on TravelOptions. startWindow (if given) must be a
+ * finite day >= 0; endWindow (if given) must be finite and strictly greater than startWindow
+ * (default 0). Throws on violation. A no-op when neither is set.
+ */
+export function validateWindow(options: TravelOptions): void {
+  const { startWindow, endWindow } = options;
+  if (
+    startWindow !== undefined &&
+    (!Number.isFinite(startWindow) || startWindow < 0)
+  ) {
+    throw new Error(
+      `startWindow must be a finite day >= 0 (got ${startWindow})`,
+    );
+  }
+  if (endWindow !== undefined) {
+    if (!Number.isFinite(endWindow)) {
+      throw new Error(`endWindow must be a finite day (got ${endWindow})`);
+    }
+    if (endWindow <= (startWindow ?? 0)) {
+      throw new Error(
+        `endWindow (${endWindow}) must be greater than startWindow (${
+          startWindow ?? 0
+        })`,
+      );
+    }
+  }
+}
+
+/** The departure-window slice of TravelOptions / SearchOpts that defaultSweepOpts consumes. */
+interface DepartWindow {
+  startWindow?: number;
+  endWindow?: number;
+  departWindowDays?: number;
+}
+
 function defaultSweepOpts(
   fromAu: number,
   toAu: number,
   mu: number,
-  departWindowDays?: number,
+  window?: DepartWindow,
   reframe?: boolean,
 ) {
   const innerPeriod = orbitalPeriodDays(Math.min(fromAu, toAu), mu);
@@ -55,13 +96,22 @@ function defaultSweepOpts(
   // the outer period.
   const synodicPeriod = synodicPeriodDays(innerPeriod, outerPeriod);
   const recurDays = Math.min(synodicPeriod, outerPeriod);
-  // Default (fixed) horizon: the player window if given, else one synodic recurrence. The reframe
-  // additionally caps the window at the recurrence period — beyond it is only repeats of sampled
-  // geometries, and projection (getBestRoutes3) maps each opportunity into the window instead.
+  const startWindow = window?.startWindow ?? 0;
+  // The reframe path (getBestRoutes3) must sample from day 0 — it tags phaseDay ∈ [0, recurDays)
+  // and projects with nowDay afterward. The startWindow offset applies to the fixed sweep only.
+  const departStartDay = reframe ? 0 : startWindow;
+  // Horizon width: an explicit endWindow wins; else the legacy departWindowDays; else one
+  // synodic recurrence. The reframe additionally caps the window at the recurrence period.
+  // endWindow > startWindow is guaranteed by validateWindow at the public entry points, so the
+  // subtraction below is non-negative.
+  const baseHorizon = window?.endWindow != null
+    ? window.endWindow - startWindow
+    : (window?.departWindowDays ?? recurDays);
   const departHorizonDays = reframe
-    ? Math.min(departWindowDays ?? Infinity, recurDays)
-    : (departWindowDays ?? recurDays);
+    ? Math.min(baseHorizon, recurDays)
+    : baseHorizon;
   return {
+    departStartDay,
     departHorizonDays,
     departSamples: 36,
     tofMinDays: outerPeriod * 0.1,
@@ -85,8 +135,12 @@ function reframeFor(
   const s = options.sweep;
   if (!s || s.kind !== "resolutionTarget") return undefined;
   return {
-    deltaD: s.deltaD, minD: s.minD, maxD: s.maxD,
-    deltaT: s.deltaT, minT: s.minT, maxT: s.maxT,
+    deltaD: s.deltaD,
+    minD: s.minD,
+    maxD: s.maxD,
+    deltaT: s.deltaT,
+    minT: s.minT,
+    maxT: s.maxT,
     recurDays,
   };
 }
@@ -142,7 +196,13 @@ function toRoute(
       departTime: legDepart,
       arriveTime: legArrive,
       timeOfFlight: c.tofDays,
-      transfer: { a: c.aAu, e: c.e, argPeriapsis: c.argPeriapsis, nu1: c.nu1, nu2: c.nu2 },
+      transfer: {
+        a: c.aAu,
+        e: c.e,
+        argPeriapsis: c.argPeriapsis,
+        nu1: c.nu1,
+        nu2: c.nu2,
+      },
       deltaV: 0, // Phase 1: leg energy lives in the terminals; per-leg burns added in later phases
     }],
     departAt,
@@ -207,7 +267,7 @@ export function findDirectRoutes(
     from.elements.orbitRadiusAu,
     to.elements.orbitRadiusAu,
     mu,
-    options.departWindowDays,
+    options,
     reframeOn,
   );
   const reframe = reframeFor(options, opts.recurDays);
@@ -235,7 +295,7 @@ export function findCrossFrameRoutes(
     from.anchorElements.orbitRadiusAu,
     to.anchorElements.orbitRadiusAu,
     mu,
-    options.departWindowDays,
+    options,
     reframeOn,
   );
   const reframe = reframeFor(options, opts.recurDays);
@@ -528,13 +588,13 @@ function sweepAssist(
     from.elements.orbitRadiusAu,
     via.elements.orbitRadiusAu,
     mu,
-    options.departWindowDays,
+    options,
   );
   const opt2 = defaultSweepOpts(
     via.elements.orbitRadiusAu,
     to.elements.orbitRadiusAu,
     mu,
-    options.departWindowDays,
+    options,
   );
   const grid = assistReframeGrid(
     [
@@ -550,13 +610,11 @@ function sweepAssist(
     options,
   );
   const departSamples = grid ? grid.departSamples : ASSIST_DEPART_SAMPLES;
-  const dStep = grid
-    ? grid.dStep
-    : step(
-      0,
-      Math.max(opt1.departHorizonDays, opt2.departHorizonDays),
-      ASSIST_DEPART_SAMPLES,
-    );
+  const dStep = grid ? grid.dStep : step(
+    0,
+    Math.max(opt1.departHorizonDays, opt2.departHorizonDays),
+    ASSIST_DEPART_SAMPLES,
+  );
   const t1Count = grid ? grid.tofCounts[0] : ASSIST_TOF_SAMPLES;
   const t1Step = grid
     ? grid.tofSteps[0]
@@ -567,8 +625,10 @@ function sweepAssist(
     : step(opt2.tofMinDays, opt2.tofMaxDays, ASSIST_TOF_SAMPLES);
   const out: Route[] = [];
 
+  // Start the depart axis at the resolved absolute window start (0 unless startWindow is set).
+  const departStartDay = opt1.departStartDay ?? 0;
   for (let i = 0; i < departSamples; i++) {
-    const departDay = i * dStep;
+    const departDay = departStartDay + i * dStep;
     const sFrom = stateAt(from.elements, mu, departDay);
     for (let j = 0; j < t1Count; j++) {
       const tof1 = opt1.tofMinDays + j * t1Step;
@@ -629,19 +689,19 @@ function sweepDoubleAssist(
     from.elements.orbitRadiusAu,
     f1.elements.orbitRadiusAu,
     mu,
-    options.departWindowDays,
+    options,
   );
   const opt2 = defaultSweepOpts(
     f1.elements.orbitRadiusAu,
     f2.elements.orbitRadiusAu,
     mu,
-    options.departWindowDays,
+    options,
   );
   const opt3 = defaultSweepOpts(
     f2.elements.orbitRadiusAu,
     to.elements.orbitRadiusAu,
     mu,
-    options.departWindowDays,
+    options,
   );
   const grid = assistReframeGrid(
     [
@@ -659,17 +719,15 @@ function sweepDoubleAssist(
     options,
   );
   const departSamples = grid ? grid.departSamples : DOUBLE_DEPART_SAMPLES;
-  const dStep = grid
-    ? grid.dStep
-    : step(
-      0,
-      Math.max(
-        opt1.departHorizonDays,
-        opt2.departHorizonDays,
-        opt3.departHorizonDays,
-      ),
-      DOUBLE_DEPART_SAMPLES,
-    );
+  const dStep = grid ? grid.dStep : step(
+    0,
+    Math.max(
+      opt1.departHorizonDays,
+      opt2.departHorizonDays,
+      opt3.departHorizonDays,
+    ),
+    DOUBLE_DEPART_SAMPLES,
+  );
   const t1Count = grid ? grid.tofCounts[0] : DOUBLE_TOF_SAMPLES;
   const t1Step = grid
     ? grid.tofSteps[0]
@@ -684,8 +742,9 @@ function sweepDoubleAssist(
     : step(opt3.tofMinDays, opt3.tofMaxDays, DOUBLE_TOF_SAMPLES);
   const out: Route[] = [];
 
+  const departStartDay = opt1.departStartDay ?? 0;
   for (let i = 0; i < departSamples; i++) {
-    const departDay = i * dStep;
+    const departDay = departStartDay + i * dStep;
     const sFrom = stateAt(from.elements, mu, departDay);
     for (let j = 0; j < t1Count; j++) {
       const tof1 = opt1.tofMinDays + j * t1Step;
@@ -788,7 +847,17 @@ export function findDoubleAssistRoutes(
     for (const f2 of flybyBodies) {
       if (f1.id === f2.id) continue;
       routes.push(
-        ...sweepDoubleAssist(from, to, f1, f2, fromState, toState, mu, centralId, options),
+        ...sweepDoubleAssist(
+          from,
+          to,
+          f1,
+          f2,
+          fromState,
+          toState,
+          mu,
+          centralId,
+          options,
+        ),
       );
     }
   }
@@ -829,10 +898,12 @@ export interface SearchOpts {
   box?: UtopiaBox; // required for obj === "goldilocks"
   initialBest?: number; // seed the incumbent bound (e.g. anchor distance for goldilocks)
   initialIncumbent?: Route | null;
-  departWindowDays?: number; // cap the depart-time horizon (days from now)
-  // When set with a departWindowDays, the depth-0 (direct) departure horizon is additionally
-  // capped at one synodic period: beyond it is only repeats of geometries already sampled, so a
-  // wide game window must not push a direct departure to a needlessly-late recurrence.
+  departWindowDays?: number; // legacy horizon cap; superseded by startWindow/endWindow
+  startWindow?: number; // absolute first departure day (default 0)
+  endWindow?: number; // absolute last departure day (exclusive)
+  // When set, the depth-0 (direct) departure horizon is additionally capped at one synodic
+  // period: beyond it is only repeats of geometries already sampled, so a wide game window must
+  // not push a direct departure to a needlessly-late recurrence.
   capDirectDepartAtSynodic?: boolean;
 }
 
@@ -878,7 +949,12 @@ export function selectBestRoutes(
     };
     let best = Infinity;
     for (const r of routes) {
-      const d = utopiaDist(r.totalDeltaV, r.duration, r.departAt + r.duration, box);
+      const d = utopiaDist(
+        r.totalDeltaV,
+        r.duration,
+        r.departAt + r.duration,
+        box,
+      );
       if (d < best) {
         best = d;
         goldilocks = r;
@@ -970,21 +1046,30 @@ export function balanceBoxes(
   const arr = (r: Route) => r.departAt + r.duration;
   return {
     cf: {
-      dvMin: cheapest.totalDeltaV, dvMax: fastest.totalDeltaV,
-      durMin: fastest.duration, durMax: cheapest.duration,
+      dvMin: cheapest.totalDeltaV,
+      dvMax: fastest.totalDeltaV,
+      durMin: fastest.duration,
+      durMax: cheapest.duration,
     },
     cs: {
-      dvMin: cheapest.totalDeltaV, dvMax: soonest.totalDeltaV,
-      arrMin: arr(soonest), arrMax: arr(cheapest),
+      dvMin: cheapest.totalDeltaV,
+      dvMax: soonest.totalDeltaV,
+      arrMin: arr(soonest),
+      arrMax: arr(cheapest),
     },
     fs: {
-      durMin: fastest.duration, durMax: soonest.duration,
-      arrMin: arr(soonest), arrMax: arr(fastest),
+      durMin: fastest.duration,
+      durMax: soonest.duration,
+      arrMin: arr(soonest),
+      arrMax: arr(fastest),
     },
     triple: {
-      dvMin: cheapest.totalDeltaV, dvMax: Math.max(fastest.totalDeltaV, soonest.totalDeltaV),
-      durMin: fastest.duration, durMax: Math.max(cheapest.duration, soonest.duration),
-      arrMin: arr(soonest), arrMax: Math.max(arr(cheapest), arr(fastest)),
+      dvMin: cheapest.totalDeltaV,
+      dvMax: Math.max(fastest.totalDeltaV, soonest.totalDeltaV),
+      durMin: fastest.duration,
+      durMax: Math.max(cheapest.duration, soonest.duration),
+      arrMin: arr(soonest),
+      arrMax: Math.max(arr(cheapest), arr(fastest)),
     },
   };
 }
@@ -1146,9 +1231,12 @@ export function searchBest(
     from.elements.orbitRadiusAu,
     to.elements.orbitRadiusAu,
     mu,
-    opts.departWindowDays,
+    opts,
   );
-  if (opts.capDirectDepartAtSynodic && opts.departWindowDays !== undefined) {
+  if (
+    opts.capDirectDepartAtSynodic &&
+    (opts.departWindowDays !== undefined || opts.endWindow !== undefined)
+  ) {
     // The synodic horizon is what defaultSweepOpts uses when no window is given.
     const synodicHorizon = defaultSweepOpts(
       from.elements.orbitRadiusAu,
@@ -1179,13 +1267,13 @@ export function searchBest(
         from.elements.orbitRadiusAu,
         via.elements.orbitRadiusAu,
         mu,
-        opts.departWindowDays,
+        opts,
       );
       const opt2 = defaultSweepOpts(
         via.elements.orbitRadiusAu,
         to.elements.orbitRadiusAu,
         mu,
-        opts.departWindowDays,
+        opts,
       );
       const departHorizon = Math.max(
         opt1.departHorizonDays,
@@ -1194,8 +1282,9 @@ export function searchBest(
       const dStep = step(0, departHorizon, ASSIST_DEPART_SAMPLES);
       const t1Step = step(opt1.tofMinDays, opt1.tofMaxDays, ASSIST_TOF_SAMPLES);
       const t2Step = step(opt2.tofMinDays, opt2.tofMaxDays, ASSIST_TOF_SAMPLES);
+      const departStartDay = opt1.departStartDay ?? 0;
       for (let i = 0; i < ASSIST_DEPART_SAMPLES; i++) {
-        const departDay = i * dStep;
+        const departDay = departStartDay + i * dStep;
         const sFrom = stateAt(from.elements, mu, departDay);
         for (let j = 0; j < ASSIST_TOF_SAMPLES; j++) {
           const tof1 = opt1.tofMinDays + j * t1Step;
@@ -1263,19 +1352,19 @@ export function searchBest(
           from.elements.orbitRadiusAu,
           f1.elements.orbitRadiusAu,
           mu,
-          opts.departWindowDays,
+          opts,
         );
         const opt2 = defaultSweepOpts(
           f1.elements.orbitRadiusAu,
           f2.elements.orbitRadiusAu,
           mu,
-          opts.departWindowDays,
+          opts,
         );
         const opt3 = defaultSweepOpts(
           f2.elements.orbitRadiusAu,
           to.elements.orbitRadiusAu,
           mu,
-          opts.departWindowDays,
+          opts,
         );
         const departHorizon = Math.max(
           opt1.departHorizonDays,
@@ -1298,8 +1387,9 @@ export function searchBest(
           opt3.tofMaxDays,
           DOUBLE_TOF_SAMPLES,
         );
+        const departStartDay = opt1.departStartDay ?? 0;
         for (let i = 0; i < DOUBLE_DEPART_SAMPLES; i++) {
-          const departDay = i * dStep;
+          const departDay = departStartDay + i * dStep;
           const sFrom = stateAt(from.elements, mu, departDay);
           for (let j = 0; j < DOUBLE_TOF_SAMPLES; j++) {
             const tof1 = opt1.tofMinDays + j * t1Step;
@@ -1330,7 +1420,9 @@ export function searchBest(
               for (let l = 0; l < DOUBLE_TOF_SAMPLES; l++) {
                 const tof3 = opt3.tofMinDays + l * t3Step;
                 if (tof3 <= 0) continue;
-                if (score(dvKnown2, tof1 + tof2 + tof3, departDay) > bestP) break;
+                if (score(dvKnown2, tof1 + tof2 + tof3, departDay) > bestP) {
+                  break;
+                }
                 const sTo = stateAt(to.elements, mu, f2Day + tof3);
                 const leg3 = solveLeg(sF2.position, sTo.position, tof3, mu);
                 if (!leg3) continue;

@@ -1,6 +1,11 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
-import { getBestRoutes, getBestRoutes2, getBestRoutes3, getRoutes } from "./index.ts";
+import {
+  getBestRoutes,
+  getBestRoutes2,
+  getBestRoutes3,
+  getRoutes,
+} from "./index.ts";
 import { EndState, RankMode, type Route, RouteNodeKind } from "./types.ts";
 import { sumPrecise } from "./sum.ts";
 import { AU_M, DAY_S, muStar } from "./units.ts";
@@ -491,7 +496,8 @@ Deno.test("getBestRoutes2: anchors agree with getRoutes' extremes (non-moon)", (
 Deno.test("getBestRoutes2: returns at most 7 routes, all distinct by value", () => {
   const picks = getBestRoutes2(system, wp(a), wp(b));
   if (picks.length > 7) throw new Error("more than 7 picks");
-  const key = (r: typeof picks[number]) => `${r.departAt}|${r.duration}|${r.notation}`;
+  const key = (r: typeof picks[number]) =>
+    `${r.departAt}|${r.duration}|${r.notation}`;
   assertEquals(picks.length, new Set(picks.map(key)).size);
 });
 
@@ -504,7 +510,11 @@ Deno.test("getBestRoutes2: deterministic", () => {
 Deno.test("getBestRoutes2: the star cannot be an endpoint", () => {
   let threw = false;
   try {
-    getBestRoutes2(system, { obj: system.star.id, type: EndState.Orbit }, wp(b));
+    getBestRoutes2(
+      system,
+      { obj: system.star.id, type: EndState.Orbit },
+      wp(b),
+    );
   } catch {
     threw = true;
   }
@@ -517,16 +527,22 @@ Deno.test("getBestRoutes2: moon endpoints draw picks from getRoutes' front", () 
   const to = { obj: giantM.moons[1].id, type: EndState.Orbit };
   const all = getRoutes(sys42, from, to, { rank: RankMode.All });
   const picks = getBestRoutes2(sys42, from, to);
-  const key = (r: typeof all[number]) => `${r.departAt}|${r.duration}|${r.notation}`;
+  const key = (r: typeof all[number]) =>
+    `${r.departAt}|${r.duration}|${r.notation}`;
   const allKeys = new Set(all.map(key));
   for (const p of picks) {
-    if (!allKeys.has(key(p))) throw new Error("moon pick not from getRoutes front");
+    if (!allKeys.has(key(p))) {
+      throw new Error("moon pick not from getRoutes front");
+    }
   }
 });
 
 Deno.test("getBestRoutes2: synodic cap makes a huge window match the default for direct routes", () => {
   const huge = 100000;
-  const capped = getBestRoutes2(system, wp(a), wp(b), { departWindowDays: huge, maxAssists: 0 });
+  const capped = getBestRoutes2(system, wp(a), wp(b), {
+    departWindowDays: huge,
+    maxAssists: 0,
+  });
   const dflt = getBestRoutes2(system, wp(a), wp(b), { maxAssists: 0 });
   assertEquals(JSON.stringify(capped), JSON.stringify(dflt));
 });
@@ -536,7 +552,9 @@ Deno.test("getBestRoutes2: synodic cap makes a huge window match the default for
 Deno.test("getBestRoutes3: returns at most 7 value-distinct picks", () => {
   const picks = getBestRoutes3(system, wp(a), wp(b));
   assertEquals(picks.length <= 7, true);
-  const keys = new Set(picks.map((r) => `${r.departAt}|${r.duration}|${r.notation}`));
+  const keys = new Set(
+    picks.map((r) => `${r.departAt}|${r.duration}|${r.notation}`),
+  );
   assertEquals(keys.size, picks.length); // all distinct
 });
 
@@ -567,7 +585,12 @@ Deno.test("getBestRoutes3: nowDay>0 shifts departures to on-or-after now", () =>
     departWindowDays: 4000,
     sweep: {
       kind: "resolutionTarget",
-      deltaD: 20, minD: 8, maxD: 60, deltaT: 40, minT: 8, maxT: 60,
+      deltaD: 20,
+      minD: 8,
+      maxD: 60,
+      deltaT: 40,
+      minT: 8,
+      maxT: 60,
       nowDay: 2000,
     },
   });
@@ -589,4 +612,157 @@ Deno.test("getBestRoutes3: control getBestRoutes2 is unaffected by a fixed sweep
   const c1 = getBestRoutes2(system, wp(a), wp(b));
   const c2 = getBestRoutes2(system, wp(a), wp(b), { sweep: { kind: "fixed" } });
   assertEquals(JSON.stringify(c1), JSON.stringify(c2));
+});
+
+// --- startWindow / endWindow validation ------------------------------------------------
+
+Deno.test("getBestRoutes2: rejects endWindow <= startWindow", () => {
+  assertThrows(() =>
+    getBestRoutes2(system, wp(a), wp(b), { startWindow: 1000, endWindow: 1000 })
+  );
+  assertThrows(() =>
+    getBestRoutes2(system, wp(a), wp(b), { startWindow: 1000, endWindow: 500 })
+  );
+});
+
+Deno.test("getBestRoutes2: rejects negative or non-finite startWindow", () => {
+  assertThrows(() => getBestRoutes2(system, wp(a), wp(b), { startWindow: -1 }));
+  assertThrows(() =>
+    getBestRoutes2(system, wp(a), wp(b), {
+      startWindow: Number.POSITIVE_INFINITY,
+    })
+  );
+});
+
+Deno.test("getBestRoutes: rejects endWindow <= startWindow", () => {
+  assertThrows(() =>
+    getBestRoutes(system, wp(a), wp(b), { startWindow: 200, endWindow: 100 })
+  );
+});
+
+Deno.test("getRoutes: a valid shifted window does not throw", () => {
+  getRoutes(system, wp(a), wp(b), { startWindow: 1000, endWindow: 2000 });
+});
+
+Deno.test("getRoutes: startWindow 0 with a positive endWindow is valid", () => {
+  getRoutes(system, wp(a), wp(b), { startWindow: 0, endWindow: 1 });
+});
+
+Deno.test("getBestRoutes2: bare endWindow is validated against the default start of 0", () => {
+  // endWindow 0 is not > the default startWindow (0) → throws.
+  assertThrows(() => getBestRoutes2(system, wp(a), wp(b), { endWindow: 0 }));
+  // endWindow 1 is > 0 → valid.
+  getBestRoutes2(system, wp(a), wp(b), { endWindow: 1 });
+});
+
+// --- startWindow / endWindow behavior --------------------------------------------------
+
+Deno.test("getBestRoutes2: startWindow shifts the departure window (direct)", () => {
+  const start = 5000;
+  const end = start + 365;
+  const picks = getBestRoutes2(system, wp(a), wp(b), {
+    startWindow: start,
+    endWindow: end,
+    maxAssists: 0,
+  });
+  if (picks.length === 0) throw new Error("expected picks");
+  for (const p of picks) {
+    // The depart grid samples inclusively up to endWindow, so the upper bound is inclusive.
+    if (p.departAt < start || p.departAt > end) {
+      throw new Error(`departAt ${p.departAt} outside [${start}, ${end}]`);
+    }
+  }
+});
+
+Deno.test("getBestRoutes2: omitting the window equals startWindow 0", () => {
+  const dflt = getBestRoutes2(system, wp(a), wp(b));
+  const explicit = getBestRoutes2(system, wp(a), wp(b), { startWindow: 0 });
+  assertEquals(JSON.stringify(dflt), JSON.stringify(explicit));
+});
+
+Deno.test("getBestRoutes2: assists also respect the shifted window", () => {
+  const start = 4000;
+  const end = start + 1200;
+  const picks = getBestRoutes2(system, wp(a), wp(b), {
+    startWindow: start,
+    endWindow: end,
+    maxAssists: 2,
+  });
+  if (picks.length === 0) throw new Error("expected picks");
+  for (const p of picks) {
+    // The depart grid samples inclusively up to endWindow, so the upper bound is inclusive.
+    if (p.departAt < start || p.departAt > end) {
+      throw new Error(`departAt ${p.departAt} outside [${start}, ${end}]`);
+    }
+  }
+});
+
+Deno.test("getRoutes: assist routes respect the shifted window", () => {
+  const start = 4000;
+  const end = start + 1200;
+  const routes = getRoutes(system, wp(a), wp(b), {
+    startWindow: start,
+    endWindow: end,
+    maxAssists: 2,
+    rank: RankMode.All,
+  });
+  // The enumerate path returns assist (>2-body) routes; these are what exercise the assist
+  // depart-loop offset. The depart grid samples inclusively up to endWindow, so the upper
+  // bound is inclusive.
+  const assists = routes.filter((r) => r.bodies.length > 2);
+  if (assists.length === 0) {
+    throw new Error("expected assist routes to exercise the offset");
+  }
+  for (const r of assists) {
+    if (r.departAt < start || r.departAt > end) {
+      throw new Error(
+        `assist departAt ${r.departAt} outside [${start}, ${end}]`,
+      );
+    }
+  }
+});
+
+Deno.test("getBestRoutes: respects the shifted window", () => {
+  const start = 3000;
+  const end = start + 900;
+  const picks = getBestRoutes(system, wp(a), wp(b), {
+    startWindow: start,
+    endWindow: end,
+  });
+  if (picks.length === 0) throw new Error("expected picks");
+  for (const p of picks) {
+    // The depart grid samples inclusively up to endWindow, so the upper bound is inclusive.
+    if (p.departAt < start || p.departAt > end) {
+      throw new Error(`departAt ${p.departAt} outside [${start}, ${end}]`);
+    }
+  }
+});
+
+Deno.test("getBestRoutes2: anchors agree with getRoutes within a shifted window", () => {
+  // Only startWindow set (no endWindow) → both paths use a synodic-width horizon starting at N,
+  // so getRoutes' direct grid and getBestRoutes2's synodic-capped direct grid are identical.
+  const start = 4000;
+  const shared = { startWindow: start, maxAssists: 0 as const };
+  const all = getRoutes(system, wp(a), wp(b), {
+    rank: RankMode.All,
+    ...shared,
+  });
+  const picks = getBestRoutes2(system, wp(a), wp(b), shared);
+  if (picks.length === 0) throw new Error("expected picks");
+  const arr = (r: Route) => r.departAt + r.duration;
+  const minDv = Math.min(...all.map((r) => r.totalDeltaV));
+  const minDur = Math.min(...all.map((r) => r.duration));
+  const minArr = Math.min(...all.map(arr));
+  if (!picks.some((r) => Math.abs(r.totalDeltaV - minDv) < 1e-6)) {
+    throw new Error("no pick reaches min Δv");
+  }
+  if (!picks.some((r) => Math.abs(r.duration - minDur) < 1e-6)) {
+    throw new Error("no pick reaches min duration");
+  }
+  if (!picks.some((r) => Math.abs(arr(r) - minArr) < 1e-6)) {
+    throw new Error("no pick reaches min in-window arrival");
+  }
+  for (const p of picks) {
+    if (p.departAt < start) throw new Error("pick departed before startWindow");
+  }
 });

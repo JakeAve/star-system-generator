@@ -42,6 +42,7 @@ export interface TransferCandidate {
 }
 
 export interface SweepOpts {
+  departStartDay?: number; // absolute first departure day; defaults to 0
   departHorizonDays: number;
   departSamples: number;
   tofMinDays: number;
@@ -85,7 +86,12 @@ export function sweepTransfers(
   let departSamples: number, dStep: number;
   let tofSamples: number, tStep: number;
   if (reframe) {
-    const d = reframeCount(opts.departHorizonDays, reframe.deltaD, reframe.minD, reframe.maxD);
+    const d = reframeCount(
+      opts.departHorizonDays,
+      reframe.deltaD,
+      reframe.minD,
+      reframe.maxD,
+    );
     const t = reframeCount(
       opts.tofMaxDays - opts.tofMinDays,
       reframe.deltaT,
@@ -100,10 +106,12 @@ export function sweepTransfers(
     departSamples = opts.departSamples;
     dStep = opts.departHorizonDays / Math.max(1, opts.departSamples - 1);
     tofSamples = opts.tofSamples;
-    tStep = (opts.tofMaxDays - opts.tofMinDays) / Math.max(1, opts.tofSamples - 1);
+    tStep = (opts.tofMaxDays - opts.tofMinDays) /
+      Math.max(1, opts.tofSamples - 1);
   }
+  const departStartDay = opts.departStartDay ?? 0;
   for (let i = 0; i < departSamples; i++) {
-    const departDay = i * dStep;
+    const departDay = departStartDay + i * dStep;
     const sFrom = stateAt(from, mu, departDay);
     const r1 = Math.hypot(sFrom.position.x, sFrom.position.y);
     for (let j = 0; j < tofSamples; j++) {
