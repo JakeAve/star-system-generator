@@ -1,5 +1,5 @@
 import { assertAlmostEquals, assertEquals } from "@std/assert";
-import { buildRouteViewModel, hitTestRoutes } from "./route-view-model.ts";
+import { buildRouteViewModel, hitTestRoutes, chevronsAlong} from "./route-view-model.ts";
 import type { RouteView } from "./route-view-model.ts";
 import { buildViewModel } from "./view-model.ts";
 import { generateSolarSystem } from "../core/generator.ts";
@@ -151,4 +151,31 @@ Deno.test("hitTestRoutes: a near leg beats a farther node on another route", () 
 Deno.test("hitTestRoutes: returns null outside radius", () => {
   const r = fakeRoute("R", { nodes: [{ x: 100, y: 100 }], legPoints: [{ x: 0, y: 0 }, { x: 50, y: 0 }] });
   assertEquals(hitTestRoutes([r], 500, 500, 10), null);
+});
+
+Deno.test("chevronsAlong: evenly spaced along a straight polyline, angle = travel direction", () => {
+  const pts = [{ x: 0, y: 0 }, { x: 100, y: 0 }];
+  const chevs = chevronsAlong(pts, 25, 0); // s = 0,25,50,75,100
+  assertEquals(chevs.length, 5);
+  assertEquals(chevs.map((c) => Math.round(c.x)), [0, 25, 50, 75, 100]);
+  for (const c of chevs) assertAlmostEquals(c.angle, 0, 1e-9); // pointing +x toward end
+});
+
+Deno.test("chevronsAlong: phase shifts placements forward", () => {
+  const pts = [{ x: 0, y: 0 }, { x: 100, y: 0 }];
+  const chevs = chevronsAlong(pts, 25, 0.5); // s = 12.5, 37.5, 62.5, 87.5
+  assertEquals(chevs.map((c) => c.x), [12.5, 37.5, 62.5, 87.5]);
+});
+
+Deno.test("chevronsAlong: angle follows the bend across segments", () => {
+  // Right turn: east then north.
+  const pts = [{ x: 0, y: 0 }, { x: 50, y: 0 }, { x: 50, y: 50 }];
+  const chevs = chevronsAlong(pts, 25, 0); // s=0,25 on seg1 (ang 0); s=75,100 clearly on seg2 (ang pi/2)
+  assertAlmostEquals(chevs[0].angle, 0, 1e-9); // east leg
+  assertAlmostEquals(chevs[3].angle, Math.PI / 2, 1e-9); // north leg (s=75, mid seg2)
+});
+
+Deno.test("chevronsAlong: degenerate input returns empty", () => {
+  assertEquals(chevronsAlong([{ x: 0, y: 0 }], 25, 0), []);
+  assertEquals(chevronsAlong([{ x: 0, y: 0 }, { x: 10, y: 0 }], 0, 0), []);
 });

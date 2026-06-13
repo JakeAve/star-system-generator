@@ -110,6 +110,58 @@ export function hitTestRoutes(
   return best ? best.target : null;
 }
 
+/** A chevron placement along a route polyline: a point and the travel-direction angle (rad). */
+export interface Chevron {
+  x: number;
+  y: number;
+  angle: number; // radians, pointing toward the polyline's end (direction of travel)
+}
+
+/**
+ * Place chevron markers along a polyline at `spacing` (world units), shifted forward by
+ * `phase` ∈ [0,1) of one spacing for animated flow. Each chevron's `angle` points along the
+ * local segment toward the polyline's end (depart -> arrive), so they read as travel direction.
+ * Pure: no DOM, no engine state. Returns [] for degenerate input.
+ */
+export function chevronsAlong(
+  points: { x: number; y: number }[],
+  spacing: number,
+  phase: number,
+): Chevron[] {
+  if (points.length < 2 || spacing <= 0) return [];
+  const segs: { len: number; ang: number; x0: number; y0: number }[] = [];
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    const dx = points[i].x - points[i - 1].x;
+    const dy = points[i].y - points[i - 1].y;
+    const len = Math.hypot(dx, dy);
+    if (len === 0) continue;
+    segs.push({ len, ang: Math.atan2(dy, dx), x0: points[i - 1].x, y0: points[i - 1].y });
+    total += len;
+  }
+  if (total === 0) return [];
+
+  const out: Chevron[] = [];
+  for (let k = 0; ; k++) {
+    const s = (k + phase) * spacing;
+    if (s > total) break;
+    let acc = 0;
+    for (const sg of segs) {
+      if (s <= acc + sg.len) {
+        const t = sg.len > 0 ? (s - acc) / sg.len : 0;
+        out.push({
+          x: sg.x0 + Math.cos(sg.ang) * sg.len * t,
+          y: sg.y0 + Math.sin(sg.ang) * sg.len * t,
+          angle: sg.ang,
+        });
+        break;
+      }
+      acc += sg.len;
+    }
+  }
+  return out;
+}
+
 const ARC_SAMPLES = 48;
 
 /** World position + body record of each body at `day`, via the system view-model. */

@@ -8,7 +8,7 @@ import {
   visualRadius,
 } from "../core/kinematics.ts";
 import { centroidOf, enclosingRadius } from "../view/framing.ts";
-import { hitTestRoutes } from "../view/route-view-model.ts";
+import { chevronsAlong, hitTestRoutes } from "../view/route-view-model.ts";
 import type { RoutePickTarget, RouteView } from "../view/route-view-model.ts";
 
 const FLY_DURATION = 1.5;
@@ -108,6 +108,12 @@ export function createCanvasOrrery(
   let starfield: { x: number; y: number }[] = [];
   let highlightIds: Set<string> = new Set();
   let currentRoutes: RouteView[] = [];
+  // Marching-chevron animation: subtle directional flow along route legs.
+  // Tunables — spacing/size are screen px (divided by scale); speed is spacings/sec.
+  const CHEVRON_SPACING_PX = 46;
+  const CHEVRON_ARM_PX = 5;
+  const CHEVRON_SPEED = 0.5; // ~23 px/sec of flow at this spacing — deliberately gentle
+  let routePhase = 0;
   let elapsedDays = 0;
   let lastTime: number | null = null;
   let paused = false;
@@ -408,6 +414,23 @@ export function createCanvasOrrery(
         ctx.stroke();
       }
 
+      // Marching chevrons: subtle arrows flowing toward the destination (direction of travel).
+      const spacing = CHEVRON_SPACING_PX / cam.scale;
+      const arm = CHEVRON_ARM_PX / cam.scale;
+      const spread = 2.5; // arms angled back from the tip (~143°)
+      ctx.lineWidth = 1.4 / cam.scale;
+      ctx.globalAlpha = 0.85;
+      for (const leg of route.legs) {
+        for (const c of chevronsAlong(leg.points, spacing, routePhase)) {
+          ctx.beginPath();
+          ctx.moveTo(c.x + Math.cos(c.angle + spread) * arm, c.y + Math.sin(c.angle + spread) * arm);
+          ctx.lineTo(c.x, c.y);
+          ctx.lineTo(c.x + Math.cos(c.angle - spread) * arm, c.y + Math.sin(c.angle - spread) * arm);
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+
       // Node markers: filled dot for depart/arrive, hollow ring for flyby.
       for (const n of route.nodes) {
         const r = 4 / cam.scale;
@@ -546,6 +569,7 @@ export function createCanvasOrrery(
     }
     const delta = Math.min((time - lastTime) / 1000, 0.1);
     lastTime = time;
+    routePhase = (routePhase + delta * CHEVRON_SPEED) % 1; // flows even while sim is paused
     if (!paused) elapsedDays += delta * timeScale;
     updatePositions();
     if (flyState !== null) {
