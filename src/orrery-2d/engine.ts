@@ -8,6 +8,7 @@ import {
   visualRadius,
 } from "../core/kinematics.ts";
 import { centroidOf, enclosingRadius } from "../view/framing.ts";
+import type { RouteView } from "../view/route-view-model.ts";
 
 const FLY_DURATION = 1.5;
 
@@ -75,6 +76,9 @@ export interface CanvasOrreryHandle {
   focus(ids: string[], mode: "lock" | "frame"): void;
   /** Set the highlighted (ringed) body ids. Unknown ids are skipped. */
   setHighlight(ids: string[]): void;
+  /** Draw a route overlay (ghost bodies + yellow transfer arcs + node markers).
+   *  Pass null to clear it. */
+  setRoute(routeView: RouteView | null): void;
   dispose(): void;
 }
 
@@ -98,6 +102,7 @@ export function createCanvasOrrery(
   let animObjectsById: Record<string, AnimObj> = {};
   let starfield: { x: number; y: number }[] = [];
   let highlightIds: Set<string> = new Set();
+  let currentRoute: RouteView | null = null;
   let elapsedDays = 0;
   let lastTime: number | null = null;
   let paused = false;
@@ -361,6 +366,50 @@ export function createCanvasOrrery(
     }
   }
 
+  function drawRoute() {
+    if (!currentRoute) return;
+
+    // Ghost bodies: faint filled discs where each node body sits at the route's times.
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    for (const g of currentRoute.ghosts) {
+      const r = Math.max(2 / cam.scale, g.visualR);
+      ctx.beginPath();
+      ctx.arc(g.x, g.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = TYPE_COLORS[g.type] ?? "#ffffff";
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Yellow transfer arcs.
+    ctx.strokeStyle = "#ffd633";
+    ctx.lineWidth = 2 / cam.scale;
+    for (const leg of currentRoute.legs) {
+      if (leg.points.length < 2) continue;
+      ctx.beginPath();
+      ctx.moveTo(leg.points[0].x, leg.points[0].y);
+      for (let i = 1; i < leg.points.length; i++) {
+        ctx.lineTo(leg.points[i].x, leg.points[i].y);
+      }
+      ctx.stroke();
+    }
+
+    // Node markers: filled dot for depart/arrive, hollow ring for flyby.
+    for (const n of currentRoute.nodes) {
+      const r = 4 / cam.scale;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      if (n.kind === "flyby") {
+        ctx.strokeStyle = "#ffd633";
+        ctx.lineWidth = 1.5 / cam.scale;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = "#ffd633";
+        ctx.fill();
+      }
+    }
+  }
+
   function buildAnimObjects(system: SolarSystem): AnimObj[] {
     const objs: AnimObj[] = [];
     objs.push({
@@ -510,6 +559,7 @@ export function createCanvasOrrery(
     applyTransform();
     drawOrbits();
     drawBodies();
+    drawRoute();
   }
 
   function clearScene() {
@@ -521,6 +571,7 @@ export function createCanvasOrrery(
     animObjectsById = {};
     starfield = [];
     highlightIds = new Set();
+    currentRoute = null;
     elapsedDays = 0;
     lastTime = null;
     paused = false;
@@ -579,6 +630,9 @@ export function createCanvasOrrery(
     },
     focus,
     setHighlight,
+    setRoute(routeView) {
+      currentRoute = routeView;
+    },
     dispose() {
       clearScene();
       canvas.removeEventListener("mousedown", onMouseDown);
