@@ -53,6 +53,9 @@ const candidate: TransferCandidate = {
   vInfArrive: 8000,
   aAu: 4,
   e: 0.9,
+  argPeriapsis: 0,
+  nu1: 0,
+  nu2: Math.PI,
 };
 
 Deno.test("buildCrossFrameRoute: planet → moon yields a Transit node and two legs", () => {

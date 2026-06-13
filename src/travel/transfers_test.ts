@@ -151,3 +151,24 @@ Deno.test("sweepTransfers: no reframe arg leaves candidates untagged (fixed path
     assertEquals(c.recurDays, undefined);
   }
 });
+
+Deno.test("sweepTransfers tags each candidate with the full transfer conic", () => {
+  // Two coplanar circular orbits about a 1-solar-mass star.
+  const mu = muStar(1);
+  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 };
+  const to = { orbitRadiusAu: 1.6, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3 };
+  const cands = sweepTransfers(from, to, mu, {
+    departHorizonDays: 200,
+    departSamples: 4,
+    tofMinDays: 60,
+    tofMaxDays: 260,
+    tofSamples: 4,
+  });
+  if (cands.length === 0) throw new Error("expected at least one candidate");
+  for (const c of cands) {
+    if (!Number.isFinite(c.argPeriapsis)) throw new Error("argPeriapsis not finite");
+    if (!Number.isFinite(c.nu1) || !Number.isFinite(c.nu2)) {
+      throw new Error("nu span not finite");
+    }
+  }
+});

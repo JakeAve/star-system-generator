@@ -1,6 +1,6 @@
 // src/travel/transfers.ts
 import { solveLambert } from "./lambert.ts";
-import { conic, type OrbitElements, stateAt } from "./state.ts";
+import { type OrbitElements, stateAt, transferConic } from "./state.ts";
 import { DAY_S } from "./units.ts";
 import { reframeCount } from "./recurrence.ts";
 
@@ -34,6 +34,9 @@ export interface TransferCandidate {
   vInfArrive: number; // m/s, |v2 - vBodyAtArrive|
   aAu: number; // transfer conic
   e: number;
+  argPeriapsis: number; // radians, argument of periapsis about the central body
+  nu1: number; // radians, true anomaly at departure
+  nu2: number; // radians, true anomaly at arrival (nu1 -> nu2 in swept direction)
   phaseDay?: number; // reframe: canonical depart sample D (== departDay here)
   recurDays?: number; // reframe: recurrence period T_recur to tag the candidate with
 }
@@ -130,7 +133,7 @@ export function sweepTransfers(
         v2.y - sTo.velocity.y,
       );
       if (vInfDepart > MAX_VINF_MPS || vInfArrive > MAX_VINF_MPS) continue;
-      const c = conic(sFrom.position, v1, mu);
+      const c = transferConic(sFrom.position, v1, sTo.position, mu);
       if (!Number.isFinite(c.aAu) || !Number.isFinite(c.e)) continue;
       out.push({
         departDay,
@@ -142,6 +145,9 @@ export function sweepTransfers(
         vInfArrive,
         aAu: c.aAu,
         e: c.e,
+        argPeriapsis: c.argPeriapsis,
+        nu1: c.nu1,
+        nu2: c.nu2,
         ...(reframe
           ? { phaseDay: departDay, recurDays: reframe.recurDays }
           : {}),
