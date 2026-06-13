@@ -579,3 +579,46 @@ Deno.test("findDirectRoutes: fixed mode (no sweep) leaves routes untagged", () =
     assertEquals(r.recurDays, undefined);
   }
 });
+
+Deno.test("findSingleAssistRoutes: reframe mode tags assist routes with finite recurDays", () => {
+  const via: BodyRef = {
+    id: "v1",
+    elements: { orbitRadiusAu: 0.7, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.25 },
+    endpoint: { mu: 3.2e14, radiusM: 6e6 },
+  };
+  const routes = findSingleAssistRoutes(
+    fromBody,
+    toBody,
+    EndState.Orbit,
+    EndState.Orbit,
+    [via],
+    MU,
+    "star",
+    {
+      rank: RankMode.All,
+      sweep: { kind: "resolutionTarget", deltaD: 30, minD: 4, maxD: 16, deltaT: 60, minT: 4, maxT: 16, nowDay: 0 },
+    },
+  );
+  if (routes.length === 0) return; // geometry-dependent; tagging is the assertion when present
+  for (const r of routes) {
+    assertEquals(typeof r.recurDays, "number");
+    assertEquals(Number.isFinite(r.recurDays!), true);
+    assertEquals(r.recurDays! > 0, true);
+    assertEquals(r.phaseDay, r.departAt); // assist departAt is the depart sample
+  }
+});
+
+Deno.test("findSingleAssistRoutes: fixed mode leaves assist routes untagged", () => {
+  const via: BodyRef = {
+    id: "v1",
+    elements: { orbitRadiusAu: 0.7, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.25 },
+    endpoint: { mu: 3.2e14, radiusM: 6e6 },
+  };
+  const routes = findSingleAssistRoutes(
+    fromBody, toBody, EndState.Orbit, EndState.Orbit, [via], MU, "star", { rank: RankMode.All },
+  );
+  for (const r of routes) {
+    assertEquals(r.phaseDay, undefined);
+    assertEquals(r.recurDays, undefined);
+  }
+});

@@ -5,7 +5,13 @@ import {
   sweepTransfers,
   type TransferCandidate,
 } from "./transfers.ts";
-import { orbitalPeriodDays, synodicPeriodDays } from "./recurrence.ts";
+import {
+  combinedRecurrenceDays,
+  DEFAULT_REFRAME,
+  orbitalPeriodDays,
+  reframeCount,
+  synodicPeriodDays,
+} from "./recurrence.ts";
 import { buildTerminal, type EndpointBody } from "./terminal.ts";
 import { solveLambert } from "./lambert.ts";
 import { evaluateFlyby, type FlybyResult } from "./flyby.ts";
@@ -63,6 +69,11 @@ function defaultSweepOpts(
     tofSamples: 36,
     recurDays,
   };
+}
+
+/** True when options request the resolution-target reframe sweep. */
+function isResolutionTarget(options: TravelOptions): boolean {
+  return options.sweep?.kind === "resolutionTarget";
 }
 
 /** Build the porkchop reframe overrides from options.sweep for a given recurrence period.
@@ -191,7 +202,7 @@ export function findDirectRoutes(
   centralId: string,
   options: TravelOptions,
 ): Route[] {
-  const reframeOn = options.sweep?.kind === "resolutionTarget";
+  const reframeOn = isResolutionTarget(options);
   const opts = defaultSweepOpts(
     from.elements.orbitRadiusAu,
     to.elements.orbitRadiusAu,
@@ -219,7 +230,7 @@ export function findCrossFrameRoutes(
   mu: number,
   options: TravelOptions,
 ): Route[] {
-  const reframeOn = options.sweep?.kind === "resolutionTarget";
+  const reframeOn = isResolutionTarget(options);
   const opts = defaultSweepOpts(
     from.anchorElements.orbitRadiusAu,
     to.anchorElements.orbitRadiusAu,
@@ -444,6 +455,52 @@ function step(min: number, max: number, samples: number): number {
   return (max - min) / Math.max(1, samples - 1);
 }
 
+/** Per-axis assist grid: sample count + step, plus the depart horizon and recurrence tag. */
+interface AssistGrid {
+  departSamples: number;
+  dStep: number;
+  tofSteps: number[]; // one step per tof axis, ordered
+  tofCounts: number[]; // one count per tof axis, ordered
+  recurDays: number; // T_combined to tag emitted routes with
+}
+
+/**
+ * Reframe grid for an assist chain. `chainAus` is [originAu, via1Au, …, destAu]; `tofRanges` is one
+ * [min, max] per tof axis (origin→via1, via1→via2, …, →dest). T_combined is the approximate capped
+ * LCM of the from-relative synodic periods of every non-origin body, capped at the chain's outer
+ * orbital period. Depart and tof axes use resolution-target spacing with the lower assist clamps.
+ * Returns null when options.sweep is not the resolutionTarget mode.
+ */
+function assistReframeGrid(
+  chainAus: number[],
+  tofRanges: [number, number][],
+  mu: number,
+  options: TravelOptions,
+): AssistGrid | null {
+  const s = options.sweep;
+  if (!s || s.kind !== "resolutionTarget") return null;
+  const originPeriod = orbitalPeriodDays(chainAus[0], mu);
+  const relSynodics = chainAus.slice(1).map((au) =>
+    synodicPeriodDays(orbitalPeriodDays(au, mu), originPeriod)
+  );
+  const outerPeriod = orbitalPeriodDays(Math.max(...chainAus), mu);
+  const recurDays = combinedRecurrenceDays(relSynodics, outerPeriod);
+  const horizon = Math.min(options.departWindowDays ?? Infinity, recurDays);
+  const maxD = Math.min(s.maxD, DEFAULT_REFRAME.maxDAssist);
+  const maxT = Math.min(s.maxT, DEFAULT_REFRAME.maxTAssist);
+  const d = reframeCount(horizon, s.deltaD, Math.min(s.minD, maxD), maxD);
+  const tof = tofRanges.map(([lo, hi]) =>
+    reframeCount(hi - lo, s.deltaT, Math.min(s.minT, maxT), maxT)
+  );
+  return {
+    departSamples: d.count,
+    dStep: d.step,
+    tofSteps: tof.map((t) => t.step),
+    tofCounts: tof.map((t) => t.count),
+    recurDays,
+  };
+}
+
 /** Sweep the (depart × tof₁ × tof₂) grid for one flyby body and emit feasible assist routes. */
 function sweepAssist(
   from: BodyRef,
@@ -453,33 +510,55 @@ function sweepAssist(
   toState: EndState,
   mu: number,
   centralId: string,
-  departWindowDays?: number,
+  options: TravelOptions,
 ): Route[] {
   const opt1 = defaultSweepOpts(
     from.elements.orbitRadiusAu,
     via.elements.orbitRadiusAu,
     mu,
-    departWindowDays,
+    options.departWindowDays,
   );
   const opt2 = defaultSweepOpts(
     via.elements.orbitRadiusAu,
     to.elements.orbitRadiusAu,
     mu,
-    departWindowDays,
+    options.departWindowDays,
   );
-  const departHorizon = Math.max(
-    opt1.departHorizonDays,
-    opt2.departHorizonDays,
+  const grid = assistReframeGrid(
+    [
+      from.elements.orbitRadiusAu,
+      via.elements.orbitRadiusAu,
+      to.elements.orbitRadiusAu,
+    ],
+    [
+      [opt1.tofMinDays, opt1.tofMaxDays],
+      [opt2.tofMinDays, opt2.tofMaxDays],
+    ],
+    mu,
+    options,
   );
-  const dStep = step(0, departHorizon, ASSIST_DEPART_SAMPLES);
-  const t1Step = step(opt1.tofMinDays, opt1.tofMaxDays, ASSIST_TOF_SAMPLES);
-  const t2Step = step(opt2.tofMinDays, opt2.tofMaxDays, ASSIST_TOF_SAMPLES);
+  const departSamples = grid ? grid.departSamples : ASSIST_DEPART_SAMPLES;
+  const dStep = grid
+    ? grid.dStep
+    : step(
+      0,
+      Math.max(opt1.departHorizonDays, opt2.departHorizonDays),
+      ASSIST_DEPART_SAMPLES,
+    );
+  const t1Count = grid ? grid.tofCounts[0] : ASSIST_TOF_SAMPLES;
+  const t1Step = grid
+    ? grid.tofSteps[0]
+    : step(opt1.tofMinDays, opt1.tofMaxDays, ASSIST_TOF_SAMPLES);
+  const t2Count = grid ? grid.tofCounts[1] : ASSIST_TOF_SAMPLES;
+  const t2Step = grid
+    ? grid.tofSteps[1]
+    : step(opt2.tofMinDays, opt2.tofMaxDays, ASSIST_TOF_SAMPLES);
   const out: Route[] = [];
 
-  for (let i = 0; i < ASSIST_DEPART_SAMPLES; i++) {
+  for (let i = 0; i < departSamples; i++) {
     const departDay = i * dStep;
     const sFrom = stateAt(from.elements, mu, departDay);
-    for (let j = 0; j < ASSIST_TOF_SAMPLES; j++) {
+    for (let j = 0; j < t1Count; j++) {
       const tof1 = opt1.tofMinDays + j * t1Step;
       if (tof1 <= 0) continue;
       const flybyDay = departDay + tof1;
@@ -488,7 +567,7 @@ function sweepAssist(
       if (!leg1) continue;
       const vInfDepart = vInfMag(leg1.v1, sFrom.velocity);
       if (vInfDepart > MAX_VINF_MPS) continue;
-      for (let k = 0; k < ASSIST_TOF_SAMPLES; k++) {
+      for (let k = 0; k < t2Count; k++) {
         const tof2 = opt2.tofMinDays + k * t2Step;
         if (tof2 <= 0) continue;
         const sTo = stateAt(to.elements, mu, flybyDay + tof2);
@@ -498,21 +577,24 @@ function sweepAssist(
         if (vInfArrive > MAX_VINF_MPS) continue;
         const fb = flybyVia(via, sVia.velocity, leg1.v2, leg2.v1);
         if (!fb) continue;
-        out.push(
-          buildAssistRoute(
-            from,
-            to,
-            fromState,
-            toState,
-            centralId,
-            departDay,
-            [{ via, inboundTof: tof1, inboundConic: leg1.conic, fb }],
-            tof2,
-            leg2.conic,
-            vInfDepart,
-            vInfArrive,
-          ),
+        const r = buildAssistRoute(
+          from,
+          to,
+          fromState,
+          toState,
+          centralId,
+          departDay,
+          [{ via, inboundTof: tof1, inboundConic: leg1.conic, fb }],
+          tof2,
+          leg2.conic,
+          vInfDepart,
+          vInfArrive,
         );
+        if (grid) {
+          r.phaseDay = departDay;
+          r.recurDays = grid.recurDays;
+        }
+        out.push(r);
       }
     }
   }
@@ -529,41 +611,71 @@ function sweepDoubleAssist(
   toState: EndState,
   mu: number,
   centralId: string,
-  departWindowDays?: number,
+  options: TravelOptions,
 ): Route[] {
   const opt1 = defaultSweepOpts(
     from.elements.orbitRadiusAu,
     f1.elements.orbitRadiusAu,
     mu,
-    departWindowDays,
+    options.departWindowDays,
   );
   const opt2 = defaultSweepOpts(
     f1.elements.orbitRadiusAu,
     f2.elements.orbitRadiusAu,
     mu,
-    departWindowDays,
+    options.departWindowDays,
   );
   const opt3 = defaultSweepOpts(
     f2.elements.orbitRadiusAu,
     to.elements.orbitRadiusAu,
     mu,
-    departWindowDays,
+    options.departWindowDays,
   );
-  const departHorizon = Math.max(
-    opt1.departHorizonDays,
-    opt2.departHorizonDays,
-    opt3.departHorizonDays,
+  const grid = assistReframeGrid(
+    [
+      from.elements.orbitRadiusAu,
+      f1.elements.orbitRadiusAu,
+      f2.elements.orbitRadiusAu,
+      to.elements.orbitRadiusAu,
+    ],
+    [
+      [opt1.tofMinDays, opt1.tofMaxDays],
+      [opt2.tofMinDays, opt2.tofMaxDays],
+      [opt3.tofMinDays, opt3.tofMaxDays],
+    ],
+    mu,
+    options,
   );
-  const dStep = step(0, departHorizon, DOUBLE_DEPART_SAMPLES);
-  const t1Step = step(opt1.tofMinDays, opt1.tofMaxDays, DOUBLE_TOF_SAMPLES);
-  const t2Step = step(opt2.tofMinDays, opt2.tofMaxDays, DOUBLE_TOF_SAMPLES);
-  const t3Step = step(opt3.tofMinDays, opt3.tofMaxDays, DOUBLE_TOF_SAMPLES);
+  const departSamples = grid ? grid.departSamples : DOUBLE_DEPART_SAMPLES;
+  const dStep = grid
+    ? grid.dStep
+    : step(
+      0,
+      Math.max(
+        opt1.departHorizonDays,
+        opt2.departHorizonDays,
+        opt3.departHorizonDays,
+      ),
+      DOUBLE_DEPART_SAMPLES,
+    );
+  const t1Count = grid ? grid.tofCounts[0] : DOUBLE_TOF_SAMPLES;
+  const t1Step = grid
+    ? grid.tofSteps[0]
+    : step(opt1.tofMinDays, opt1.tofMaxDays, DOUBLE_TOF_SAMPLES);
+  const t2Count = grid ? grid.tofCounts[1] : DOUBLE_TOF_SAMPLES;
+  const t2Step = grid
+    ? grid.tofSteps[1]
+    : step(opt2.tofMinDays, opt2.tofMaxDays, DOUBLE_TOF_SAMPLES);
+  const t3Count = grid ? grid.tofCounts[2] : DOUBLE_TOF_SAMPLES;
+  const t3Step = grid
+    ? grid.tofSteps[2]
+    : step(opt3.tofMinDays, opt3.tofMaxDays, DOUBLE_TOF_SAMPLES);
   const out: Route[] = [];
 
-  for (let i = 0; i < DOUBLE_DEPART_SAMPLES; i++) {
+  for (let i = 0; i < departSamples; i++) {
     const departDay = i * dStep;
     const sFrom = stateAt(from.elements, mu, departDay);
-    for (let j = 0; j < DOUBLE_TOF_SAMPLES; j++) {
+    for (let j = 0; j < t1Count; j++) {
       const tof1 = opt1.tofMinDays + j * t1Step;
       if (tof1 <= 0) continue;
       const f1Day = departDay + tof1;
@@ -572,17 +684,16 @@ function sweepDoubleAssist(
       if (!leg1) continue;
       const vInfDepart = vInfMag(leg1.v1, sFrom.velocity);
       if (vInfDepart > MAX_VINF_MPS) continue;
-      for (let k = 0; k < DOUBLE_TOF_SAMPLES; k++) {
+      for (let k = 0; k < t2Count; k++) {
         const tof2 = opt2.tofMinDays + k * t2Step;
         if (tof2 <= 0) continue;
         const f2Day = f1Day + tof2;
         const sF2 = stateAt(f2.elements, mu, f2Day);
         const leg2 = solveLeg(sF1.position, sF2.position, tof2, mu);
         if (!leg2) continue;
-        // F1 swing-by: heliocentric arrival (leg1) → heliocentric departure (leg2).
         const fb1 = flybyVia(f1, sF1.velocity, leg1.v2, leg2.v1);
         if (!fb1) continue;
-        for (let l = 0; l < DOUBLE_TOF_SAMPLES; l++) {
+        for (let l = 0; l < t3Count; l++) {
           const tof3 = opt3.tofMinDays + l * t3Step;
           if (tof3 <= 0) continue;
           const sTo = stateAt(to.elements, mu, f2Day + tof3);
@@ -590,37 +701,29 @@ function sweepDoubleAssist(
           if (!leg3) continue;
           const vInfArrive = vInfMag(leg3.v2, sTo.velocity);
           if (vInfArrive > MAX_VINF_MPS) continue;
-          // F2 swing-by: heliocentric arrival (leg2) → heliocentric departure (leg3).
           const fb2 = flybyVia(f2, sF2.velocity, leg2.v2, leg3.v1);
           if (!fb2) continue;
-          out.push(
-            buildAssistRoute(
-              from,
-              to,
-              fromState,
-              toState,
-              centralId,
-              departDay,
-              [
-                {
-                  via: f1,
-                  inboundTof: tof1,
-                  inboundConic: leg1.conic,
-                  fb: fb1,
-                },
-                {
-                  via: f2,
-                  inboundTof: tof2,
-                  inboundConic: leg2.conic,
-                  fb: fb2,
-                },
-              ],
-              tof3,
-              leg3.conic,
-              vInfDepart,
-              vInfArrive,
-            ),
+          const r = buildAssistRoute(
+            from,
+            to,
+            fromState,
+            toState,
+            centralId,
+            departDay,
+            [
+              { via: f1, inboundTof: tof1, inboundConic: leg1.conic, fb: fb1 },
+              { via: f2, inboundTof: tof2, inboundConic: leg2.conic, fb: fb2 },
+            ],
+            tof3,
+            leg3.conic,
+            vInfDepart,
+            vInfArrive,
           );
+          if (grid) {
+            r.phaseDay = departDay;
+            r.recurDays = grid.recurDays;
+          }
+          out.push(r);
         }
       }
     }
@@ -646,16 +749,7 @@ export function findSingleAssistRoutes(
   const routes: Route[] = [];
   for (const via of flybyBodies) {
     routes.push(
-      ...sweepAssist(
-        from,
-        to,
-        via,
-        fromState,
-        toState,
-        mu,
-        centralId,
-        options.departWindowDays,
-      ),
+      ...sweepAssist(from, to, via, fromState, toState, mu, centralId, options),
     );
   }
   return rankRoutes(routes, options);
@@ -682,17 +776,7 @@ export function findDoubleAssistRoutes(
     for (const f2 of flybyBodies) {
       if (f1.id === f2.id) continue;
       routes.push(
-        ...sweepDoubleAssist(
-          from,
-          to,
-          f1,
-          f2,
-          fromState,
-          toState,
-          mu,
-          centralId,
-          options.departWindowDays,
-        ),
+        ...sweepDoubleAssist(from, to, f1, f2, fromState, toState, mu, centralId, options),
       );
     }
   }
