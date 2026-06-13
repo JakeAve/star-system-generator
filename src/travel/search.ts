@@ -785,13 +785,6 @@ export function dedupeRoutes(routes: (Route | null)[]): Route[] {
   return out;
 }
 
-/**
- * Tier-C counterpart to selectBestRoutes: pick the 3 anchors (cheapest/fastest/soonest) and the
- * 4 balances (cheapest×fastest, cheapest×soonest, fastest×soonest, triple) from an already
- * enumerated candidate set, then value-dedupe. Used for moon topologies (no assist variants, so
- * the candidate set from getRoutes is small and full enumeration is cheap), keeping getBestRoutes2
- * and getRoutes in agreement — mirrors selectBestRoutes' role for the old getBestRoutes.
- */
 /** The four Tier-C balance boxes, derived from the three anchors. Shared by the enumerated
  * (selectBestRoutes2) and branch-and-bound (getBestRoutes2) paths so they stay in agreement. */
 export function balanceBoxes(
@@ -821,6 +814,13 @@ export function balanceBoxes(
   };
 }
 
+/**
+ * Tier-C counterpart to selectBestRoutes: pick the 3 anchors (cheapest/fastest/soonest) and the
+ * 4 balances (cheapest×fastest, cheapest×soonest, fastest×soonest, triple) from an already
+ * enumerated candidate set, then value-dedupe. Used for moon topologies (no assist variants, so
+ * the candidate set from getRoutes is small and full enumeration is cheap), keeping getBestRoutes2
+ * and getRoutes in agreement — mirrors selectBestRoutes' role for the old getBestRoutes.
+ */
 export function selectBestRoutes2(routes: Route[]): Route[] {
   if (routes.length === 0) return [];
   const arr = (r: Route) => r.departAt + r.duration;
