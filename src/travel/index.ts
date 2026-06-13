@@ -420,15 +420,26 @@ function defaultReframe(
 }
 
 /**
- * Third, parallel route function: the full schedule-aware reframe (kept beside getBestRoutes and
- * getBestRoutes2 as a benchmark control). Instead of branch-and-bound, it SCANS once at
- * resolution-target density over the recurrence horizon (synodic for direct, T_combined for
- * assist), PROJECTS every tagged opportunity to its soonest occurrence at/after `nowDay` within
- * the window, then SELECTS the 7 Tier-C picks via selectBestRoutes2. Slowest of the three by
- * design — no pruning. Sampling is opt-in (`options.sweep`); when the caller passes no
- * resolutionTarget sweep, getBestRoutes3 supplies the DEFAULT_REFRAME mode (nowDay 0). Moon
- * endpoints have no assist variants, so they delegate to getRoutes (with the reframe sweep) and
- * select from the projected cross-frame candidates.
+ * EXPERIMENTAL — not for production use. Third, parallel route function: the full schedule-aware
+ * reframe, kept beside getBestRoutes and getBestRoutes2 as a benchmark control. Instead of
+ * branch-and-bound, it SCANS once at resolution-target density over the recurrence horizon
+ * (synodic for direct, T_combined for assist), PROJECTS every tagged opportunity to its soonest
+ * occurrence at/after `nowDay` within the window, then SELECTS the 7 Tier-C picks via
+ * selectBestRoutes2. Slowest of the three by design — no pruning. Sampling is opt-in
+ * (`options.sweep`); when the caller passes no resolutionTarget sweep, getBestRoutes3 supplies the
+ * DEFAULT_REFRAME mode (nowDay 0). Moon endpoints have no assist variants, so they delegate to
+ * getRoutes (with the reframe sweep) and select from the projected cross-frame candidates.
+ *
+ * Benchmark verdict (see bench/report_resolution.ts, 2026-06-13): the resolution-target reframe
+ * does NOT improve pick values in this circular/coplanar engine. getBestRoutes2's fixed 36-sample
+ * grid already finds the cheapest/fastest/soonest optima to within ~0.1 km/s and 0 days, even over
+ * a 471-year horizon — because Δv is nearly phase-invariant for circular orbits, so depart-axis
+ * density (the reframe's whole advantage) barely moves the answer. getBestRoutes3 costs ~50-150×
+ * more (seconds vs ~0.1s) for that ~0 gain and OOMs on systems with >=7 flyby bodies (the
+ * no-pruning O(flyby^2) scan). Its only genuine differentiators are the provable window-nesting
+ * guarantee and the `nowDay` soonest-occurrence projection (a scheduling feature, unrelated to
+ * resolution, that could be grafted onto getBestRoutes2 cheaply). Revisit only when orbital
+ * eccentricity lands (which would make Δv phase-sensitive and resolution start to matter).
  */
 export function getBestRoutes3(
   system: SolarSystem,
