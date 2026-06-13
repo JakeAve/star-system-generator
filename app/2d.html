@@ -71,8 +71,11 @@
     <div id="loading">LOADING...</div>
     <script type="module">
       import {
+        buildRouteViewModel,
         buildViewModel,
+        EndState,
         generateSolarSystem,
+        getBestRoutes,
         parseViewState,
         resolveFocusMode,
         serializeViewState,
@@ -137,6 +140,7 @@
           const orrery = createCanvasOrrery(document.body, {
             onPick: (id) => {
               selectSingle(id);
+              pickForRoute(id);
               const obj = animObjects.find((o) => o.id === id);
               if (obj) {
                 document.dispatchEvent(
@@ -150,6 +154,44 @@
               writeURL();
             },
           });
+
+          const routeSel = { from: null, to: null };
+
+          function drawRouteFor(fromId, toId) {
+            try {
+              const routes = getBestRoutes(
+                data,
+                { obj: fromId, type: EndState.Orbit },
+                { obj: toId, type: EndState.Orbit },
+              );
+              const route = routes[0];
+              if (!route) {
+                orrery.setRoute(null);
+                console.warn(`No route found ${fromId} -> ${toId}`);
+                return;
+              }
+              orrery.setRoute(buildRouteViewModel(data, route));
+            } catch (err) {
+              orrery.setRoute(null);
+              console.warn(`Route error: ${err.message}`);
+            }
+          }
+
+          function pickForRoute(id) {
+            if (id === data.star.id) return; // star is not a valid endpoint
+            if (!routeSel.from) {
+              routeSel.from = id;
+              orrery.setRoute(null);
+            } else if (!routeSel.to && id !== routeSel.from) {
+              routeSel.to = id;
+              drawRouteFor(routeSel.from, routeSel.to);
+            } else {
+              // both set (or re-pick) -> start a new selection
+              routeSel.from = id;
+              routeSel.to = null;
+              orrery.setRoute(null);
+            }
+          }
 
           function selectSingle(id) {
             state.hl = [id];

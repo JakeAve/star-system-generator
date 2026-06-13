@@ -43,7 +43,19 @@ export {
   Resource,
   SpectralType,
 } from "./src/core/types.ts";
-export { getBestRoutes, getRoutes } from "./src/travel/index.ts";
+export {
+  getBestRoutes,
+  getBestRoutes2,
+  getBestRoutes3,
+  getRoutes,
+} from "./src/travel/index.ts";
+export { buildRouteViewModel } from "./src/view/route-view-model.ts";
+export type {
+  RouteGhostView,
+  RouteLegView,
+  RouteNodeView,
+  RouteView,
+} from "./src/view/route-view-model.ts";
 export type {
   Route,
   RouteLeg,
