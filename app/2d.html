@@ -153,6 +153,15 @@
               state.mode = "frame";
               writeURL();
             },
+            onRoutePick: (t) => {
+              if (t.kind === "node") {
+                console.log(`[route ${t.routeId}] node ${t.node.id} (${t.node.kind}) ` +
+                  `day ${t.node.time.toFixed(0)}, Δv ${t.node.deltaV.toFixed(2)} km/s`);
+              } else {
+                console.log(`[route ${t.routeId}] leg ${t.leg.fromBodyId} -> ${t.leg.toBodyId} ` +
+                  `tof ${t.leg.timeOfFlight.toFixed(0)} d, Δv ${t.leg.deltaV.toFixed(2)} km/s`);
+              }
+            },
           });
 
           const routeSel = { from: null, to: null };
