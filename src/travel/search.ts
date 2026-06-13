@@ -792,6 +792,35 @@ export function dedupeRoutes(routes: (Route | null)[]): Route[] {
  * the candidate set from getRoutes is small and full enumeration is cheap), keeping getBestRoutes2
  * and getRoutes in agreement — mirrors selectBestRoutes' role for the old getBestRoutes.
  */
+/** The four Tier-C balance boxes, derived from the three anchors. Shared by the enumerated
+ * (selectBestRoutes2) and branch-and-bound (getBestRoutes2) paths so they stay in agreement. */
+export function balanceBoxes(
+  cheapest: Route,
+  fastest: Route,
+  soonest: Route,
+): { cf: UtopiaBox; cs: UtopiaBox; fs: UtopiaBox; triple: UtopiaBox } {
+  const arr = (r: Route) => r.departAt + r.duration;
+  return {
+    cf: {
+      dvMin: cheapest.totalDeltaV, dvMax: fastest.totalDeltaV,
+      durMin: fastest.duration, durMax: cheapest.duration,
+    },
+    cs: {
+      dvMin: cheapest.totalDeltaV, dvMax: soonest.totalDeltaV,
+      arrMin: arr(soonest), arrMax: arr(cheapest),
+    },
+    fs: {
+      durMin: fastest.duration, durMax: soonest.duration,
+      arrMin: arr(soonest), arrMax: arr(fastest),
+    },
+    triple: {
+      dvMin: cheapest.totalDeltaV, dvMax: Math.max(fastest.totalDeltaV, soonest.totalDeltaV),
+      durMin: fastest.duration, durMax: Math.max(cheapest.duration, soonest.duration),
+      arrMin: arr(soonest), arrMax: Math.max(arr(cheapest), arr(fastest)),
+    },
+  };
+}
+
 export function selectBestRoutes2(routes: Route[]): Route[] {
   if (routes.length === 0) return [];
   const arr = (r: Route) => r.departAt + r.duration;
@@ -824,23 +853,11 @@ export function selectBestRoutes2(routes: Route[]): Route[] {
     }
     return best;
   };
-  const cf = nearest({
-    dvMin: cheapest.totalDeltaV, dvMax: fastest.totalDeltaV,
-    durMin: fastest.duration, durMax: cheapest.duration,
-  });
-  const cs = nearest({
-    dvMin: cheapest.totalDeltaV, dvMax: soonest.totalDeltaV,
-    arrMin: arr(soonest), arrMax: arr(cheapest),
-  });
-  const fs = nearest({
-    durMin: fastest.duration, durMax: soonest.duration,
-    arrMin: arr(soonest), arrMax: arr(fastest),
-  });
-  const triple = nearest({
-    dvMin: cheapest.totalDeltaV, dvMax: Math.max(fastest.totalDeltaV, soonest.totalDeltaV),
-    durMin: fastest.duration, durMax: Math.max(cheapest.duration, soonest.duration),
-    arrMin: arr(soonest), arrMax: Math.max(arr(cheapest), arr(fastest)),
-  });
+  const boxes = balanceBoxes(cheapest, fastest, soonest);
+  const cf = nearest(boxes.cf);
+  const cs = nearest(boxes.cs);
+  const fs = nearest(boxes.fs);
+  const triple = nearest(boxes.triple);
 
   return dedupeRoutes([cheapest, fastest, soonest, cf, cs, fs, triple]);
 }

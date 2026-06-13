@@ -523,3 +523,10 @@ Deno.test("getBestRoutes2: moon endpoints draw picks from getRoutes' front", () 
     if (!allKeys.has(key(p))) throw new Error("moon pick not from getRoutes front");
   }
 });
+
+Deno.test("getBestRoutes2: synodic cap makes a huge window match the default for direct routes", () => {
+  const huge = 100000;
+  const capped = getBestRoutes2(system, wp(a), wp(b), { departWindowDays: huge, maxAssists: 0 });
+  const dflt = getBestRoutes2(system, wp(a), wp(b), { maxAssists: 0 });
+  assertEquals(JSON.stringify(capped), JSON.stringify(dflt));
+});

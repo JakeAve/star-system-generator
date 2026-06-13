@@ -2,6 +2,7 @@
 import type { CelestialObject, SolarSystem } from "../core/types.ts";
 import { ObjectType } from "../core/types.ts";
 import {
+  balanceBoxes,
   dedupeRoutes,
   findCrossFrameRoutes,
   findDirectRoutes,
@@ -347,7 +348,6 @@ export function getBestRoutes2(
   }
   const fromRef = bodyRefOf(f.obj);
   const toRef = bodyRefOf(t.obj);
-  const arr = (r: Route) => r.departAt + r.duration;
 
   const passOpts = {
     departWindowDays: options.departWindowDays,
@@ -369,80 +369,33 @@ export function getBestRoutes2(
   const cheapest = anchor("deltaV");
   const fastest = anchor("duration");
   const soonest = anchor("arrival");
-  if (!cheapest && !fastest && !soonest) return [];
+  // searchBest sees the same feasible set for every objective, so the anchors are all-or-nothing.
+  // Without a complete anchor set there are no boxes to optimise; return whatever anchors exist.
+  if (!cheapest || !fastest || !soonest) {
+    return dedupeRoutes([cheapest, fastest, soonest]);
+  }
 
-  const balance = (box: UtopiaBox, anchors: (Route | null)[]): Route | null => {
-    const present = anchors.filter((r): r is Route => r !== null);
-    if (present.length < 2) return present[0] ?? null;
+  const balance = (box: UtopiaBox, anchors: Route[]): Route | null => {
     let initialBest = Infinity;
     let initialIncumbent: Route | null = null;
-    for (const r of present) {
-      const d = utopiaDist(r.totalDeltaV, r.duration, arr(r), box);
+    for (const r of anchors) {
+      const d = utopiaDist(r.totalDeltaV, r.duration, r.departAt + r.duration, box);
       if (d < initialBest) {
         initialBest = d;
         initialIncumbent = r;
       }
     }
     return searchBest(
-      "goldilocks",
-      fromRef,
-      toRef,
-      from.type,
-      to.type,
-      flybyBodies,
-      mu,
-      system.star.id,
-      assists,
+      "goldilocks", fromRef, toRef, from.type, to.type, flybyBodies, mu, system.star.id, assists,
       { box, initialBest, initialIncumbent, ...passOpts },
     );
   };
 
-  const cf = (cheapest && fastest)
-    ? balance(
-      {
-        dvMin: cheapest.totalDeltaV,
-        dvMax: fastest.totalDeltaV,
-        durMin: fastest.duration,
-        durMax: cheapest.duration,
-      },
-      [cheapest, fastest],
-    )
-    : null;
-  const cs = (cheapest && soonest)
-    ? balance(
-      {
-        dvMin: cheapest.totalDeltaV,
-        dvMax: soonest.totalDeltaV,
-        arrMin: arr(soonest),
-        arrMax: arr(cheapest),
-      },
-      [cheapest, soonest],
-    )
-    : null;
-  const fs = (fastest && soonest)
-    ? balance(
-      {
-        durMin: fastest.duration,
-        durMax: soonest.duration,
-        arrMin: arr(soonest),
-        arrMax: arr(fastest),
-      },
-      [fastest, soonest],
-    )
-    : null;
-  const triple = (cheapest && fastest && soonest)
-    ? balance(
-      {
-        dvMin: cheapest.totalDeltaV,
-        dvMax: Math.max(fastest.totalDeltaV, soonest.totalDeltaV),
-        durMin: fastest.duration,
-        durMax: Math.max(cheapest.duration, soonest.duration),
-        arrMin: arr(soonest),
-        arrMax: Math.max(arr(cheapest), arr(fastest)),
-      },
-      [cheapest, fastest, soonest],
-    )
-    : null;
+  const boxes = balanceBoxes(cheapest, fastest, soonest);
+  const cf = balance(boxes.cf, [cheapest, fastest]);
+  const cs = balance(boxes.cs, [cheapest, soonest]);
+  const fs = balance(boxes.fs, [fastest, soonest]);
+  const triple = balance(boxes.triple, [cheapest, fastest, soonest]);
 
   return dedupeRoutes([cheapest, fastest, soonest, cf, cs, fs, triple]);
 }
