@@ -3,6 +3,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { SolarSystem } from "../core/types.ts";
 import { eccentricAngleAtTime, visualRadius } from "../core/kinematics.ts";
 import { buildViewModel, ViewBody } from "../view/view-model.ts";
+import { centroidOf, enclosingRadius } from "../view/framing.ts";
 
 const SOLAR_TO_EARTH_RADII = 109;
 const AU_SCALE = 100;
@@ -48,6 +49,8 @@ const SPECTRAL_LIGHT_COLOR: Record<string, number> = {
 export interface OrreryOptions {
   /** Fired with a body id (e.g. system.star.id or a CelestialObject id) when the user clicks a body. */
   onPick?: (id: string) => void;
+  /** Fired when the user manually orbits/zooms while the camera was locked. */
+  onLockBreak?: () => void;
 }
 
 export interface OrreryHandle {
@@ -56,8 +59,11 @@ export interface OrreryHandle {
   setTimeScale(scale: number): void;
   pause(): void;
   resume(): void;
-  /** Fly the camera to a body id (e.g. system.star.id or a CelestialObject id). */
-  focus(id: string): void;
+  /** Move the camera to the given body ids. `lock` tracks their centroid every
+   *  frame; `frame` fits them once. Unknown ids skipped; empty set is a no-op. */
+  focus(ids: string[], mode: "lock" | "frame"): void;
+  /** Set the highlighted (ringed) body ids. Unknown ids are skipped. */
+  setHighlight(ids: string[]): void;
   /** Attach an arbitrary mesh as an overlay child of a body (e.g. settlement marker). */
   addOverlay(bodyId: string, object: THREE.Object3D): void;
   dispose(): void;
@@ -67,6 +73,7 @@ interface AnimObj {
   id: string;
   type: string;
   mesh: THREE.Object3D;
+  visualR: number;
   a: number;
   b: number;
   c: number;
@@ -106,6 +113,8 @@ export function createOrrery(
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
+  const onControlsStart = () => breakLock();
+  controls.addEventListener("start", onControlsStart);
 
   const pointLight = new THREE.PointLight(0xfff5e0, POINT_LIGHT_INTENSITY, 0);
   scene.add(pointLight);
@@ -126,13 +135,15 @@ export function createOrrery(
   let lastTime: number | null = null;
   let rafId = 0;
 
-  let lockedTarget: AnimObj | null = null;
+  let lockedTargets: AnimObj[] = [];
+  const highlightRings: Map<string, THREE.Mesh> = new Map();
   let flyState:
     | {
       startTarget: THREE.Vector3;
       startOffsetDir: THREE.Vector3;
       startOffsetDist: number;
-      animObj: AnimObj | null;
+      endTarget: THREE.Vector3;
+      lockTargets: AnimObj[];
       flyOffset: number;
       progress: number;
       duration: number;
@@ -147,6 +158,24 @@ export function createOrrery(
   const FLY_END_DIR = new THREE.Vector3(1, 1, 1).normalize();
   const lockedPrevPos = new THREE.Vector3();
   const lockDelta = new THREE.Vector3();
+
+  const cwTmp = new THREE.Vector3();
+  function centroidWorld(objs: AnimObj[], out: THREE.Vector3) {
+    out.set(0, 0, 0);
+    for (const o of objs) {
+      o.mesh.getWorldPosition(cwTmp);
+      out.add(cwTmp);
+    }
+    if (objs.length > 0) out.divideScalar(objs.length);
+  }
+
+  function breakLock() {
+    const wasLocking = lockedTargets.length > 0 ||
+      (flyState?.lockTargets.length ?? 0) > 0;
+    lockedTargets = [];
+    if (flyState) flyState.lockTargets = [];
+    if (wasLocking) opts.onLockBreak?.();
+  }
 
   function buildOrbitLine(
     a: number,
@@ -175,7 +204,13 @@ export function createOrrery(
   }
 
   function clearSystem() {
-    lockedTarget = null;
+    lockedTargets = [];
+    for (const ring of highlightRings.values()) {
+      ring.parent?.remove(ring);
+      ring.geometry.dispose();
+      (ring.material as THREE.Material).dispose();
+    }
+    highlightRings.clear();
     flyState = null;
     paused = false;
     if (systemRoot) {
@@ -225,6 +260,7 @@ export function createOrrery(
       id: body.id,
       type: body.type,
       mesh,
+      visualR: body.visualR,
       a,
       b,
       c,
@@ -266,6 +302,7 @@ export function createOrrery(
       id: system.star.id,
       type: "star",
       mesh: starMesh,
+      visualR: starBody.visualR,
       a: 0,
       b: 0,
       c: 0,
@@ -306,18 +343,27 @@ export function createOrrery(
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   }
 
-  function focus(id: string) {
-    const animObj = animObjects.find((o) => o.id === id) ?? null;
-    const isStar = !animObj || animObj.type === "star";
+  function focus(ids: string[], mode: "lock" | "frame") {
+    const objs = ids
+      .map((id) => animObjects.find((o) => o.id === id))
+      .filter((o): o is AnimObj => Boolean(o));
+    if (objs.length === 0) return;
+    const worldPts = objs.map((o) => {
+      const v = new THREE.Vector3();
+      o.mesh.getWorldPosition(v);
+      return [v.x, v.y, v.z];
+    });
+    const c = centroidOf(worldPts);
+    const center = new THREE.Vector3(c[0], c[1], c[2]);
+    const spread = enclosingRadius(worldPts, c);
+    const maxFlyOffset = Math.max(...objs.map((o) => o.flyOffset));
+    const flyOffset = Math.max(FLY_OFFSET_MIN, spread + maxFlyOffset);
     const startCamPos = camera.position.clone();
     const startTarget = controls.target.clone();
-    const flyOffset = isStar ? starFlyOffset : animObj!.flyOffset;
     const startOffset = startCamPos.clone().sub(startTarget);
     const startOffsetDist = Math.max(startOffset.length(), 1e-6);
     const startOffsetDir = startOffset.clone().divideScalar(startOffsetDist);
-    const endTarget = new THREE.Vector3();
-    if (!isStar) animObj!.mesh.getWorldPosition(endTarget);
-    const endCamPos = endTarget.clone().addScaledVector(FLY_END_DIR, flyOffset);
+    const endCamPos = center.clone().addScaledVector(FLY_END_DIR, flyOffset);
     const travel = startCamPos.distanceTo(endCamPos);
     const rawDuration = travel / (FLY_SPEED_AU_PER_SEC * AU_SCALE);
     const duration = Math.max(FLY_MIN_SEC, Math.min(FLY_MAX_SEC, rawDuration));
@@ -325,13 +371,41 @@ export function createOrrery(
       startTarget,
       startOffsetDir,
       startOffsetDist,
-      animObj: isStar ? null : animObj,
+      endTarget: center.clone(),
+      lockTargets: mode === "lock" ? objs : [],
       flyOffset,
       progress: 0,
       duration,
       zoomOutBoost: travel * FLY_ZOOM_OUT_FACTOR,
     };
-    lockedTarget = null;
+    lockedTargets = [];
+  }
+
+  function setHighlight(ids: string[]) {
+    for (const ring of highlightRings.values()) {
+      ring.parent?.remove(ring);
+      ring.geometry.dispose();
+      (ring.material as THREE.Material).dispose();
+    }
+    highlightRings.clear();
+    for (const id of ids) {
+      const obj = animObjects.find((o) => o.id === id);
+      if (!obj) continue;
+      const rOuter = Math.max(obj.visualR * 1.8, obj.visualR + 0.6);
+      const rInner = rOuter * 0.82;
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(rInner, rOuter, 48),
+        new THREE.MeshBasicMaterial({
+          color: 0x7fdfff,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.9,
+          depthWrite: false,
+        }),
+      );
+      obj.mesh.add(ring);
+      highlightRings.set(id, ring);
+    }
   }
 
   function animate(time: number) {
@@ -364,9 +438,11 @@ export function createOrrery(
           1,
         );
         const t = easeInOutCubic(flyState.progress);
-        if (flyState.animObj) {
-          flyState.animObj.mesh.getWorldPosition(flyEndTarget);
-        } else flyEndTarget.set(0, 0, 0);
+        if (flyState.lockTargets.length > 0) {
+          centroidWorld(flyState.lockTargets, flyEndTarget);
+        } else {
+          flyEndTarget.copy(flyState.endTarget);
+        }
         flyTmpTarget.lerpVectors(flyState.startTarget, flyEndTarget, t);
         controls.target.copy(flyTmpTarget);
         flyTmpDir.lerpVectors(flyState.startOffsetDir, FLY_END_DIR, t)
@@ -379,17 +455,22 @@ export function createOrrery(
           baseDist + bump,
         );
         if (flyState.progress >= 1) {
-          lockedTarget = flyState.animObj;
-          if (lockedTarget) lockedTarget.mesh.getWorldPosition(lockedPrevPos);
+          lockedTargets = flyState.lockTargets;
+          if (lockedTargets.length > 0) {
+            centroidWorld(lockedTargets, lockedPrevPos);
+          }
           flyState = null;
         }
       }
-      if (lockedTarget !== null && flyState === null) {
-        lockedTarget.mesh.getWorldPosition(tmpVec);
+      if (lockedTargets.length > 0 && flyState === null) {
+        centroidWorld(lockedTargets, tmpVec);
         lockDelta.subVectors(tmpVec, lockedPrevPos);
         controls.target.add(lockDelta);
         camera.position.add(lockDelta);
         lockedPrevPos.copy(tmpVec);
+      }
+      for (const ring of highlightRings.values()) {
+        ring.quaternion.copy(camera.quaternion);
       }
     }
     controls.update();
@@ -434,6 +515,7 @@ export function createOrrery(
       paused = false;
     },
     focus,
+    setHighlight,
     addOverlay(bodyId, object) {
       const mesh = meshById[bodyId];
       if (mesh) mesh.add(object);
@@ -443,6 +525,7 @@ export function createOrrery(
       globalThis.removeEventListener("resize", onResize);
       renderer.domElement.removeEventListener("click", onClick);
       clearSystem();
+      controls.removeEventListener("start", onControlsStart);
       controls.dispose();
       renderer.dispose();
       if (renderer.domElement.parentNode) {
