@@ -2,7 +2,7 @@
 // No Three.js, no DOM. Engines consume this and render in their own space.
 
 import type { SolarSystem } from "../core/types.ts";
-import { AU_SCALE } from "../core/kinematics.ts";
+import { AU_SCALE, MOON_ORBIT_SCALE } from "../core/kinematics.ts";
 import type { Route, RouteNodeKind } from "../travel/types.ts";
 import { buildViewModel, type ViewBody } from "./view-model.ts";
 
@@ -44,10 +44,16 @@ function bodyAt(system: SolarSystem, day: number): Map<string, ViewBody> {
   return map;
 }
 
-/** Sample a transfer conic from nu1 to nu2 into a world-unit polyline. */
+/**
+ * Sample a transfer conic from nu1 to nu2 into a world-unit polyline. `auToWorld` is the
+ * world-units-per-AU factor for the leg's frame: heliocentric legs use AU_SCALE, while
+ * planetocentric (moon) legs use AU_SCALE * MOON_ORBIT_SCALE to match how buildViewModel
+ * scales moon orbits — so the arc stays aligned with the moon node/ghost positions.
+ */
 function sampleArc(
   transfer: { a: number; e: number; argPeriapsis: number; nu1: number; nu2: number },
   centralWorld: { x: number; y: number },
+  auToWorld: number,
 ): { x: number; y: number }[] {
   const { a, e, argPeriapsis, nu1, nu2 } = transfer;
   const cosw = Math.cos(argPeriapsis);
@@ -64,7 +70,7 @@ function sampleArc(
     const yp = r * Math.sin(nu);
     const xAu = xp * cosw - yp * sinw;
     const yAu = xp * sinw + yp * cosw;
-    pts.push({ x: centralWorld.x + xAu * AU_SCALE, y: centralWorld.y + yAu * AU_SCALE });
+    pts.push({ x: centralWorld.x + xAu * auToWorld, y: centralWorld.y + yAu * auToWorld });
   }
   return pts;
 }
@@ -80,14 +86,16 @@ export function buildRouteViewModel(system: SolarSystem, route: Route): RouteVie
 
   // Leg arcs.
   const legs: RouteLegView[] = route.legs.map((leg) => {
+    const heliocentric = leg.centralBodyId === starId;
     let centralWorld = { x: 0, y: 0 };
-    if (leg.centralBodyId !== starId) {
+    if (!heliocentric) {
       const central = bodyAt(system, leg.departTime).get(leg.centralBodyId);
       if (central) centralWorld = { x: central.position.x, y: central.position.y };
     }
+    const auToWorld = heliocentric ? AU_SCALE : AU_SCALE * MOON_ORBIT_SCALE;
     return {
       centralBodyId: leg.centralBodyId,
-      points: sampleArc(leg.transfer, centralWorld),
+      points: sampleArc(leg.transfer, centralWorld, auToWorld),
     };
   });
 

@@ -368,6 +368,7 @@ export function createCanvasOrrery(
 
   function drawRoute() {
     if (!currentRoute) return;
+    ctx.save(); // isolate route styling (stroke/fill/lineWidth) from the rest of the frame
 
     // Ghost bodies: faint filled discs where each node body sits at the route's times.
     ctx.save();
@@ -408,6 +409,7 @@ export function createCanvasOrrery(
         ctx.fill();
       }
     }
+    ctx.restore();
   }
 
   function buildAnimObjects(system: SolarSystem): AnimObj[] {
