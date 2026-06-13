@@ -76,7 +76,32 @@ export interface Route {
   duration: number; // days
   totalDeltaV: number; // km/s
   notation: string;
+  // Schedule-aware reframe tags (getBestRoutes3 only; undefined on the fixed default path).
+  // phaseDay = the route's canonical depart sample D ∈ [0, recurDays); recurDays = its recurrence
+  // period (synodic for direct, T_combined for assist). Used by projectRoutes to map the route to
+  // its soonest in-window occurrence.
+  phaseDay?: number;
+  recurDays?: number;
 }
+
+/**
+ * Sampling strategy for the porkchop/assist sweeps. The default (`"fixed"`, or omitted) is the
+ * legacy fixed-sample-count behavior used by getRoutes/getBestRoutes/getBestRoutes2 — byte-
+ * identical to today. `"resolutionTarget"` samples at fixed spacing (Δd on depart, Δt on tof)
+ * over the recurrence period and tags routes for window projection; used only by getBestRoutes3.
+ */
+export type SweepMode =
+  | { kind: "fixed" }
+  | {
+    kind: "resolutionTarget";
+    deltaD: number;
+    minD: number;
+    maxD: number;
+    deltaT: number;
+    minT: number;
+    maxT: number;
+    nowDay: number; // t0 for projection; window is taken from departWindowDays
+  };
 
 export interface TravelOptions {
   maxAssists?: number; // default 2; Phase 1 treats as direct-only
@@ -84,4 +109,5 @@ export interface TravelOptions {
   topN?: number;
   weights?: { time: number; deltaV: number };
   departWindowDays?: number; // cap depart times to [0, window) days from now; default = outer period
+  sweep?: SweepMode; // default "fixed"; "resolutionTarget" enables the getBestRoutes3 reframe
 }
