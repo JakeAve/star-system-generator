@@ -56,21 +56,29 @@ function bodyRefOf(o: CelestialObject): BodyRef {
   };
 }
 
+type ResolvedWaypoint =
+  | { kind: "heliocentric"; ref: BodyRef }
+  | { kind: "crossframe"; endpoint: CrossFrameEndpoint; selfRef: BodyRef };
+
 /**
- * Resolve a waypoint to a BodyRef + isMoon flag. Real bodies are looked up in the system
- * index; virtual bodies ({ spec }) are heliocentric, massless, and constructed directly.
- * Virtual bodies support only Intercept or Dock (no SOI to capture into / land on).
+ * Resolve a waypoint to either a heliocentric BodyRef or a cross-frame endpoint.
+ * Real planets and heliocentric { spec } bodies are heliocentric; real moons and
+ * planetocentric { pSpec } bodies are cross-frame. The crossframe arm also carries
+ * selfRef: the parent-relative BodyRef used for same-parent (shared-anchor) routing,
+ * which preserves a real moon's full orbital elements. Virtual bodies are massless
+ * and support only Intercept or Dock.
  */
 function resolveWaypoint(
   wp: Waypoint,
   index: Map<string, { obj: CelestialObject; isMoon: boolean }>,
-): { ref: BodyRef; isMoon: boolean } {
+): ResolvedWaypoint {
   if ("spec" in wp) {
     if (wp.type === EndState.Orbit || wp.type === EndState.Surface) {
       throw new Error("virtual bodies only support Intercept or Dock");
     }
     const s = wp.spec;
     return {
+      kind: "heliocentric",
       ref: {
         id: s.id ?? `virtual:${s.orbitRadiusAu}au`,
         elements: {
@@ -81,12 +89,22 @@ function resolveWaypoint(
         },
         endpoint: { mu: 0, radiusM: 0 },
       },
-      isMoon: false,
     };
+  }
+  if ("pSpec" in wp) {
+    // Implemented in a later task.
+    throw new Error("planetocentric virtual bodies not yet implemented");
   }
   const entry = index.get(wp.obj);
   if (!entry) throw new Error(`unknown body: ${wp.obj}`);
-  return { ref: bodyRefOf(entry.obj), isMoon: entry.isMoon };
+  if (entry.isMoon) {
+    return {
+      kind: "crossframe",
+      endpoint: crossFrameEndpointOf(entry, wp.type, index),
+      selfRef: bodyRefOf(entry.obj),
+    };
+  }
+  return { kind: "heliocentric", ref: bodyRefOf(entry.obj) };
 }
 
 /** Build a cross-frame endpoint descriptor. A planet anchors to itself; a moon to its parent. */
@@ -121,6 +139,20 @@ function crossFrameEndpointOf(
       },
       moonOrbitRadiusM: auToM(o.orbitRadius),
     },
+  };
+}
+
+/** Treat a heliocentric body as a self-anchored cross-frame endpoint (no parent appendage). */
+function heliocentricToCrossFrame(
+  ref: BodyRef,
+  endState: EndState,
+): CrossFrameEndpoint {
+  return {
+    id: ref.id,
+    endState,
+    body: ref.endpoint,
+    anchorId: ref.id,
+    anchorElements: ref.elements,
   };
 }
 
@@ -167,19 +199,24 @@ export function getRoutes(
   assertNotStar(to, index);
   const fromR = resolveWaypoint(from, index);
   const toR = resolveWaypoint(to, index);
-  if (fromR.isMoon || toR.isMoon) {
-    if (!("obj" in from) || !("obj" in to)) {
-      throw new Error("moon routing is not supported for virtual bodies");
-    }
-    const f = index.get(from.obj)!;
-    const t = index.get(to.obj)!;
-    // Same-parent moon→moon: a single planetocentric leg (Phase 1b).
-    if (f.isMoon && t.isMoon && f.obj.parentId === t.obj.parentId) {
-      const parent = index.get(f.obj.parentId!);
-      if (!parent) throw new Error(`unknown parent body: ${f.obj.parentId}`);
+  if (fromR.kind === "crossframe" || toR.kind === "crossframe") {
+    const fromEp = fromR.kind === "crossframe"
+      ? fromR.endpoint
+      : heliocentricToCrossFrame(fromR.ref, from.type);
+    const toEp = toR.kind === "crossframe"
+      ? toR.endpoint
+      : heliocentricToCrossFrame(toR.ref, to.type);
+    // Same-parent (shared anchor): a single planetocentric Hohmann, no heliocentric spine.
+    if (
+      fromR.kind === "crossframe" &&
+      toR.kind === "crossframe" &&
+      fromEp.anchorId === toEp.anchorId
+    ) {
+      const parent = index.get(fromEp.anchorId);
+      if (!parent) throw new Error(`unknown parent body: ${fromEp.anchorId}`);
       return findDirectRoutes(
-        bodyRefOf(f.obj),
-        bodyRefOf(t.obj),
+        fromR.selfRef,
+        toR.selfRef,
         from.type,
         to.type,
         muBody(parent.obj.mass),
@@ -187,8 +224,6 @@ export function getRoutes(
         options,
       );
     }
-    const fromEp = crossFrameEndpointOf(f, from.type, index);
-    const toEp = crossFrameEndpointOf(t, to.type, index);
     if (fromEp.anchorId === toEp.anchorId) {
       // A moon and its own parent planet share an anchor; the heliocentric spine degenerates.
       throw new Error(
@@ -307,7 +342,7 @@ export function getBestRoutes(
   const fromR = resolveWaypoint(from, index);
   const toR = resolveWaypoint(to, index);
 
-  if (fromR.isMoon || toR.isMoon) {
+  if (fromR.kind === "crossframe" || toR.kind === "crossframe") {
     const all = getRoutes(system, from, to, {
       rank: RankMode.All,
       maxAssists: maxAssistsOpt,
@@ -471,7 +506,7 @@ export function getBestRoutes3(
   const nowDay = sweep.nowDay;
   const scanOpts: TravelOptions = { ...options, rank: RankMode.All, sweep };
 
-  if (fromR.isMoon || toR.isMoon) {
+  if (fromR.kind === "crossframe" || toR.kind === "crossframe") {
     const all = getRoutes(system, from, to, scanOpts);
     const projected = projectRoutes(all, nowDay, options.departWindowDays);
     return selectBestRoutes2(projected);

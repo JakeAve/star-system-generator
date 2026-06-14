@@ -37,9 +37,16 @@ export interface VirtualBodySpec {
   orbitalPhase?: number; // mean-anomaly fraction at t=0, 0..1; default 0
 }
 
+export interface PlanetoSpec {
+  id?: string; // synthetic label for route notation; auto-generated if omitted
+  parentId: string; // ID of the parent planet in the seed
+  orbitRadiusAu: number; // orbit radius around the parent (AU)
+}
+
 export type Waypoint =
   | { obj: string; type: EndState } // existing: body by seed ID
-  | { spec: VirtualBodySpec; type: EndState }; // virtual heliocentric body
+  | { spec: VirtualBodySpec; type: EndState } // heliocentric virtual body
+  | { pSpec: PlanetoSpec; type: EndState }; // planetocentric virtual body
 
 export interface TerminalStage {
   kind: "capture" | "escape" | "descent" | "ascent" | "dock";
