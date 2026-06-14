@@ -1,9 +1,10 @@
-import { assertEquals, assertThrows } from "@std/assert";
+import { assertEquals, assertAlmostEquals, assertThrows } from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
 import {
   getBestRoutes,
   getBestRoutes3,
   getRoutes,
+  lagrangeWaypoint,
 } from "./index.ts";
 import { EndState, RankMode, type Route, RouteNodeKind } from "./types.ts";
 import { sumPrecise } from "./sum.ts";
@@ -848,4 +849,32 @@ Deno.test("getBestRoutes: virtual body rejects Surface end-state", () => {
     Error,
     "virtual bodies only support Intercept or Dock",
   );
+});
+
+Deno.test("lagrangeWaypoint: L4 leads parent by 1/6 of a phase", () => {
+  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const wp = lagrangeWaypoint(planet, "L4", EndState.Dock);
+  if (!("spec" in wp)) throw new Error("planet parent should yield a heliocentric spec");
+  assertEquals(wp.spec.id, `L4:${planet.id}`);
+  assertEquals(wp.spec.orbitRadiusAu, planet.orbitRadius);
+  assertEquals(wp.spec.eccentricity, planet.eccentricity);
+  assertEquals(wp.spec.periapsisAngle, planet.periapsisAngle);
+  const expected = ((planet.orbitalPhase + 1 / 6) % 1 + 1) % 1;
+  assertAlmostEquals(wp.spec.orbitalPhase!, expected, 1e-12);
+});
+
+Deno.test("lagrangeWaypoint: L5 trails parent by 1/6 of a phase", () => {
+  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const wp = lagrangeWaypoint(planet, "L5", EndState.Intercept);
+  if (!("spec" in wp)) throw new Error("planet parent should yield a heliocentric spec");
+  const expected = ((planet.orbitalPhase - 1 / 6) % 1 + 1) % 1;
+  assertAlmostEquals(wp.spec.orbitalPhase!, expected, 1e-12);
+});
+
+Deno.test("lagrangeWaypoint: routes end-to-end to a planet's L5", () => {
+  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const dest = lagrangeWaypoint(planet, "L5", EndState.Dock);
+  const routes = getBestRoutes(system, { obj: a, type: EndState.Orbit }, dest);
+  if (routes.length === 0) throw new Error("expected routes to L5");
+  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `L5:${planet.id}`);
 });

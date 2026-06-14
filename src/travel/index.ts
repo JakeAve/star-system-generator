@@ -529,3 +529,26 @@ export function getBestRoutes3(
   const projected = projectRoutes(candidates, nowDay, options.departWindowDays);
   return selectBestRoutes2(projected);
 }
+
+/**
+ * Build a waypoint at a parent body's L4 (leading, +60°) or L5 (trailing, -60°) point.
+ * For a planet parent this is a heliocentric virtual body co-orbital with the planet.
+ * Only Intercept or Dock are meaningful (a massless point has no SOI).
+ */
+export function lagrangeWaypoint(
+  parent: CelestialObject,
+  point: "L4" | "L5",
+  type: EndState.Intercept | EndState.Dock,
+): Waypoint {
+  const offset = point === "L4" ? Math.PI / 3 : -Math.PI / 3;
+  return {
+    spec: {
+      id: `${point}:${parent.id}`,
+      orbitRadiusAu: parent.orbitRadius,
+      eccentricity: parent.eccentricity,
+      periapsisAngle: parent.periapsisAngle,
+      orbitalPhase: ((parent.orbitalPhase + offset / (2 * Math.PI)) % 1 + 1) % 1,
+    },
+    type,
+  };
+}
