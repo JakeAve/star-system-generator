@@ -761,3 +761,77 @@ Deno.test("getBestRoutes(findSoonest): anchors agree with getRoutes within a shi
     if (p.departAt < start) throw new Error("pick departed before startWindow");
   }
 });
+
+Deno.test("getBestRoutes: virtual heliocentric dock destination has dock arrival", () => {
+  const routes = getBestRoutes(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { spec: { id: "station-2.6au", orbitRadiusAu: 2.6 }, type: EndState.Dock },
+  );
+  if (routes.length === 0) throw new Error("expected routes");
+  const r = routes[0];
+  assertEquals(r.bodies[r.bodies.length - 1], "station-2.6au");
+  const arrive = r.nodes[r.nodes.length - 1];
+  assertEquals(arrive.terminal?.endState, EndState.Dock);
+  assertEquals(arrive.terminal?.stages.length, 1);
+  assertEquals(arrive.terminal?.stages[0].kind, "dock");
+});
+
+Deno.test("getBestRoutes: virtual heliocentric intercept destination has zero terminal Δv", () => {
+  const routes = getBestRoutes(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { spec: { id: "wp", orbitRadiusAu: 2.6 }, type: EndState.Intercept },
+  );
+  if (routes.length === 0) throw new Error("expected routes");
+  const arrive = routes[0].nodes[routes[0].nodes.length - 1];
+  assertEquals(arrive.terminal?.totalDeltaV, 0);
+});
+
+Deno.test("getBestRoutes: virtual body as origin (dock) departs with no escape stage", () => {
+  const routes = getBestRoutes(
+    system,
+    { spec: { id: "origin-wp", orbitRadiusAu: 1.4 }, type: EndState.Dock },
+    { obj: a, type: EndState.Orbit },
+  );
+  if (routes.length === 0) throw new Error("expected routes");
+  const depart = routes[0].nodes[0];
+  assertEquals(depart.terminal?.endState, EndState.Dock);
+  assertEquals(depart.terminal?.stages[0].kind, "dock");
+});
+
+Deno.test("getBestRoutes: virtual body auto-generates an id when omitted", () => {
+  const routes = getBestRoutes(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { spec: { orbitRadiusAu: 3.1 }, type: EndState.Dock },
+  );
+  if (routes.length === 0) throw new Error("expected routes");
+  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], "virtual:3.1au");
+});
+
+Deno.test("getBestRoutes: virtual body rejects Orbit end-state", () => {
+  assertThrows(
+    () =>
+      getBestRoutes(
+        system,
+        { obj: a, type: EndState.Orbit },
+        { spec: { orbitRadiusAu: 2.6 }, type: EndState.Orbit },
+      ),
+    Error,
+    "virtual bodies only support Intercept or Dock",
+  );
+});
+
+Deno.test("getBestRoutes: virtual body rejects Surface end-state", () => {
+  assertThrows(
+    () =>
+      getBestRoutes(
+        system,
+        { obj: a, type: EndState.Orbit },
+        { spec: { orbitRadiusAu: 2.6 }, type: EndState.Surface },
+      ),
+    Error,
+    "virtual bodies only support Intercept or Dock",
+  );
+});

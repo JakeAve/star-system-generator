@@ -22,7 +22,7 @@ import type { CrossFrameEndpoint } from "./legs.ts";
 import { auToM, muBody, muStar, R_EARTH_M } from "./units.ts";
 import type { OrbitElements } from "./state.ts";
 import {
-  type EndState,
+  EndState,
   RankMode,
   type Route,
   type RouteOptions,
@@ -54,6 +54,39 @@ function bodyRefOf(o: CelestialObject): BodyRef {
     elements: elementsOf(o),
     endpoint: { mu: muBody(o.mass), radiusM: o.radius * R_EARTH_M },
   };
+}
+
+/**
+ * Resolve a waypoint to a BodyRef + isMoon flag. Real bodies are looked up in the system
+ * index; virtual bodies ({ spec }) are heliocentric, massless, and constructed directly.
+ * Virtual bodies support only Intercept or Dock (no SOI to capture into / land on).
+ */
+function resolveWaypoint(
+  wp: Waypoint,
+  index: Map<string, { obj: CelestialObject; isMoon: boolean }>,
+): { ref: BodyRef; isMoon: boolean } {
+  if ("spec" in wp) {
+    if (wp.type === EndState.Orbit || wp.type === EndState.Surface) {
+      throw new Error("virtual bodies only support Intercept or Dock");
+    }
+    const s = wp.spec;
+    return {
+      ref: {
+        id: s.id ?? `virtual:${s.orbitRadiusAu}au`,
+        elements: {
+          orbitRadiusAu: s.orbitRadiusAu,
+          eccentricity: s.eccentricity ?? 0,
+          periapsisAngle: s.periapsisAngle ?? 0,
+          orbitalPhase: s.orbitalPhase ?? 0,
+        },
+        endpoint: { mu: 0, radiusM: 0 },
+      },
+      isMoon: false,
+    };
+  }
+  const entry = index.get(wp.obj);
+  if (!entry) throw new Error(`unknown body: ${wp.obj}`);
+  return { ref: bodyRefOf(entry.obj), isMoon: entry.isMoon };
 }
 
 /** Build a cross-frame endpoint descriptor. A planet anchors to itself; a moon to its parent. */
@@ -119,14 +152,18 @@ export function getRoutes(
 ): Route[] {
   validateWindow(options);
   const index = flatten(system);
-  const f = index.get(from.obj);
-  const t = index.get(to.obj);
-  if (!f) throw new Error(`unknown body: ${from.obj}`);
-  if (!t) throw new Error(`unknown body: ${to.obj}`);
-  if (f.obj.type === ObjectType.Star || t.obj.type === ObjectType.Star) {
+  // Reject the star before resolving (resolveWaypoint has no system context for spec bodies).
+  if ("obj" in from && index.get(from.obj)?.obj.type === ObjectType.Star) {
     throw new Error("the star cannot be a travel endpoint");
   }
-  if (f.isMoon || t.isMoon) {
+  if ("obj" in to && index.get(to.obj)?.obj.type === ObjectType.Star) {
+    throw new Error("the star cannot be a travel endpoint");
+  }
+  const fromR = resolveWaypoint(from, index);
+  const toR = resolveWaypoint(to, index);
+  if (fromR.isMoon || toR.isMoon) {
+    const f = index.get((from as { obj: string }).obj)!;
+    const t = index.get((to as { obj: string }).obj)!;
     // Same-parent moon→moon: a single planetocentric leg (Phase 1b).
     if (f.isMoon && t.isMoon && f.obj.parentId === t.obj.parentId) {
       const parent = index.get(f.obj.parentId!);
@@ -159,8 +196,8 @@ export function getRoutes(
   }
   const mu = muStar(system.star.mass);
   const direct = findDirectRoutes(
-    bodyRefOf(f.obj),
-    bodyRefOf(t.obj),
+    fromR.ref,
+    toR.ref,
     from.type,
     to.type,
     mu,
@@ -177,11 +214,11 @@ export function getRoutes(
   if (assists < 1) return rankRoutes(direct, options);
   const flybyBodies: BodyRef[] = [];
   for (const o of system.objects) {
-    if (o.id === f.obj.id || o.id === t.obj.id) continue;
+    if (o.id === fromR.ref.id || o.id === toR.ref.id) continue;
     if (FLYBY_TYPES.has(o.type)) flybyBodies.push(bodyRefOf(o));
   }
-  const fromRef = bodyRefOf(f.obj);
-  const toRef = bodyRefOf(t.obj);
+  const fromRef = fromR.ref;
+  const toRef = toR.ref;
   // Concatenate rather than push(...spread): assist searches can return tens of
   // thousands of candidates, which would overflow the argument limit of push.
   let candidates = direct.concat(
@@ -256,15 +293,16 @@ export function getBestRoutes(
   validateWindow({ startWindow, endWindow, departWindowDays });
 
   const index = flatten(system);
-  const f = index.get(from.obj);
-  const t = index.get(to.obj);
-  if (!f) throw new Error(`unknown body: ${from.obj}`);
-  if (!t) throw new Error(`unknown body: ${to.obj}`);
-  if (f.obj.type === ObjectType.Star || t.obj.type === ObjectType.Star) {
+  if ("obj" in from && index.get(from.obj)?.obj.type === ObjectType.Star) {
     throw new Error("the star cannot be a travel endpoint");
   }
+  if ("obj" in to && index.get(to.obj)?.obj.type === ObjectType.Star) {
+    throw new Error("the star cannot be a travel endpoint");
+  }
+  const fromR = resolveWaypoint(from, index);
+  const toR = resolveWaypoint(to, index);
 
-  if (f.isMoon || t.isMoon) {
+  if (fromR.isMoon || toR.isMoon) {
     const all = getRoutes(system, from, to, {
       rank: RankMode.All,
       maxAssists: maxAssistsOpt,
@@ -279,11 +317,11 @@ export function getBestRoutes(
   const assists = Math.min(maxAssistsOpt ?? 2, 2);
   const flybyBodies: BodyRef[] = [];
   for (const o of system.objects) {
-    if (o.id === f.obj.id || o.id === t.obj.id) continue;
+    if (o.id === fromR.ref.id || o.id === toR.ref.id) continue;
     if (FLYBY_TYPES.has(o.type)) flybyBodies.push(bodyRefOf(o));
   }
-  const fromRef = bodyRefOf(f.obj);
-  const toRef = bodyRefOf(t.obj);
+  const fromRef = fromR.ref;
+  const toRef = toR.ref;
 
   const passOpts = {
     startWindow,
@@ -417,13 +455,14 @@ export function getBestRoutes3(
   options: TravelOptions = {},
 ): Route[] {
   const index = flatten(system);
-  const f = index.get(from.obj);
-  const t = index.get(to.obj);
-  if (!f) throw new Error(`unknown body: ${from.obj}`);
-  if (!t) throw new Error(`unknown body: ${to.obj}`);
-  if (f.obj.type === ObjectType.Star || t.obj.type === ObjectType.Star) {
+  if ("obj" in from && index.get(from.obj)?.obj.type === ObjectType.Star) {
     throw new Error("the star cannot be a travel endpoint");
   }
+  if ("obj" in to && index.get(to.obj)?.obj.type === ObjectType.Star) {
+    throw new Error("the star cannot be a travel endpoint");
+  }
+  const fromR = resolveWaypoint(from, index);
+  const toR = resolveWaypoint(to, index);
   // The reframe sweep: caller-supplied resolutionTarget mode, else the DEFAULT_REFRAME defaults.
   const sweep = options.sweep?.kind === "resolutionTarget"
     ? options.sweep
@@ -431,7 +470,7 @@ export function getBestRoutes3(
   const nowDay = sweep.nowDay;
   const scanOpts: TravelOptions = { ...options, rank: RankMode.All, sweep };
 
-  if (f.isMoon || t.isMoon) {
+  if (fromR.isMoon || toR.isMoon) {
     const all = getRoutes(system, from, to, scanOpts);
     const projected = projectRoutes(all, nowDay, options.departWindowDays);
     return selectBestRoutes2(projected);
@@ -441,11 +480,11 @@ export function getBestRoutes3(
   const assists = Math.min(options.maxAssists ?? 2, 2);
   const flybyBodies: BodyRef[] = [];
   for (const o of system.objects) {
-    if (o.id === f.obj.id || o.id === t.obj.id) continue;
+    if (o.id === fromR.ref.id || o.id === toR.ref.id) continue;
     if (FLYBY_TYPES.has(o.type)) flybyBodies.push(bodyRefOf(o));
   }
-  const fromRef = bodyRefOf(f.obj);
-  const toRef = bodyRefOf(t.obj);
+  const fromRef = fromR.ref;
+  const toRef = toR.ref;
 
   // Scan once (no branch-and-bound): direct + single + double assist, all tagged for projection.
   let candidates = findDirectRoutes(

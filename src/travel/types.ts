@@ -29,10 +29,17 @@ export interface FlybyGeometry {
   turnAngle: number; // radians
 }
 
-export interface Waypoint {
-  obj: string; // body id
-  type: EndState;
+export interface VirtualBodySpec {
+  id?: string; // synthetic label for route notation; auto-generated if omitted
+  orbitRadiusAu: number; // semi-major axis about the star (AU)
+  eccentricity?: number; // default 0 (circular)
+  periapsisAngle?: number; // argument of periapsis, radians; default 0
+  orbitalPhase?: number; // mean-anomaly fraction at t=0, 0..1; default 0
 }
+
+export type Waypoint =
+  | { obj: string; type: EndState } // existing: body by seed ID
+  | { spec: VirtualBodySpec; type: EndState }; // virtual heliocentric body
 
 export interface TerminalStage {
   kind: "capture" | "escape" | "descent" | "ascent" | "dock";
