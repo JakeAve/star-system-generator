@@ -33,8 +33,8 @@ const STYLES = `
 #cs-sheet.cs-peek #cs-content > *:not(#cs-detail) { pointer-events: none; }
 #cs-sheet.cs-peek #cs-detail > *:not(#cs-handle) { pointer-events: none; }
 #cs-detail-head {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 0.75rem; margin-bottom: 0.5rem;
+  display: flex; flex-direction: column;
+  gap: 0.375rem; margin-bottom: 0.5rem;
   transition: margin-bottom 0.2s ease;
 }
 #cs-detail-head-left {
@@ -47,13 +47,17 @@ const STYLES = `
   transition: font-size 0.2s ease;
 }
 #cs-detail-head h2.placeholder { color: #888; font-weight: normal; font-size: 0.75rem; letter-spacing: 0.05em; }
-#cs-flyto {
-  flex-shrink: 0;
+#cs-detail-head-buttons {
+  display: flex; gap: 0.5rem; flex-wrap: wrap;
+}
+#cs-detail-head button {
   background: #1a1a2a; border: 1px solid #333; color: #ccc;
   cursor: pointer; border-radius: 3px; padding: 0.25rem 0.75rem;
   font-family: monospace; font-size: 0.75rem; letter-spacing: 0.05em;
 }
-#cs-flyto:hover { border-color: #6ab0d4; color: #fff; }
+#cs-flyto:hover, #cs-route-start:hover { border-color: #6ab0d4; color: #fff; }
+#cs-route-finish:hover { border-color: #4fc3f7; color: #fff; }
+#cs-route-cancel:hover { border-color: #ef5350; color: #ef5350; }
 #cs-detail.cs-detail-compact { padding-bottom: 0.375rem; }
 #cs-detail.cs-detail-compact #cs-detail-head { margin-bottom: 0; }
 #cs-detail.cs-detail-compact #cs-detail-head h2 { font-size: 0.75rem; }
@@ -287,9 +291,10 @@ function showDetail(obj) {
     panelCallbacks.onFlyTo?.(obj);
   });
 
-  head.append(left, flyBtn);
+  const buttonsRow = document.createElement("div");
+  buttonsRow.id = "cs-detail-head-buttons";
+  buttonsRow.append(flyBtn);
 
-  // Route button(s): label depends on current route-picking phase.
   if (obj.type !== "star") {
     const makeRouteBtn = (id, label, action) => {
       const btn = document.createElement("button");
@@ -300,17 +305,18 @@ function showDetail(obj) {
     };
 
     if (routeState.phase === "idle") {
-      head.append(makeRouteBtn("cs-route-start", "⊕ Start Route", "start"));
+      buttonsRow.append(makeRouteBtn("cs-route-start", "⊕ Start Route", "start"));
     } else if (routeState.fromId === obj.id) {
-      head.append(makeRouteBtn("cs-route-cancel", "✕ Cancel Route", "cancel"));
+      buttonsRow.append(makeRouteBtn("cs-route-cancel", "✕ Cancel Route", "cancel"));
     } else {
-      head.append(
+      buttonsRow.append(
         makeRouteBtn("cs-route-finish", "✓ Finish Route", "finish"),
         makeRouteBtn("cs-route-cancel", "✕ Cancel Route", "cancel"),
       );
     }
   }
 
+  head.append(left, buttonsRow);
   detailEl.appendChild(head);
 
   const EARTH_DENSITY_GCC = 5.51;
