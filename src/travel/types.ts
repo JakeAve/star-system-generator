@@ -13,6 +13,7 @@ export enum EndState {
   Intercept = "intercept",
   Orbit = "orbit",
   Surface = "surface",
+  Dock = "dock",
 }
 
 /** How to rank and trim the returned route set. */
@@ -28,13 +29,27 @@ export interface FlybyGeometry {
   turnAngle: number; // radians
 }
 
-export interface Waypoint {
-  obj: string; // body id
-  type: EndState;
+export interface VirtualBodySpec {
+  id?: string; // synthetic label for route notation; auto-generated if omitted. Supply an explicit id when routing between two virtual bodies to avoid duplicate auto-ids.
+  orbitRadiusAu: number; // semi-major axis about the star (AU)
+  eccentricity?: number; // default 0 (circular)
+  periapsisAngle?: number; // argument of periapsis, radians; default 0
+  orbitalPhase?: number; // mean-anomaly fraction at t=0, 0..1; default 0
 }
 
+export interface PlanetoSpec {
+  id?: string; // synthetic label for route notation; auto-generated if omitted. Supply an explicit id when routing between two virtual bodies to avoid duplicate auto-ids.
+  parentId: string; // ID of the parent planet in the seed
+  orbitRadiusAu: number; // orbit radius around the parent (AU)
+}
+
+export type Waypoint =
+  | { obj: string; type: EndState } // existing: body by seed ID
+  | { spec: VirtualBodySpec; type: EndState } // heliocentric virtual body
+  | { pSpec: PlanetoSpec; type: EndState }; // planetocentric virtual body
+
 export interface TerminalStage {
-  kind: "capture" | "escape" | "descent" | "ascent";
+  kind: "capture" | "escape" | "descent" | "ascent" | "dock";
   deltaV: number; // km/s
   vInfinity?: number; // km/s, capture/escape
 }

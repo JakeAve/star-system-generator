@@ -49,6 +49,7 @@ const CODE: Record<EndState, string> = {
   [EndState.Orbit]: "o",
   [EndState.Surface]: "s",
   [EndState.Intercept]: "i",
+  [EndState.Dock]: "d",
 };
 
 /** One endpoint of a cross-frame route: a planet (anchors to itself) or a moon. */

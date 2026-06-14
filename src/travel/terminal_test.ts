@@ -48,3 +48,27 @@ Deno.test("oberthBurn: hyperbolic→circular burn is positive and grows with v�
   if (!(slow > 0)) throw new Error("expected positive burn");
   if (!(fast > slow)) throw new Error("higher v∞ must cost more");
 });
+
+Deno.test("buildTerminal: dock arrive is a single velocity-kill stage", () => {
+  const t = buildTerminal(body, EndState.Dock, vInf, "arrive");
+  assertEquals(t.stages.length, 1);
+  assertEquals(t.stages[0].kind, "dock");
+  assertAlmostEquals(t.stages[0].deltaV, vInf / 1000, 1e-9); // km/s
+  assertAlmostEquals(t.totalDeltaV, vInf / 1000, 1e-9);
+  assertEquals(t.phase, "arrive");
+});
+
+Deno.test("buildTerminal: dock depart is a single velocity-kill stage", () => {
+  const t = buildTerminal(body, EndState.Dock, vInf, "depart");
+  assertEquals(t.stages.length, 1);
+  assertEquals(t.stages[0].kind, "dock");
+  assertAlmostEquals(t.totalDeltaV, vInf / 1000, 1e-9);
+  assertEquals(t.phase, "depart");
+});
+
+Deno.test("buildTerminal: dock ignores body mu/radius (massless station)", () => {
+  const massless = { mu: 0, radiusM: 0 };
+  const t = buildTerminal(massless, EndState.Dock, vInf, "arrive");
+  assertAlmostEquals(t.totalDeltaV, vInf / 1000, 1e-9);
+  if (!Number.isFinite(t.totalDeltaV)) throw new Error("dock Δv must be finite");
+});
