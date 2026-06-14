@@ -616,6 +616,21 @@ export function lagrangeWaypoint(
   type: EndState.Intercept | EndState.Dock,
 ): Waypoint {
   const offset = point === "L4" ? Math.PI / 3 : -Math.PI / 3;
+
+  if (parent.type === ObjectType.Moon) {
+    // Planetocentric: co-orbital with the moon around its parent planet.
+    // Free-phase appendage routing, so the ±60° offset is not carried.
+    return {
+      pSpec: {
+        id: `${point}:${parent.id}`,
+        parentId: parent.parentId!,
+        orbitRadiusAu: parent.orbitRadius,
+      },
+      type,
+    };
+  }
+
+  // Heliocentric: co-orbital with the planet around the star.
   return {
     spec: {
       id: `${point}:${parent.id}`,

@@ -983,3 +983,35 @@ Deno.test("getBestRoutes: pSpec auto-generates an id from parent and radius", ()
     `virtual:${giant42.id}:${radius}au`,
   );
 });
+
+Deno.test("lagrangeWaypoint: moon parent yields a planetocentric pSpec", () => {
+  if (!giant42) throw new Error("seed 42 fixture missing");
+  const moon = giant42.moons[0];
+  const wp = lagrangeWaypoint(moon, "L4", EndState.Dock);
+  if (!("pSpec" in wp)) throw new Error("moon parent should yield a pSpec");
+  assertEquals(wp.pSpec.id, `L4:${moon.id}`);
+  assertEquals(wp.pSpec.parentId, moon.parentId);
+  assertEquals(wp.pSpec.orbitRadiusAu, moon.orbitRadius);
+});
+
+Deno.test("lagrangeWaypoint: planet parent still yields a heliocentric spec", () => {
+  const planet = sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
+    sys42.objects.find((o) => o.id !== giant42!.id)!;
+  const wp = lagrangeWaypoint(planet, "L5", EndState.Intercept);
+  if (!("spec" in wp)) throw new Error("planet parent should yield a spec");
+  assertEquals(wp.spec.orbitRadiusAu, planet.orbitRadius);
+});
+
+Deno.test("lagrangeWaypoint: routes to a moon's L5 (planetocentric, same-parent)", () => {
+  if (!giant42) throw new Error("seed 42 fixture missing");
+  const moon = giant42.moons[0];
+  const dest = lagrangeWaypoint(moon, "L5", EndState.Dock);
+  // Origin: a sibling moon around the same giant → same-parent routing.
+  const routes = getBestRoutes(
+    sys42,
+    { obj: giant42.moons[1].id, type: EndState.Orbit },
+    dest,
+  );
+  if (routes.length === 0) throw new Error("expected routes to moon L5");
+  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `L5:${moon.id}`);
+});
