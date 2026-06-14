@@ -92,8 +92,43 @@ function resolveWaypoint(
     };
   }
   if ("pSpec" in wp) {
-    // Implemented in a later task.
-    throw new Error("planetocentric virtual bodies not yet implemented");
+    if (wp.type === EndState.Orbit || wp.type === EndState.Surface) {
+      throw new Error("virtual bodies only support Intercept or Dock");
+    }
+    const s = wp.pSpec;
+    const parent = index.get(s.parentId);
+    if (!parent) throw new Error(`unknown parent body: ${s.parentId}`);
+    if (parent.isMoon) {
+      throw new Error("pSpec parentId must be a planet, not a moon");
+    }
+    const id = s.id ?? `virtual:${s.parentId}:${s.orbitRadiusAu}au`;
+    return {
+      kind: "crossframe",
+      endpoint: {
+        id,
+        endState: wp.type,
+        body: { mu: 0, radiusM: 0 },
+        anchorId: parent.obj.id,
+        anchorElements: elementsOf(parent.obj),
+        parent: {
+          body: {
+            mu: muBody(parent.obj.mass),
+            radiusM: parent.obj.radius * R_EARTH_M,
+          },
+          moonOrbitRadiusM: auToM(s.orbitRadiusAu),
+        },
+      },
+      selfRef: {
+        id,
+        elements: {
+          orbitRadiusAu: s.orbitRadiusAu,
+          eccentricity: 0,
+          periapsisAngle: 0,
+          orbitalPhase: 0,
+        },
+        endpoint: { mu: 0, radiusM: 0 },
+      },
+    };
   }
   const entry = index.get(wp.obj);
   if (!entry) throw new Error(`unknown body: ${wp.obj}`);

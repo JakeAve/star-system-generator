@@ -878,3 +878,91 @@ Deno.test("lagrangeWaypoint: routes end-to-end to a planet's L5", () => {
   if (routes.length === 0) throw new Error("expected routes to L5");
   assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `L5:${planet.id}`);
 });
+
+Deno.test("getBestRoutes: pSpec station as cross-frame destination docks", () => {
+  const origin = sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
+    sys42.objects.find((o) => o.id !== giant42!.id);
+  if (!giant42 || !origin) throw new Error("seed 42 fixture missing");
+  const routes = getBestRoutes(
+    sys42,
+    { obj: origin.id, type: EndState.Orbit },
+    {
+      pSpec: { id: "giant-station", parentId: giant42.id, orbitRadiusAu: giant42.moons[0].orbitRadius },
+      type: EndState.Dock,
+    },
+  );
+  if (routes.length === 0) throw new Error("expected cross-frame routes to pSpec station");
+  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], "giant-station");
+});
+
+Deno.test("getBestRoutes: pSpec same-parent (real moon -> station around same planet)", () => {
+  if (!giant42) throw new Error("seed 42 fixture missing");
+  const moonId = giant42.moons[0].id;
+  const routes = getBestRoutes(
+    sys42,
+    { obj: moonId, type: EndState.Orbit },
+    {
+      pSpec: { id: "sibling-station", parentId: giant42.id, orbitRadiusAu: giant42.moons[1].orbitRadius },
+      type: EndState.Dock,
+    },
+  );
+  if (routes.length === 0) throw new Error("expected same-parent route");
+  assertEquals(routes[0].bodies[0], moonId);
+  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], "sibling-station");
+});
+
+Deno.test("getBestRoutes: pSpec intercept has zero terminal Δv at the station", () => {
+  const origin = sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
+    sys42.objects.find((o) => o.id !== giant42!.id);
+  if (!giant42 || !origin) throw new Error("seed 42 fixture missing");
+  const routes = getBestRoutes(
+    sys42,
+    { obj: origin.id, type: EndState.Orbit },
+    { pSpec: { id: "wp", parentId: giant42.id, orbitRadiusAu: giant42.moons[0].orbitRadius }, type: EndState.Intercept },
+  );
+  if (routes.length === 0) throw new Error("expected routes");
+  const arrive = routes[0].nodes[routes[0].nodes.length - 1];
+  assertEquals(arrive.terminal?.totalDeltaV, 0);
+});
+
+Deno.test("getBestRoutes: pSpec rejects Orbit end-state", () => {
+  if (!giant42) throw new Error("seed 42 fixture missing");
+  assertThrows(
+    () =>
+      getBestRoutes(
+        sys42,
+        { obj: giant42!.moons[0].id, type: EndState.Orbit },
+        { pSpec: { parentId: giant42!.id, orbitRadiusAu: 0.01 }, type: EndState.Orbit },
+      ),
+    Error,
+    "virtual bodies only support Intercept or Dock",
+  );
+});
+
+Deno.test("getBestRoutes: pSpec rejects a moon parentId", () => {
+  if (!giant42) throw new Error("seed 42 fixture missing");
+  assertThrows(
+    () =>
+      getBestRoutes(
+        sys42,
+        { obj: giant42!.moons[1].id, type: EndState.Orbit },
+        { pSpec: { parentId: giant42!.moons[0].id, orbitRadiusAu: 0.01 }, type: EndState.Dock },
+      ),
+    Error,
+    "pSpec parentId must be a planet, not a moon",
+  );
+});
+
+Deno.test("getBestRoutes: pSpec rejects an unknown parentId", () => {
+  if (!giant42) throw new Error("seed 42 fixture missing");
+  assertThrows(
+    () =>
+      getBestRoutes(
+        sys42,
+        { obj: giant42!.moons[0].id, type: EndState.Orbit },
+        { pSpec: { parentId: "obj_does_not_exist", orbitRadiusAu: 0.01 }, type: EndState.Dock },
+      ),
+    Error,
+    "unknown parent body",
+  );
+});
