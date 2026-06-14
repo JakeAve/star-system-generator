@@ -13,6 +13,7 @@ export enum EndState {
   Intercept = "intercept",
   Orbit = "orbit",
   Surface = "surface",
+  Dock = "dock",
 }
 
 /** How to rank and trim the returned route set. */
@@ -34,7 +35,7 @@ export interface Waypoint {
 }
 
 export interface TerminalStage {
-  kind: "capture" | "escape" | "descent" | "ascent";
+  kind: "capture" | "escape" | "descent" | "ascent" | "dock";
   deltaV: number; // km/s
   vInfinity?: number; // km/s, capture/escape
 }

@@ -43,6 +43,7 @@ const CODE: Record<EndState, string> = {
   [EndState.Orbit]: "o",
   [EndState.Surface]: "s",
   [EndState.Intercept]: "i",
+  [EndState.Dock]: "d",
 };
 
 /**
