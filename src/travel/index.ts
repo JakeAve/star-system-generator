@@ -73,9 +73,7 @@ function resolveWaypoint(
   index: Map<string, { obj: CelestialObject; isMoon: boolean }>,
 ): ResolvedWaypoint {
   if ("spec" in wp) {
-    if (wp.type === EndState.Orbit || wp.type === EndState.Surface) {
-      throw new Error("virtual bodies only support Intercept or Dock");
-    }
+    assertVirtualEndState(wp.type);
     const s = wp.spec;
     return {
       kind: "heliocentric",
@@ -92,9 +90,7 @@ function resolveWaypoint(
     };
   }
   if ("pSpec" in wp) {
-    if (wp.type === EndState.Orbit || wp.type === EndState.Surface) {
-      throw new Error("virtual bodies only support Intercept or Dock");
-    }
+    assertVirtualEndState(wp.type);
     const s = wp.pSpec;
     const parent = index.get(s.parentId);
     if (!parent) throw new Error(`unknown parent body: ${s.parentId}`);
@@ -118,6 +114,8 @@ function resolveWaypoint(
           moonOrbitRadiusM: auToM(s.orbitRadiusAu),
         },
       },
+      // selfRef: parent-relative BodyRef for same-parent (shared-anchor) Hohmann routing.
+      // A pSpec station has no eccentricity/phase, so its self orbit is circular.
       selfRef: {
         id,
         elements: {
@@ -189,6 +187,13 @@ function heliocentricToCrossFrame(
     anchorId: ref.id,
     anchorElements: ref.elements,
   };
+}
+
+/** Virtual bodies have no SOI: only Intercept (fly-through) or Dock (rendezvous) make sense. */
+function assertVirtualEndState(type: EndState): void {
+  if (type === EndState.Orbit || type === EndState.Surface) {
+    throw new Error("virtual bodies only support Intercept or Dock");
+  }
 }
 
 /** Reject the star as an endpoint. Only meaningful for real ({ obj }) waypoints. */

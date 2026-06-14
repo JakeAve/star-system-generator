@@ -966,3 +966,20 @@ Deno.test("getBestRoutes: pSpec rejects an unknown parentId", () => {
     "unknown parent body",
   );
 });
+
+Deno.test("getBestRoutes: pSpec auto-generates an id from parent and radius", () => {
+  if (!giant42) throw new Error("seed 42 fixture missing");
+  const origin = sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
+    sys42.objects.find((o) => o.id !== giant42!.id)!;
+  const radius = giant42.moons[0].orbitRadius;
+  const routes = getBestRoutes(
+    sys42,
+    { obj: origin.id, type: EndState.Orbit },
+    { pSpec: { parentId: giant42.id, orbitRadiusAu: radius }, type: EndState.Dock },
+  );
+  if (routes.length === 0) throw new Error("expected routes");
+  assertEquals(
+    routes[0].bodies[routes[0].bodies.length - 1],
+    `virtual:${giant42.id}:${radius}au`,
+  );
+});
