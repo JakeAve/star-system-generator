@@ -221,6 +221,20 @@ function sameRoute(x: Route, y: Route): boolean {
     Math.abs(x.duration - y.duration) < 1e-9;
 }
 
+Deno.test("getRoutes: routes to a heliocentric virtual dock destination", () => {
+  const routes = getRoutes(
+    system,
+    { obj: a, type: EndState.Orbit },
+    { spec: { id: "gr-station", orbitRadiusAu: 2.6 }, type: EndState.Dock },
+    { rank: RankMode.All },
+  );
+  if (routes.length === 0) throw new Error("expected routes");
+  const r = routes[0];
+  assertEquals(r.bodies[r.bodies.length - 1], "gr-station");
+  const arrive = r.nodes[r.nodes.length - 1];
+  assertEquals(arrive.terminal?.stages[0].kind, "dock");
+});
+
 Deno.test("getBestRoutes: returns fastest/cheapest picks for two non-moon bodies", () => {
   const picks = getBestRoutes(system, { obj: a, type: EndState.Orbit }, {
     obj: b,

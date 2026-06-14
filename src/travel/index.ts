@@ -124,6 +124,16 @@ function crossFrameEndpointOf(
   };
 }
 
+/** Reject the star as an endpoint. Only meaningful for real ({ obj }) waypoints. */
+function assertNotStar(
+  wp: Waypoint,
+  index: Map<string, { obj: CelestialObject; isMoon: boolean }>,
+): void {
+  if ("obj" in wp && index.get(wp.obj)?.obj.type === ObjectType.Star) {
+    throw new Error("the star cannot be a travel endpoint");
+  }
+}
+
 /** Flatten a system into id → {object, isMoon}. IDs are globally unique. */
 function flatten(
   system: SolarSystem,
@@ -153,17 +163,16 @@ export function getRoutes(
   validateWindow(options);
   const index = flatten(system);
   // Reject the star before resolving (resolveWaypoint has no system context for spec bodies).
-  if ("obj" in from && index.get(from.obj)?.obj.type === ObjectType.Star) {
-    throw new Error("the star cannot be a travel endpoint");
-  }
-  if ("obj" in to && index.get(to.obj)?.obj.type === ObjectType.Star) {
-    throw new Error("the star cannot be a travel endpoint");
-  }
+  assertNotStar(from, index);
+  assertNotStar(to, index);
   const fromR = resolveWaypoint(from, index);
   const toR = resolveWaypoint(to, index);
   if (fromR.isMoon || toR.isMoon) {
-    const f = index.get((from as { obj: string }).obj)!;
-    const t = index.get((to as { obj: string }).obj)!;
+    if (!("obj" in from) || !("obj" in to)) {
+      throw new Error("moon routing is not supported for virtual bodies");
+    }
+    const f = index.get(from.obj)!;
+    const t = index.get(to.obj)!;
     // Same-parent moon→moon: a single planetocentric leg (Phase 1b).
     if (f.isMoon && t.isMoon && f.obj.parentId === t.obj.parentId) {
       const parent = index.get(f.obj.parentId!);
@@ -293,12 +302,8 @@ export function getBestRoutes(
   validateWindow({ startWindow, endWindow, departWindowDays });
 
   const index = flatten(system);
-  if ("obj" in from && index.get(from.obj)?.obj.type === ObjectType.Star) {
-    throw new Error("the star cannot be a travel endpoint");
-  }
-  if ("obj" in to && index.get(to.obj)?.obj.type === ObjectType.Star) {
-    throw new Error("the star cannot be a travel endpoint");
-  }
+  assertNotStar(from, index);
+  assertNotStar(to, index);
   const fromR = resolveWaypoint(from, index);
   const toR = resolveWaypoint(to, index);
 
@@ -455,12 +460,8 @@ export function getBestRoutes3(
   options: TravelOptions = {},
 ): Route[] {
   const index = flatten(system);
-  if ("obj" in from && index.get(from.obj)?.obj.type === ObjectType.Star) {
-    throw new Error("the star cannot be a travel endpoint");
-  }
-  if ("obj" in to && index.get(to.obj)?.obj.type === ObjectType.Star) {
-    throw new Error("the star cannot be a travel endpoint");
-  }
+  assertNotStar(from, index);
+  assertNotStar(to, index);
   const fromR = resolveWaypoint(from, index);
   const toR = resolveWaypoint(to, index);
   // The reframe sweep: caller-supplied resolutionTarget mode, else the DEFAULT_REFRAME defaults.
