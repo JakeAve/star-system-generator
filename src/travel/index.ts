@@ -128,6 +128,11 @@ function resolveWaypoint(
       },
     };
   }
+  // Real bodies have a sphere of influence; Dock (kill-all-relative-velocity rendezvous)
+  // is only meaningful for massless virtual bodies.
+  if (wp.type === EndState.Dock) {
+    throw new Error("Dock is only supported for virtual bodies");
+  }
   const entry = index.get(wp.obj);
   if (!entry) throw new Error(`unknown body: ${wp.obj}`);
   if (entry.isMoon) {
@@ -607,7 +612,11 @@ export function getBestRoutes3(
 
 /**
  * Build a waypoint at a parent body's L4 (leading, +60°) or L5 (trailing, -60°) point.
- * For a planet parent this is a heliocentric virtual body co-orbital with the planet.
+ * - Planet (or minor-body) parent: a heliocentric virtual body co-orbital with the parent,
+ *   carrying the ±60° phase offset.
+ * - Moon parent: a planetocentric virtual body co-orbital with the moon around its parent
+ *   planet. NOTE: the ±60° phase is NOT carried — planetocentric appendage routing is
+ *   free-phase, so the station's angular position around the planet does not affect routes.
  * Only Intercept or Dock are meaningful (a massless point has no SOI).
  */
 export function lagrangeWaypoint(
@@ -615,6 +624,10 @@ export function lagrangeWaypoint(
   point: "L4" | "L5",
   type: EndState.Intercept | EndState.Dock,
 ): Waypoint {
+  if (parent.type === ObjectType.Star) {
+    throw new Error("lagrangeWaypoint: a star has no Lagrange points to anchor to");
+  }
+
   const offset = point === "L4" ? Math.PI / 3 : -Math.PI / 3;
 
   if (parent.type === ObjectType.Moon) {

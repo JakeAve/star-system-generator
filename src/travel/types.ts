@@ -30,7 +30,7 @@ export interface FlybyGeometry {
 }
 
 export interface VirtualBodySpec {
-  id?: string; // synthetic label for route notation; auto-generated if omitted
+  id?: string; // synthetic label for route notation; auto-generated if omitted. Supply an explicit id when routing between two virtual bodies to avoid duplicate auto-ids.
   orbitRadiusAu: number; // semi-major axis about the star (AU)
   eccentricity?: number; // default 0 (circular)
   periapsisAngle?: number; // argument of periapsis, radians; default 0
@@ -38,7 +38,7 @@ export interface VirtualBodySpec {
 }
 
 export interface PlanetoSpec {
-  id?: string; // synthetic label for route notation; auto-generated if omitted
+  id?: string; // synthetic label for route notation; auto-generated if omitted. Supply an explicit id when routing between two virtual bodies to avoid duplicate auto-ids.
   parentId: string; // ID of the parent planet in the seed
   orbitRadiusAu: number; // orbit radius around the parent (AU)
 }

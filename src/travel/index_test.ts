@@ -813,6 +813,7 @@ Deno.test("getBestRoutes: virtual body as origin (dock) departs with no escape s
   const depart = routes[0].nodes[0];
   assertEquals(depart.terminal?.endState, EndState.Dock);
   assertEquals(depart.terminal?.stages[0].kind, "dock");
+  assertEquals(depart.terminal?.stages.length, 1);
 });
 
 Deno.test("getBestRoutes: virtual body auto-generates an id when omitted", () => {
@@ -848,6 +849,28 @@ Deno.test("getBestRoutes: virtual body rejects Surface end-state", () => {
       ),
     Error,
     "virtual bodies only support Intercept or Dock",
+  );
+});
+
+Deno.test("getBestRoutes: Dock is rejected on a real body", () => {
+  const b = system.objects[system.objects.length - 1].id;
+  assertThrows(
+    () =>
+      getBestRoutes(
+        system,
+        { obj: a, type: EndState.Orbit },
+        { obj: b, type: EndState.Dock },
+      ),
+    Error,
+    "Dock is only supported for virtual bodies",
+  );
+});
+
+Deno.test("lagrangeWaypoint: rejects a star parent", () => {
+  assertThrows(
+    () => lagrangeWaypoint(system.star, "L4", EndState.Dock),
+    Error,
+    "a star has no Lagrange points",
   );
 });
 
