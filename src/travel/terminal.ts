@@ -36,6 +36,19 @@ export function buildTerminal(
   if (endState === EndState.Intercept) {
     return { endState, phase, stages: [], totalDeltaV: 0, duration: 0 };
   }
+  if (endState === EndState.Dock) {
+    const stage: TerminalStage = {
+      kind: "dock",
+      deltaV: mpsToKmps(vInf),
+    };
+    return {
+      endState,
+      phase,
+      stages: [stage],
+      totalDeltaV: mpsToKmps(vInf),
+      duration: 0,
+    };
+  }
   const soiBurn: TerminalStage = {
     kind: phase === "arrive" ? "capture" : "escape",
     deltaV: mpsToKmps(oberthBurn(body, vInf)),
