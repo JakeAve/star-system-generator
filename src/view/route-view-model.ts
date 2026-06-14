@@ -323,14 +323,13 @@ export function routeViewsForPick(
   fromId: string,
   toId: string,
   currentDay: number,
-  opts: { includeGoldilocks?: boolean } = {},
+  opts: { balance?: boolean } = {},
 ): RouteView[] {
   const routes = getBestRoutes(
     system,
     { obj: fromId, type: EndState.Orbit },
     { obj: toId, type: EndState.Orbit },
-    { startWindow: currentDay },
-    opts.includeGoldilocks ?? true,
+    { startWindow: currentDay, balance: opts.balance ?? true },
   );
   return routes.map((route, i) =>
     buildRouteViewModel(system, route, {

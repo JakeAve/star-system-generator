@@ -2,7 +2,6 @@ import { assertEquals, assertThrows } from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
 import {
   getBestRoutes,
-  getBestRoutes2,
   getBestRoutes3,
   getRoutes,
 } from "./index.ts";
@@ -472,11 +471,11 @@ Deno.test("getRoutes: direct departures fall within the synodic period, not the 
   }
 });
 
-// --- getBestRoutes2 (Tier-C, 7 picks) --------------------------------------------------
+// --- getBestRoutes with findSoonest (7 picks) ------------------------------------------
 
-Deno.test("getBestRoutes2: anchors agree with getRoutes' extremes (non-moon)", () => {
+Deno.test("getBestRoutes(findSoonest): anchors agree with getRoutes' extremes (non-moon)", () => {
   const all = getRoutes(system, wp(a), wp(b), { rank: RankMode.All });
-  const picks = getBestRoutes2(system, wp(a), wp(b));
+  const picks = getBestRoutes(system, wp(a), wp(b), { findSoonest: true });
   if (picks.length === 0) throw new Error("expected picks");
   const arr = (r: typeof all[number]) => r.departAt + r.duration;
   const minDv = Math.min(...all.map((r) => r.totalDeltaV));
@@ -493,40 +492,32 @@ Deno.test("getBestRoutes2: anchors agree with getRoutes' extremes (non-moon)", (
   }
 });
 
-Deno.test("getBestRoutes2: returns at most 7 routes, all distinct by value", () => {
-  const picks = getBestRoutes2(system, wp(a), wp(b));
+Deno.test("getBestRoutes(findSoonest): returns at most 7 routes, all distinct by value", () => {
+  const picks = getBestRoutes(system, wp(a), wp(b), { findSoonest: true });
   if (picks.length > 7) throw new Error("more than 7 picks");
   const key = (r: typeof picks[number]) =>
     `${r.departAt}|${r.duration}|${r.notation}`;
   assertEquals(picks.length, new Set(picks.map(key)).size);
 });
 
-Deno.test("getBestRoutes2: deterministic", () => {
-  const r1 = getBestRoutes2(system, wp(a), wp(b));
-  const r2 = getBestRoutes2(system, wp(a), wp(b));
+Deno.test("getBestRoutes(findSoonest): deterministic", () => {
+  const r1 = getBestRoutes(system, wp(a), wp(b), { findSoonest: true });
+  const r2 = getBestRoutes(system, wp(a), wp(b), { findSoonest: true });
   assertEquals(JSON.stringify(r1), JSON.stringify(r2));
 });
 
-Deno.test("getBestRoutes2: the star cannot be an endpoint", () => {
-  let threw = false;
-  try {
-    getBestRoutes2(
-      system,
-      { obj: system.star.id, type: EndState.Orbit },
-      wp(b),
-    );
-  } catch {
-    threw = true;
-  }
-  if (!threw) throw new Error("expected throw for star endpoint");
+Deno.test("getBestRoutes(findSoonest): the star cannot be an endpoint", () => {
+  assertThrows(() =>
+    getBestRoutes(system, { obj: system.star.id, type: EndState.Orbit }, wp(b), { findSoonest: true })
+  );
 });
 
-Deno.test("getBestRoutes2: moon endpoints draw picks from getRoutes' front", () => {
+Deno.test("getBestRoutes(findSoonest): moon endpoints draw picks from getRoutes' front", () => {
   const giantM = sys42.objects.find((o) => o.moons.length >= 2)!;
   const from = { obj: giantM.moons[0].id, type: EndState.Orbit };
   const to = { obj: giantM.moons[1].id, type: EndState.Orbit };
   const all = getRoutes(sys42, from, to, { rank: RankMode.All });
-  const picks = getBestRoutes2(sys42, from, to);
+  const picks = getBestRoutes(sys42, from, to, { findSoonest: true });
   const key = (r: typeof all[number]) =>
     `${r.departAt}|${r.duration}|${r.notation}`;
   const allKeys = new Set(all.map(key));
@@ -537,13 +528,14 @@ Deno.test("getBestRoutes2: moon endpoints draw picks from getRoutes' front", () 
   }
 });
 
-Deno.test("getBestRoutes2: synodic cap makes a huge window match the default for direct routes", () => {
+Deno.test("getBestRoutes(findSoonest): synodic cap makes a huge window match the default for direct routes", () => {
   const huge = 100000;
-  const capped = getBestRoutes2(system, wp(a), wp(b), {
+  const capped = getBestRoutes(system, wp(a), wp(b), {
+    findSoonest: true,
     departWindowDays: huge,
     maxAssists: 0,
   });
-  const dflt = getBestRoutes2(system, wp(a), wp(b), { maxAssists: 0 });
+  const dflt = getBestRoutes(system, wp(a), wp(b), { findSoonest: true, maxAssists: 0 });
   assertEquals(JSON.stringify(capped), JSON.stringify(dflt));
 });
 
@@ -608,27 +600,28 @@ Deno.test("getBestRoutes3: moon endpoint returns picks from the cross-frame set"
   assertEquals(picks.length <= 7, true);
 });
 
-Deno.test("getBestRoutes3: control getBestRoutes2 is unaffected by a fixed sweep option", () => {
-  const c1 = getBestRoutes2(system, wp(a), wp(b));
-  const c2 = getBestRoutes2(system, wp(a), wp(b), { sweep: { kind: "fixed" } });
+Deno.test("getBestRoutes3: control getBestRoutes(findSoonest) is unaffected by a fixed sweep option", () => {
+  const c1 = getBestRoutes(system, wp(a), wp(b), { findSoonest: true });
+  const c2 = getBestRoutes(system, wp(a), wp(b), { findSoonest: true });
   assertEquals(JSON.stringify(c1), JSON.stringify(c2));
 });
 
 // --- startWindow / endWindow validation ------------------------------------------------
 
-Deno.test("getBestRoutes2: rejects endWindow <= startWindow", () => {
+Deno.test("getBestRoutes(findSoonest): rejects endWindow <= startWindow", () => {
   assertThrows(() =>
-    getBestRoutes2(system, wp(a), wp(b), { startWindow: 1000, endWindow: 1000 })
+    getBestRoutes(system, wp(a), wp(b), { findSoonest: true, startWindow: 1000, endWindow: 1000 })
   );
   assertThrows(() =>
-    getBestRoutes2(system, wp(a), wp(b), { startWindow: 1000, endWindow: 500 })
+    getBestRoutes(system, wp(a), wp(b), { findSoonest: true, startWindow: 1000, endWindow: 500 })
   );
 });
 
-Deno.test("getBestRoutes2: rejects negative or non-finite startWindow", () => {
-  assertThrows(() => getBestRoutes2(system, wp(a), wp(b), { startWindow: -1 }));
+Deno.test("getBestRoutes(findSoonest): rejects negative or non-finite startWindow", () => {
+  assertThrows(() => getBestRoutes(system, wp(a), wp(b), { findSoonest: true, startWindow: -1 }));
   assertThrows(() =>
-    getBestRoutes2(system, wp(a), wp(b), {
+    getBestRoutes(system, wp(a), wp(b), {
+      findSoonest: true,
       startWindow: Number.POSITIVE_INFINITY,
     })
   );
@@ -648,19 +641,20 @@ Deno.test("getRoutes: startWindow 0 with a positive endWindow is valid", () => {
   getRoutes(system, wp(a), wp(b), { startWindow: 0, endWindow: 1 });
 });
 
-Deno.test("getBestRoutes2: bare endWindow is validated against the default start of 0", () => {
+Deno.test("getBestRoutes(findSoonest): bare endWindow is validated against the default start of 0", () => {
   // endWindow 0 is not > the default startWindow (0) → throws.
-  assertThrows(() => getBestRoutes2(system, wp(a), wp(b), { endWindow: 0 }));
+  assertThrows(() => getBestRoutes(system, wp(a), wp(b), { findSoonest: true, endWindow: 0 }));
   // endWindow 1 is > 0 → valid.
-  getBestRoutes2(system, wp(a), wp(b), { endWindow: 1 });
+  getBestRoutes(system, wp(a), wp(b), { findSoonest: true, endWindow: 1 });
 });
 
 // --- startWindow / endWindow behavior --------------------------------------------------
 
-Deno.test("getBestRoutes2: startWindow shifts the departure window (direct)", () => {
+Deno.test("getBestRoutes(findSoonest): startWindow shifts the departure window (direct)", () => {
   const start = 5000;
   const end = start + 365;
-  const picks = getBestRoutes2(system, wp(a), wp(b), {
+  const picks = getBestRoutes(system, wp(a), wp(b), {
+    findSoonest: true,
     startWindow: start,
     endWindow: end,
     maxAssists: 0,
@@ -674,16 +668,17 @@ Deno.test("getBestRoutes2: startWindow shifts the departure window (direct)", ()
   }
 });
 
-Deno.test("getBestRoutes2: omitting the window equals startWindow 0", () => {
-  const dflt = getBestRoutes2(system, wp(a), wp(b));
-  const explicit = getBestRoutes2(system, wp(a), wp(b), { startWindow: 0 });
+Deno.test("getBestRoutes(findSoonest): omitting the window equals startWindow 0", () => {
+  const dflt = getBestRoutes(system, wp(a), wp(b), { findSoonest: true });
+  const explicit = getBestRoutes(system, wp(a), wp(b), { findSoonest: true, startWindow: 0 });
   assertEquals(JSON.stringify(dflt), JSON.stringify(explicit));
 });
 
-Deno.test("getBestRoutes2: assists also respect the shifted window", () => {
+Deno.test("getBestRoutes(findSoonest): assists also respect the shifted window", () => {
   const start = 4000;
   const end = start + 1200;
-  const picks = getBestRoutes2(system, wp(a), wp(b), {
+  const picks = getBestRoutes(system, wp(a), wp(b), {
+    findSoonest: true,
     startWindow: start,
     endWindow: end,
     maxAssists: 2,
@@ -738,16 +733,16 @@ Deno.test("getBestRoutes: respects the shifted window", () => {
   }
 });
 
-Deno.test("getBestRoutes2: anchors agree with getRoutes within a shifted window", () => {
+Deno.test("getBestRoutes(findSoonest): anchors agree with getRoutes within a shifted window", () => {
   // Only startWindow set (no endWindow) → both paths use a synodic-width horizon starting at N,
-  // so getRoutes' direct grid and getBestRoutes2's synodic-capped direct grid are identical.
+  // so getRoutes' direct grid and getBestRoutes(findSoonest)'s synodic-capped direct grid are identical.
   const start = 4000;
   const shared = { startWindow: start, maxAssists: 0 as const };
   const all = getRoutes(system, wp(a), wp(b), {
     rank: RankMode.All,
     ...shared,
   });
-  const picks = getBestRoutes2(system, wp(a), wp(b), shared);
+  const picks = getBestRoutes(system, wp(a), wp(b), { findSoonest: true, ...shared });
   if (picks.length === 0) throw new Error("expected picks");
   const arr = (r: Route) => r.departAt + r.duration;
   const minDv = Math.min(...all.map((r) => r.totalDeltaV));

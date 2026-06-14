@@ -109,6 +109,18 @@ export type SweepMode =
     nowDay: number; // t0 for projection; window is taken from departWindowDays
   };
 
+export interface RouteOptions {
+  findFastest?: boolean; // default true
+  findCheapest?: boolean; // default true
+  findSoonest?: boolean; // default false
+  balance?: boolean; // default true
+  capAtSynodic?: boolean; // default true; caps direct-departure search to one synodic period
+  maxAssists?: number; // default 2
+  startWindow?: number;
+  endWindow?: number;
+  departWindowDays?: number; // legacy
+}
+
 export interface TravelOptions {
   maxAssists?: number; // default 2; Phase 1 treats as direct-only
   rank?: RankMode; // default Pareto

@@ -45,7 +45,6 @@ export {
 } from "./src/core/types.ts";
 export {
   getBestRoutes,
-  getBestRoutes2,
   getBestRoutes3,
   getRoutes,
 } from "./src/travel/index.ts";
@@ -65,6 +64,7 @@ export type {
   Route,
   RouteLeg,
   RouteNode,
+  RouteOptions,
   TerminalTransfer,
   TravelOptions,
   Waypoint,
