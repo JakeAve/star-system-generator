@@ -3,6 +3,9 @@ import {
   buildRouteViewModel,
   chevronsAlong,
   hitTestRoutes,
+  isPureRole,
+  roleColor,
+  roleDisplayName,
   routeViewForPick,
   routeViewsForPick,
 } from "./route-view-model.ts";
@@ -113,6 +116,10 @@ function fakeRoute(id: string, opts: {
 }): RouteView {
   return {
     id,
+    totalDeltaV: 0,
+    duration: 10,
+    departAt: 0,
+    arriveAt: 10,
     legs: opts.legPoints
       ? [{
         centralBodyId: "star",
@@ -292,4 +299,28 @@ Deno.test("routeViewsForPick: all departures are at/after currentDay", () => {
       );
     }
   }
+});
+
+Deno.test("roleColor maps pure roles to saturated palette", () => {
+  assertEquals(roleColor("cheapest"), "#4fc3f7");
+  assertEquals(roleColor("fastest"), "#ffd633");
+  assertEquals(roleColor("soonest"), "#ef5350");
+});
+
+Deno.test("roleColor maps balanced roles to muted gray", () => {
+  assertEquals(roleColor("balanced-cheap-fast"), "#8a8f9c");
+  assertEquals(roleColor("balanced-all"), "#8a8f9c");
+  assertEquals(roleColor(undefined), "#8a8f9c"); // untagged fallback
+});
+
+Deno.test("roleDisplayName is human-readable", () => {
+  assertEquals(roleDisplayName("cheapest"), "Cheapest");
+  assertEquals(roleDisplayName("balanced-cheap-fast"), "Balanced: cheap + fast");
+  assertEquals(roleDisplayName("balanced-all"), "Balanced: all-round");
+});
+
+Deno.test("isPureRole distinguishes anchors from balances", () => {
+  assertEquals(isPureRole("cheapest"), true);
+  assertEquals(isPureRole("balanced-fast-soon"), false);
+  assertEquals(isPureRole(undefined), false);
 });

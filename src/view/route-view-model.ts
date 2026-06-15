@@ -3,7 +3,7 @@
 
 import type { SolarSystem } from "../core/types.ts";
 import { AU_SCALE, MOON_ORBIT_SCALE } from "../core/kinematics.ts";
-import type { Route, RouteNodeKind } from "../travel/types.ts";
+import type { Route, RouteNodeKind, RouteRole } from "../travel/types.ts";
 import { EndState } from "../travel/types.ts";
 import { getBestRoutes } from "../travel/index.ts";
 import { buildViewModel, type ViewBody } from "./view-model.ts";
@@ -49,6 +49,13 @@ export interface RouteGhostView {
 export interface RouteView {
   id: string; // caller-supplied; returned in onRoutePick targets
   color?: string; // whole-route color for arc + node markers; engine default "#ffd633"
+  /** Optimization role, if the source route was tagged (selectBestRoutes2). */
+  role?: RouteRole;
+  /** Whole-route totals, copied from the source Route for hover/panel display. */
+  totalDeltaV: number; // km/s
+  duration: number; // days
+  departAt: number; // absolute day
+  arriveAt: number; // absolute day (departAt + duration)
   legs: RouteLegView[];
   nodes: RouteNodeView[];
   ghosts: RouteGhostView[];
@@ -242,7 +249,7 @@ function sampleArc(
 export function buildRouteViewModel(
   system: SolarSystem,
   route: Route,
-  opts: { id?: string; color?: string } = {},
+  opts: { id?: string; color?: string; role?: RouteRole } = {},
 ): RouteView {
   const starId = system.star.id;
 
@@ -303,15 +310,48 @@ export function buildRouteViewModel(
   return {
     id: opts.id ?? route.notation,
     color: opts.color,
+    role: opts.role ?? route.role,
+    totalDeltaV: route.totalDeltaV,
+    duration: route.duration,
+    departAt: route.departAt,
+    arriveAt: route.departAt + route.duration,
     legs,
     nodes,
     ghosts,
   };
 }
 
-/** Colors assigned positionally to getBestRoutes picks. Slot meaning shifts when fewer than 3
- *  distinct picks are returned (dedup can collapse goldilocks into an anchor). */
-const ROUTE_PALETTE = ["#4fc3f7", "#ffd633", "#ef5350"];
+const PURE_ROLE_COLOR: Record<string, string> = {
+  cheapest: "#4fc3f7",
+  fastest: "#ffd633",
+  soonest: "#ef5350",
+};
+const BALANCED_COLOR = "#8a8f9c";
+
+const ROLE_DISPLAY_NAME: Record<string, string> = {
+  cheapest: "Cheapest",
+  fastest: "Fastest",
+  soonest: "Soonest",
+  "balanced-cheap-fast": "Balanced: cheap + fast",
+  "balanced-cheap-soon": "Balanced: cheap + soon",
+  "balanced-fast-soon": "Balanced: fast + soon",
+  "balanced-all": "Balanced: all-round",
+};
+
+/** True for the three anchor roles (cheapest/fastest/soonest); false for balances/undefined. */
+export function isPureRole(role: RouteRole | undefined): boolean {
+  return role !== undefined && role in PURE_ROLE_COLOR;
+}
+
+/** Line color for a role: saturated per-anchor, muted gray for balances/undefined. */
+export function roleColor(role: RouteRole | undefined): string {
+  return (role && PURE_ROLE_COLOR[role]) ?? BALANCED_COLOR;
+}
+
+/** Human-readable label for a role; "Route" when untagged. */
+export function roleDisplayName(role: RouteRole | undefined): string {
+  return (role && ROLE_DISPLAY_NAME[role]) ?? "Route";
+}
 
 /**
  * Compute all picks from getBestRoutes for a departure on/after `currentDay` and convert
@@ -331,9 +371,9 @@ export function routeViewsForPick(
     { obj: toId, type: EndState.Orbit },
     { startWindow: currentDay, balance: opts.balance ?? true },
   );
-  return routes.map((route, i) =>
+  return routes.map((route) =>
     buildRouteViewModel(system, route, {
-      color: ROUTE_PALETTE[i] ?? ROUTE_PALETTE[0],
+      color: roleColor(route.role),
     })
   );
 }
