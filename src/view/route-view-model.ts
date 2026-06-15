@@ -355,7 +355,8 @@ export function roleDisplayName(role: RouteRole | undefined): string {
 
 /**
  * Compute all picks from getBestRoutes for a departure on/after `currentDay` and convert
- * each to a RouteView with a distinct color. Returns an empty array when no routes exist.
+ * each to a RouteView colored by optimization role (pure roles get distinct saturated colors;
+ * balanced routes share a muted gray). Returns an empty array when no routes exist.
  * Intended for multi-route overlay display; call `orrery.setRoutes(views)` with the result.
  */
 export function routeViewsForPick(
@@ -373,7 +374,6 @@ export function routeViewsForPick(
   );
   return routes.map((route) =>
     buildRouteViewModel(system, route, {
-      role: route.role,
       color: roleColor(route.role),
     })
   );
