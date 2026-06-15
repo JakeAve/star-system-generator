@@ -10,6 +10,7 @@ import {
 import { centroidOf, enclosingRadius } from "../view/framing.ts";
 import { chevronsAlong, hitTestRoutes, isPureRole } from "../view/route-view-model.ts";
 import type { RoutePickTarget, RouteView } from "../view/route-view-model.ts";
+import type { RouteRole } from "../travel/types.ts";
 
 const FLY_DURATION = 1.5;
 
@@ -50,6 +51,12 @@ export interface CanvasOrreryOptions {
   onLockBreak?: () => void;
   /** Fired when the user taps a route leg or node (takes precedence over onPick). */
   onRoutePick?: (target: RoutePickTarget) => void;
+  /** Fires on route hover with the hovered route's summary + cursor screen pos, or null on exit. */
+  onRouteHover?: (
+    info: { routeId: string; role?: RouteRole; totalDeltaV: number; duration: number } | null,
+    screenX: number,
+    screenY: number,
+  ) => void;
 }
 
 interface AnimObj {
@@ -190,10 +197,36 @@ export function createCanvasOrrery(
     camAtDrag = { x: cam.x, y: cam.y };
   };
   const onMouseMove = (e: MouseEvent) => {
-    if (!dragStart || !camAtDrag) return;
+    // Hover hit-test (skip while dragging — that's a camera pan).
+    if (!dragStart) {
+      const { x: wx, y: wy } = screenToWorld(e.clientX, e.clientY);
+      const MIN_HIT = 20 / cam.scale;
+      const hit = hitTestRoutes(currentRoutes, wx, wy, MIN_HIT);
+      const id = hit ? hit.routeId : null;
+      if (id !== hoveredRouteId) {
+        hoveredRouteId = id;
+        const rv = id ? currentRoutes.find((r) => r.id === id) : null;
+        opts.onRouteHover?.(
+          rv
+            ? { routeId: rv.id, role: rv.role, totalDeltaV: rv.totalDeltaV, duration: rv.duration }
+            : null,
+          e.clientX,
+          e.clientY,
+        );
+      } else if (id) {
+        // Still hovering the same route — update tooltip position.
+        const rv = currentRoutes.find((r) => r.id === id)!;
+        opts.onRouteHover?.(
+          { routeId: rv.id, role: rv.role, totalDeltaV: rv.totalDeltaV, duration: rv.duration },
+          e.clientX,
+          e.clientY,
+        );
+      }
+      return;
+    }
     breakLock();
-    cam.x = camAtDrag.x - (e.clientX - dragStart.x) / cam.scale;
-    cam.y = camAtDrag.y - (e.clientY - dragStart.y) / cam.scale;
+    cam.x = camAtDrag!.x - (e.clientX - dragStart.x) / cam.scale;
+    cam.y = camAtDrag!.y - (e.clientY - dragStart.y) / cam.scale;
   };
   const onMouseUp = (e: MouseEvent) => {
     if (
@@ -206,6 +239,10 @@ export function createCanvasOrrery(
   };
   const onMouseLeave = () => {
     dragStart = null;
+    if (hoveredRouteId !== null) {
+      hoveredRouteId = null;
+      opts.onRouteHover?.(null, 0, 0);
+    }
   };
   const onWheel = (e: WheelEvent) => {
     e.preventDefault();
