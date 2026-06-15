@@ -1070,7 +1070,7 @@ Deno.test("lagrangeWaypoint: moon L3 yields pSpec at adjusted radius, phase drop
   const wp = lagrangeWaypoint(sys42, moon, "L3", EndState.Dock);
   if (!("pSpec" in wp)) throw new Error("moon parent should yield a pSpec");
   // pSpec carries no phase field — the 180° offset is intentionally not represented.
-  assertAlmostEquals(wp.pSpec.orbitRadiusAu, moon.orbitRadius * (1 + (5 * mu) / 12), 1e-12);
+  assertAlmostEquals(wp.pSpec.orbitRadiusAu, moon.orbitRadius * (1 - (7 * mu) / 12), 1e-12);
 });
 
 Deno.test("lagrangePointGeometry: collinear factors for a Sun–Earth mass ratio", () => {
@@ -1083,7 +1083,7 @@ Deno.test("lagrangePointGeometry: collinear factors for a Sun–Earth mass ratio
   assertEquals(l1.phaseOffset, 0);
   assertAlmostEquals(l2.radiusFactor, 1 + alpha, 1e-12);
   assertEquals(l2.phaseOffset, 0);
-  assertAlmostEquals(l3.radiusFactor, 1 + (5 * mu) / 12, 1e-12);
+  assertAlmostEquals(l3.radiusFactor, 1 - (7 * mu) / 12, 1e-12);
   assertEquals(l3.phaseOffset, 0.5);
   // Sanity: L1 ≈ 0.99, L2 ≈ 1.01 of the orbit radius.
   assertAlmostEquals(l1.radiusFactor, 0.99, 1e-2);
@@ -1113,7 +1113,7 @@ Deno.test("lagrangeWaypoint: planet L3 sits opposite the parent at 180°", () =>
     (system.star.mass * M_SUN_KG + planet.mass * M_EARTH_KG);
   const wp = lagrangeWaypoint(system, planet, "L3", EndState.Dock);
   if (!("spec" in wp)) throw new Error("planet parent should yield a spec");
-  assertAlmostEquals(wp.spec.orbitRadiusAu, planet.orbitRadius * (1 + (5 * mu) / 12), 1e-12);
+  assertAlmostEquals(wp.spec.orbitRadiusAu, planet.orbitRadius * (1 - (7 * mu) / 12), 1e-12);
   const expected = ((planet.orbitalPhase + 0.5) % 1 + 1) % 1;
   assertAlmostEquals(wp.spec.orbitalPhase!, expected, 1e-12);
 });

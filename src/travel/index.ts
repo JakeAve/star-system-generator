@@ -625,7 +625,7 @@ export type LagrangePoint = "L1" | "L2" | "L3" | "L4" | "L5";
  * the parent's orbit radius and a phase offset (fraction of an orbit).
  * - Equilateral (L4/L5): same radius, ±1/6 phase. Mass-independent; `mu` unused.
  * - Collinear (L1/L2/L3): first-order Hill-radius approximations.
- *   L1 = a·(1 − α), L2 = a·(1 + α) with α = (μ/3)^(1/3); L3 = a·(1 + 5μ/12) at 180°.
+ *   L1 = a·(1 − α), L2 = a·(1 + α) with α = (μ/3)^(1/3); L3 = a·(1 − 7μ/12) at 180°.
  */
 export function lagrangePointGeometry(
   point: LagrangePoint,
@@ -641,7 +641,7 @@ export function lagrangePointGeometry(
     case "L2":
       return { radiusFactor: 1 + Math.cbrt(mu / 3), phaseOffset: 0 };
     case "L3":
-      return { radiusFactor: 1 + (5 * mu) / 12, phaseOffset: 0.5 };
+      return { radiusFactor: 1 - (7 * mu) / 12, phaseOffset: 0.5 };
   }
 }
 
