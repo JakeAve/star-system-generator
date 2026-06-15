@@ -4,6 +4,7 @@ import {
   getBestRoutes,
   getBestRoutes3,
   getRoutes,
+  lagrangePointGeometry,
   lagrangeWaypoint,
 } from "./index.ts";
 import { EndState, RankMode, type Route, RouteNodeKind } from "./types.ts";
@@ -1037,4 +1038,26 @@ Deno.test("lagrangeWaypoint: routes to a moon's L5 (planetocentric, same-parent)
   );
   if (routes.length === 0) throw new Error("expected routes to moon L5");
   assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `L5:${moon.id}`);
+});
+
+Deno.test("lagrangePointGeometry: L4/L5 are co-orbital with ±1/6 phase", () => {
+  assertEquals(lagrangePointGeometry("L4", 0), { radiusFactor: 1, phaseOffset: 1 / 6 });
+  assertEquals(lagrangePointGeometry("L5", 0), { radiusFactor: 1, phaseOffset: -1 / 6 });
+});
+
+Deno.test("lagrangePointGeometry: collinear factors for a Sun–Earth mass ratio", () => {
+  const mu = 3.003e-6; // Earth / (Sun + Earth)
+  const alpha = Math.cbrt(mu / 3);
+  const l1 = lagrangePointGeometry("L1", mu);
+  const l2 = lagrangePointGeometry("L2", mu);
+  const l3 = lagrangePointGeometry("L3", mu);
+  assertAlmostEquals(l1.radiusFactor, 1 - alpha, 1e-12);
+  assertEquals(l1.phaseOffset, 0);
+  assertAlmostEquals(l2.radiusFactor, 1 + alpha, 1e-12);
+  assertEquals(l2.phaseOffset, 0);
+  assertAlmostEquals(l3.radiusFactor, 1 + (5 * mu) / 12, 1e-12);
+  assertEquals(l3.phaseOffset, 0.5);
+  // Sanity: L1 ≈ 0.99, L2 ≈ 1.01 of the orbit radius.
+  assertAlmostEquals(l1.radiusFactor, 0.99, 1e-2);
+  assertAlmostEquals(l2.radiusFactor, 1.01, 1e-2);
 });

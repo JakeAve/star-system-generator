@@ -610,6 +610,34 @@ export function getBestRoutes3(
   return selectBestRoutes2(projected);
 }
 
+/** A Lagrange point, equilateral (L4/L5) or collinear (L1/L2/L3). */
+export type LagrangePoint = "L1" | "L2" | "L3" | "L4" | "L5";
+
+/**
+ * Geometry of a Lagrange point relative to the parent's orbit: a multiplier on
+ * the parent's orbit radius and a phase offset (fraction of an orbit).
+ * - Equilateral (L4/L5): same radius, ±1/6 phase. Mass-independent; `mu` unused.
+ * - Collinear (L1/L2/L3): first-order Hill-radius approximations.
+ *   L1 = a·(1 − α), L2 = a·(1 + α) with α = (μ/3)^(1/3); L3 = a·(1 + 5μ/12) at 180°.
+ */
+export function lagrangePointGeometry(
+  point: LagrangePoint,
+  mu: number,
+): { radiusFactor: number; phaseOffset: number } {
+  switch (point) {
+    case "L4":
+      return { radiusFactor: 1, phaseOffset: 1 / 6 };
+    case "L5":
+      return { radiusFactor: 1, phaseOffset: -1 / 6 };
+    case "L1":
+      return { radiusFactor: 1 - Math.cbrt(mu / 3), phaseOffset: 0 };
+    case "L2":
+      return { radiusFactor: 1 + Math.cbrt(mu / 3), phaseOffset: 0 };
+    case "L3":
+      return { radiusFactor: 1 + (5 * mu) / 12, phaseOffset: 0.5 };
+  }
+}
+
 /**
  * Build a waypoint at a parent body's L4 (leading, +60°) or L5 (trailing, -60°) point.
  * - Planet (or minor-body) parent: a heliocentric virtual body co-orbital with the parent,
