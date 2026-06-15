@@ -143,6 +143,9 @@
             history.replaceState(null, "", url);
           }
 
+          let panelHandle;  // declared before orrery so onRoutePick can close over it
+          let currentRouteViews = [];
+
           const orrery = createCanvasOrrery(document.body, {
             onPick: (id) => {
               highlightOnly(id);
@@ -170,13 +173,8 @@
               routeTip.style.top = `${sy + 14}px`;
             },
             onRoutePick: (t) => {
-              if (t.kind === "node") {
-                console.log(`[route ${t.routeId}] node ${t.node.id} (${t.node.kind}) ` +
-                  `day ${t.node.time.toFixed(0)}, Δv ${t.node.deltaV.toFixed(2)} km/s`);
-              } else {
-                console.log(`[route ${t.routeId}] leg ${t.leg.fromBodyId} -> ${t.leg.toBodyId} ` +
-                  `tof ${t.leg.timeOfFlight.toFixed(0)} d, Δv ${t.leg.deltaV.toFixed(2)} km/s`);
-              }
+              const view = currentRouteViews.find((v) => v.id === t.routeId);
+              if (view) panelHandle?.showRoute(view);
             },
           });
 
@@ -187,12 +185,15 @@
               const views = routeViewsForPick(data, fromId, toId, orrery.getCurrentDay());
               if (views.length === 0) {
                 orrery.setRoutes([]);
+                currentRouteViews = [];
                 console.warn(`No routes found ${fromId} -> ${toId}`);
                 return;
               }
               orrery.setRoutes(views);
+              currentRouteViews = views;
             } catch (err) {
               orrery.setRoutes([]);
+              currentRouteViews = [];
               console.warn(`Route error: ${err.message}`);
             }
           }
@@ -224,7 +225,7 @@
           }
           writeURL();
 
-          const panelHandle = buildPanel(data, animObjects, {
+          panelHandle = buildPanel(data, animObjects, {
             onFocus: (b) => highlightOnly(b ? b.id : data.star.id),
             onFlyTo: (b) => flyTo(b ? b.id : data.star.id),
             onRouteAction: (action, bodyId) => {

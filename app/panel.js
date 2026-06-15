@@ -84,7 +84,23 @@ const STYLES = `
   #cs-content { padding-top: 0.875rem; }
   #cs-detail { top: -0.875rem; }
 }
+.cs-route-leg { padding: 0.25rem 0; border-bottom: 1px solid #111; font-size: 0.75rem; line-height: 1.5; }
+.cs-route-node { padding: 0.2rem 0; font-size: 0.6875rem; color: #aaa; }
+.cs-dim { color: #888; }
 `;
+
+const fmtDays = (days) =>
+  days >= 365 ? `${(days / 365).toFixed(1)} yr` : `${days.toFixed(0)} d`;
+
+const ROUTE_ROLE_NAME = {
+  cheapest: "Cheapest",
+  fastest: "Fastest",
+  soonest: "Soonest",
+  "balanced-cheap-fast": "Balanced: cheap + fast",
+  "balanced-cheap-soon": "Balanced: cheap + soon",
+  "balanced-fast-soon": "Balanced: fast + soon",
+  "balanced-all": "Balanced: all-round",
+};
 
 const TYPE_HEX = {
   star: "#fff5b0",
@@ -402,11 +418,67 @@ export function buildPanel(seed, animObjects, callbacks) {
     setHeight(currentHeight, false);
   }, { signal: bodySelectedController.signal });
 
+  function showRoute(view) {
+    // Title row.
+    const name = ROUTE_ROLE_NAME[view.role] ?? "Route";
+    const totals =
+      `Δv ${view.totalDeltaV.toFixed(2)} km/s · ` +
+      `${fmtDays(view.duration)} · ` +
+      `day ${view.departAt.toFixed(0)} → ${view.arriveAt.toFixed(0)}`;
+
+    // Build content.
+    const box = document.createElement("div");
+    box.id = "cs-route-detail";
+
+    const h3 = document.createElement("h3");
+    h3.style.cssText = "color:#fff;margin:0.5rem 0 0.25rem;font-size:0.8125rem;";
+    h3.textContent = name;
+
+    const totalsEl = document.createElement("div");
+    totalsEl.className = "cs-dim";
+    totalsEl.style.marginBottom = "0.5rem";
+    totalsEl.textContent = totals;
+
+    const legsEl = document.createElement("div");
+    for (const l of view.legs) {
+      const row = document.createElement("div");
+      row.className = "cs-route-leg";
+      row.innerHTML =
+        `${l.fromBodyId} → ${l.toBodyId} <span class="cs-dim">(${l.centralBodyId})</span><br>` +
+        `day ${l.departTime.toFixed(0)} → ${l.arriveTime.toFixed(0)} · ` +
+        `tof ${l.timeOfFlight.toFixed(0)} d · Δv ${l.deltaV.toFixed(2)} km/s`;
+      legsEl.appendChild(row);
+    }
+
+    const nodesEl = document.createElement("div");
+    nodesEl.style.marginTop = "0.5rem";
+    for (const n of view.nodes) {
+      const row = document.createElement("div");
+      row.className = "cs-route-node";
+      row.textContent =
+        `${n.kind} @ ${n.id} · day ${n.time.toFixed(0)} · Δv ${n.deltaV.toFixed(2)} km/s` +
+        (n.flyby ? ` · v∞ ${n.flyby.vInfinity.toFixed(2)} km/s` : "");
+      nodesEl.appendChild(row);
+    }
+
+    box.append(h3, totalsEl, legsEl, nodesEl);
+
+    // Insert/replace the route detail box in the content area.
+    const content = document.getElementById("cs-content");
+    const existing = document.getElementById("cs-route-detail");
+    if (existing) existing.replaceWith(box);
+    else content.prepend(box);
+
+    // Open the sheet to show the detail.
+    setHeight(Math.max(currentHeight, openHeight()), true);
+  }
+
   return {
     setRouteState(state) {
       routeState = state;
       if (currentDetailObj) showDetail(currentDetailObj);
     },
+    showRoute,
   };
 }
 
