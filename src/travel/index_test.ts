@@ -1045,6 +1045,34 @@ Deno.test("lagrangePointGeometry: L4/L5 are co-orbital with ±1/6 phase", () => 
   assertEquals(lagrangePointGeometry("L5", 0), { radiusFactor: 1, phaseOffset: -1 / 6 });
 });
 
+Deno.test("lagrangeWaypoint: moon L1/L2 yield pSpec at an adjusted radius", () => {
+  if (!giant42) throw new Error("seed 42 fixture missing");
+  const moon = giant42.moons[0];
+  const mu = (moon.mass * M_EARTH_KG) /
+    (giant42.mass * M_EARTH_KG + moon.mass * M_EARTH_KG);
+  const alpha = Math.cbrt(mu / 3);
+  const l1 = lagrangeWaypoint(sys42, moon, "L1", EndState.Dock);
+  const l2 = lagrangeWaypoint(sys42, moon, "L2", EndState.Dock);
+  if (!("pSpec" in l1) || !("pSpec" in l2)) {
+    throw new Error("moon parent should yield a pSpec");
+  }
+  assertEquals(l1.pSpec.id, `L1:${moon.id}`);
+  assertEquals(l1.pSpec.parentId, moon.parentId);
+  assertAlmostEquals(l1.pSpec.orbitRadiusAu, moon.orbitRadius * (1 - alpha), 1e-12);
+  assertAlmostEquals(l2.pSpec.orbitRadiusAu, moon.orbitRadius * (1 + alpha), 1e-12);
+});
+
+Deno.test("lagrangeWaypoint: moon L3 yields pSpec at adjusted radius, phase dropped", () => {
+  if (!giant42) throw new Error("seed 42 fixture missing");
+  const moon = giant42.moons[0];
+  const mu = (moon.mass * M_EARTH_KG) /
+    (giant42.mass * M_EARTH_KG + moon.mass * M_EARTH_KG);
+  const wp = lagrangeWaypoint(sys42, moon, "L3", EndState.Dock);
+  if (!("pSpec" in wp)) throw new Error("moon parent should yield a pSpec");
+  // pSpec carries no phase field — the 180° offset is intentionally not represented.
+  assertAlmostEquals(wp.pSpec.orbitRadiusAu, moon.orbitRadius * (1 + (5 * mu) / 12), 1e-12);
+});
+
 Deno.test("lagrangePointGeometry: collinear factors for a Sun–Earth mass ratio", () => {
   const mu = 3.003e-6; // Earth / (Sun + Earth)
   const alpha = Math.cbrt(mu / 3);

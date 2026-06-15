@@ -683,13 +683,12 @@ export function lagrangeWaypoint(
 
   if (parent.type === ObjectType.Moon) {
     // Planetocentric: co-orbital appendage routing is free-phase, so the phase
-    // offset is not carried. NOTE: this task leaves the radius at the moon's own
-    // orbit radius; Task 3 switches it to the collinear-adjusted `radius`.
+    // offset is not carried (L3's 180° is dropped); only the radius offset is.
     return {
       pSpec: {
         id: `${point}:${parent.id}`,
         parentId: parent.parentId!,
-        orbitRadiusAu: parent.orbitRadius,
+        orbitRadiusAu: radius,
       },
       type,
     };
