@@ -85,13 +85,23 @@ Deno.test("buildRouteViewModel: id/color opts and enriched leg/node fields", () 
   assertEquals(def.id, route.notation);
   assertEquals(def.color, undefined);
 
+  // Route totals are carried through.
+  assertEquals(def.totalDeltaV, route.totalDeltaV);
+  assertEquals(def.duration, route.duration);
+  assertEquals(def.departAt, route.departAt);
+  assertEquals(def.arriveAt, route.departAt + route.duration);
+  // role falls back to route.role when no opt given.
+  assertEquals(def.role, route.role);
+
   // Opts honored.
   const view = buildRouteViewModel(sys, route, {
     id: "fleet-A",
     color: "#ff3333",
+    role: "cheapest",
   });
   assertEquals(view.id, "fleet-A");
   assertEquals(view.color, "#ff3333");
+  assertEquals(view.role, "cheapest");
 
   // Leg view carries the source leg's descriptors.
   const leg0 = view.legs[0], src = route.legs[0];
