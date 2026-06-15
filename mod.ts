@@ -50,6 +50,7 @@ export {
 } from "./src/travel/index.ts";
 export {
   buildRouteViewModel,
+  roleDisplayName,
   routeViewForPick,
   routeViewsForPick,
 } from "./src/view/route-view-model.ts";

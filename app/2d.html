@@ -68,6 +68,10 @@
     </style>
   </head>
   <body>
+    <div id="route-tip" style="position:fixed; pointer-events:none; z-index:20;
+  display:none; background:rgba(0,0,0,0.9); border:1px solid #2a2a3a;
+  border-radius:4px; padding:0.35rem 0.55rem; color:#eee; font-family:monospace;
+  font-size:0.75rem; line-height:1.35; white-space:nowrap;"></div>
     <div id="loading">LOADING...</div>
     <script type="module">
       import {
@@ -75,6 +79,7 @@
         generateSolarSystem,
         parseViewState,
         resolveFocusMode,
+        roleDisplayName,
         routeViewsForPick,
         serializeViewState,
       } from "./star-seeder.bundle.js";
@@ -119,6 +124,8 @@
         }
         if (data) {
           if (loadingEl) loadingEl.remove();
+          const fmtDuration = (days) =>
+            days >= 365 ? `${(days / 365).toFixed(1)} yr` : `${days.toFixed(0)} d`;
           const animObjects = buildViewModel(data, 0);
           const knownIds = new Set(animObjects.map((o) => o.id));
           const initial = parseViewState(location.search);
@@ -149,6 +156,17 @@
               if (state.focus.length === 0) return;
               state.mode = "frame";
               writeURL();
+            },
+            onRouteHover: (info, sx, sy) => {
+              const tip = document.getElementById("route-tip");
+              if (!info) { tip.style.display = "none"; return; }
+              tip.innerHTML =
+                `<strong>${roleDisplayName(info.role)}</strong><br>` +
+                `Δv ${info.totalDeltaV.toFixed(2)} km/s<br>` +
+                `time ${fmtDuration(info.duration)}`;
+              tip.style.display = "block";
+              tip.style.left = `${sx + 14}px`;
+              tip.style.top = `${sy + 14}px`;
             },
             onRoutePick: (t) => {
               if (t.kind === "node") {
