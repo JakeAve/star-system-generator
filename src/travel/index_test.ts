@@ -1117,3 +1117,11 @@ Deno.test("lagrangeWaypoint: planet L3 sits opposite the parent at 180°", () =>
   const expected = ((planet.orbitalPhase + 0.5) % 1 + 1) % 1;
   assertAlmostEquals(wp.spec.orbitalPhase!, expected, 1e-12);
 });
+
+Deno.test("lagrangeWaypoint: routes end-to-end to a planet's L2", () => {
+  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const dest = lagrangeWaypoint(system, planet, "L2", EndState.Dock);
+  const routes = getBestRoutes(system, { obj: a, type: EndState.Orbit }, dest);
+  if (routes.length === 0) throw new Error("expected routes to L2");
+  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `L2:${planet.id}`);
+});
