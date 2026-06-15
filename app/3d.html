@@ -82,6 +82,7 @@
         generateSolarSystem,
         parseViewState,
         resolveFocusMode,
+        routeViewsForPick,
         serializeViewState,
       } from "./star-seeder.bundle.js";
       import { createOrrery } from "./orrery-3d.bundle.js";
@@ -138,6 +139,9 @@
             history.replaceState(null, "", url);
           }
 
+          let panelHandle;
+          let currentRouteViews = [];
+
           const orrery = createOrrery(document.body, {
             onPick: (id) => {
               selectSingle(id);
@@ -153,9 +157,38 @@
               state.mode = "frame";
               writeURL();
             },
+            onRoutePick: (t) => {
+              const view = currentRouteViews.find((v) => v.id === t.routeId);
+              if (view) panelHandle?.showRoute(view);
+            },
           });
 
-          function selectSingle(id) {
+          function drawRoutesFor(fromId, toId) {
+            try {
+              const views = routeViewsForPick(data, fromId, toId, orrery.getCurrentDay());
+              if (views.length === 0) {
+                orrery.setRoutes([]);
+                currentRouteViews = [];
+                console.warn(`No routes found ${fromId} -> ${toId}`);
+                return;
+              }
+              orrery.setRoutes(views);
+              currentRouteViews = views;
+            } catch (err) {
+              orrery.setRoutes([]);
+              currentRouteViews = [];
+              console.warn(`Route error: ${err.message}`);
+            }
+          }
+
+          function highlightOnly(id) {
+            state.hl = [id];
+            state.focus = [];
+            orrery.setHighlight([id]);
+            writeURL();
+          }
+
+          function flyTo(id) {
             state.hl = [id];
             state.focus = [id];
             state.mode = "lock";
@@ -173,9 +206,29 @@
           }
           writeURL();
 
-          buildPanel(data, animObjects, {
-            onFocus: (b) => selectSingle(b ? b.id : data.star.id),
-            onFlyTo: (b) => selectSingle(b ? b.id : data.star.id),
+          const routeSel = { phase: "idle", from: null };
+
+          panelHandle = buildPanel(data, animObjects, {
+            onFocus: (b) => highlightOnly(b ? b.id : data.star.id),
+            onFlyTo: (b) => flyTo(b ? b.id : data.star.id),
+            onRouteAction: (action, bodyId) => {
+              if (action === "start") {
+                routeSel.phase = "picking";
+                routeSel.from = bodyId;
+                orrery.setRoutes([]);
+                panelHandle.setRouteState({ phase: "picking", fromId: bodyId });
+              } else if (action === "cancel") {
+                routeSel.phase = "idle";
+                routeSel.from = null;
+                orrery.setRoutes([]);
+                panelHandle.setRouteState({ phase: "idle", fromId: null });
+              } else if (action === "finish") {
+                drawRoutesFor(routeSel.from, bodyId);
+                routeSel.phase = "idle";
+                routeSel.from = null;
+                panelHandle.setRouteState({ phase: "idle", fromId: null });
+              }
+            },
           });
           buildPlaybackWidget({
             onTimeScale: (ts) => orrery.setTimeScale(ts),

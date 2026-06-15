@@ -4,6 +4,7 @@ import type { SolarSystem } from "../core/types.ts";
 import { eccentricAngleAtTime, visualRadius } from "../core/kinematics.ts";
 import { buildViewModel, ViewBody } from "../view/view-model.ts";
 import { centroidOf, enclosingRadius } from "../view/framing.ts";
+import type { RouteView, RoutePickTarget } from "../view/route-view-model.ts";
 
 const SOLAR_TO_EARTH_RADII = 109;
 const AU_SCALE = 100;
@@ -51,12 +52,15 @@ export interface OrreryOptions {
   onPick?: (id: string) => void;
   /** Fired when the user manually orbits/zooms while the camera was locked. */
   onLockBreak?: () => void;
+  /** Fired when the user clicks a route node or leg arc. */
+  onRoutePick?: (target: RoutePickTarget) => void;
 }
 
 export interface OrreryHandle {
   setSystem(system: SolarSystem): void;
   setTime(days: number): void;
   setTimeScale(scale: number): void;
+  getCurrentDay(): number;
   pause(): void;
   resume(): void;
   /** Move the camera to the given body ids. `lock` tracks their centroid every
@@ -64,6 +68,8 @@ export interface OrreryHandle {
   focus(ids: string[], mode: "lock" | "frame"): void;
   /** Set the highlighted (ringed) body ids. Unknown ids are skipped. */
   setHighlight(ids: string[]): void;
+  /** Render a set of route views as colored arcs and node markers. Pass [] to clear. */
+  setRoutes(routes: RouteView[]): void;
   /** Attach an arbitrary mesh as an overlay child of a body (e.g. settlement marker). */
   addOverlay(bodyId: string, object: THREE.Object3D): void;
   dispose(): void;
@@ -129,6 +135,10 @@ export function createOrrery(
   const meshById: Record<string, THREE.Object3D> = {};
   let starFlyOffset = FLY_OFFSET_MIN;
   let systemRoot: THREE.Group | null = null;
+  let routeGroup: THREE.Group | null = null;
+  let currentRoutes: RouteView[] = [];
+  const routeNodeMeshes: THREE.Mesh[] = [];
+  const routeLineMeshes: THREE.Line[] = [];
   let elapsedDays = 0;
   let timeScale = 1;
   let paused = false;
@@ -203,7 +213,89 @@ export function createOrrery(
     return new THREE.LineLoop(geo, mat);
   }
 
+  function clearRoutes() {
+    if (routeGroup) {
+      scene.remove(routeGroup);
+      routeGroup.traverse((o: THREE.Object3D) => {
+        // deno-lint-ignore no-explicit-any
+        const m = o as any;
+        if (m.geometry) m.geometry.dispose();
+        if (m.material) m.material.dispose();
+      });
+      routeGroup = null;
+    }
+    routeNodeMeshes.length = 0;
+    routeLineMeshes.length = 0;
+    currentRoutes = [];
+  }
+
+  function setRoutes(routes: RouteView[]) {
+    clearRoutes();
+    if (routes.length === 0) return;
+    currentRoutes = routes;
+    routeGroup = new THREE.Group();
+    scene.add(routeGroup);
+
+    for (const route of routes) {
+      const colorStr = route.color ?? "#ffd633";
+      const colorHex = parseInt(colorStr.replace("#", ""), 16);
+
+      // Ghost bodies: faint translucent spheres showing body positions at route times.
+      for (const g of route.ghosts) {
+        const r = Math.max(g.visualR * 0.7, 0.8);
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(r, 8, 8),
+          new THREE.MeshBasicMaterial({
+            color: TYPE_COLORS[g.type] ?? 0xffffff,
+            transparent: true,
+            opacity: 0.35,
+            depthWrite: false,
+          }),
+        );
+        mesh.position.set(g.x, 0, g.y);
+        routeGroup.add(mesh);
+      }
+
+      // Transfer arcs — one Line per leg.
+      for (let li = 0; li < route.legs.length; li++) {
+        const leg = route.legs[li];
+        if (leg.points.length < 2) continue;
+        const pts = leg.points.map((p) => new THREE.Vector3(p.x, 0, p.y));
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        const line = new THREE.Line(
+          geo,
+          new THREE.LineBasicMaterial({ color: colorHex }),
+        );
+        line.frustumCulled = false;
+        line.userData.routeId = route.id;
+        line.userData.legIdx = li;
+        routeGroup.add(line);
+        routeLineMeshes.push(line as THREE.Line);
+      }
+
+      // Node markers: filled sphere for depart/arrive, wireframe for flyby.
+      for (const node of route.nodes) {
+        const isFlyby = node.kind === "flyby";
+        const mesh = new THREE.Mesh(
+          new THREE.SphereGeometry(1.5, 8, 8),
+          new THREE.MeshBasicMaterial({
+            color: colorHex,
+            wireframe: isFlyby,
+            transparent: isFlyby,
+            opacity: isFlyby ? 0.6 : 1.0,
+          }),
+        );
+        mesh.position.set(node.x, 0, node.y);
+        mesh.userData.routeId = route.id;
+        mesh.userData.nodeIdx = route.nodes.indexOf(node);
+        routeGroup.add(mesh);
+        routeNodeMeshes.push(mesh);
+      }
+    }
+  }
+
   function clearSystem() {
+    clearRoutes();
     lockedTargets = [];
     for (const ring of highlightRings.values()) {
       ring.parent?.remove(ring);
@@ -489,6 +581,33 @@ export function createOrrery(
     pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
+
+    // Route node spheres take priority over body meshes.
+    if (routeNodeMeshes.length > 0 && opts.onRoutePick) {
+      const nodeHits = raycaster.intersectObjects(routeNodeMeshes, false);
+      if (nodeHits.length > 0) {
+        const obj = nodeHits[0].object;
+        const routeId = obj.userData.routeId as string;
+        const route = currentRoutes.find((r) => r.id === routeId);
+        if (route) {
+          const node = route.nodes[obj.userData.nodeIdx as number];
+          if (node) { opts.onRoutePick({ kind: "node", routeId, node }); return; }
+        }
+      }
+      // Leg lines — generous threshold so thin lines are clickable.
+      raycaster.params.Line = { threshold: 2 };
+      const lineHits = raycaster.intersectObjects(routeLineMeshes, false);
+      if (lineHits.length > 0) {
+        const obj = lineHits[0].object;
+        const routeId = obj.userData.routeId as string;
+        const route = currentRoutes.find((r) => r.id === routeId);
+        if (route) {
+          const leg = route.legs[obj.userData.legIdx as number];
+          if (leg) { opts.onRoutePick({ kind: "leg", routeId, leg }); return; }
+        }
+      }
+    }
+
     const meshes = animObjects.map((o) => o.mesh);
     const hits = raycaster.intersectObjects(meshes, false);
     if (hits.length > 0) {
@@ -508,6 +627,9 @@ export function createOrrery(
     setTimeScale(scale) {
       timeScale = scale;
     },
+    getCurrentDay() {
+      return elapsedDays;
+    },
     pause() {
       paused = true;
     },
@@ -516,6 +638,7 @@ export function createOrrery(
     },
     focus,
     setHighlight,
+    setRoutes,
     addOverlay(bodyId, object) {
       const mesh = meshById[bodyId];
       if (mesh) mesh.add(object);
