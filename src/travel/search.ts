@@ -1122,13 +1122,13 @@ export function selectBestRoutes2(routes: Route[]): Route[] {
   const triple = nearest(boxes.triple);
 
   const tagged: Route[] = [
-    { ...cheapest, role: "cheapest" as RouteRole },
-    { ...fastest, role: "fastest" as RouteRole },
-    { ...soonest, role: "soonest" as RouteRole },
-    { ...cf, role: "balanced-cheap-fast" as RouteRole },
-    { ...cs, role: "balanced-cheap-soon" as RouteRole },
-    { ...fs, role: "balanced-fast-soon" as RouteRole },
-    { ...triple, role: "balanced-all" as RouteRole },
+    { ...cheapest, role: "cheapest" },
+    { ...fastest, role: "fastest" },
+    { ...soonest, role: "soonest" },
+    { ...cf, role: "balanced-cheap-fast" },
+    { ...cs, role: "balanced-cheap-soon" },
+    { ...fs, role: "balanced-fast-soon" },
+    { ...triple, role: "balanced-all" },
   ];
   return dedupeRoutes(tagged);
 }
