@@ -19,7 +19,7 @@ import {
 } from "./search.ts";
 import type { BodyRef } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
-import { auToM, muBody, muStar, R_EARTH_M } from "./units.ts";
+import { auToM, M_EARTH_KG, M_SUN_KG, muBody, muStar, R_EARTH_M } from "./units.ts";
 import type { OrbitElements } from "./state.ts";
 import {
   EndState,
@@ -610,6 +610,13 @@ export function getBestRoutes3(
   return selectBestRoutes2(projected);
 }
 
+/** Body mass in kg, normalizing the unit split (stars: M☉; everything else: M⊕). */
+function massKg(body: CelestialObject): number {
+  return body.type === ObjectType.Star
+    ? body.mass * M_SUN_KG
+    : body.mass * M_EARTH_KG;
+}
+
 /** A Lagrange point, equilateral (L4/L5) or collinear (L1/L2/L3). */
 export type LagrangePoint = "L1" | "L2" | "L3" | "L4" | "L5";
 
@@ -639,28 +646,45 @@ export function lagrangePointGeometry(
 }
 
 /**
- * Build a waypoint at a parent body's L4 (leading, +60°) or L5 (trailing, -60°) point.
- * - Planet (or minor-body) parent: a heliocentric virtual body co-orbital with the parent,
- *   carrying the ±60° phase offset.
- * - Moon parent: a planetocentric virtual body co-orbital with the moon around its parent
- *   planet. NOTE: the ±60° phase is NOT carried — planetocentric appendage routing is
- *   free-phase, so the station's angular position around the planet does not affect routes.
+ * Build a waypoint at a parent body's Lagrange point.
+ * - Equilateral (L4 leading +60°, L5 trailing -60°): co-orbital with the parent.
+ * - Collinear (L1 inner, L2 outer, L3 opposite the central body): radius offset
+ *   by a first-order Hill-radius approximation of the parent/central mass ratio.
+ * Frames:
+ * - Planet (or minor-body) parent → heliocentric virtual body (`spec`), carrying
+ *   the radius/phase offset.
+ * - Moon parent → planetocentric virtual body (`pSpec`). Planetocentric routing
+ *   is free-phase, so the phase offset is NOT carried — in particular L3's 180°
+ *   is intentionally not represented; only its radius offset is.
  * Only Intercept or Dock are meaningful (a massless point has no SOI).
  */
 export function lagrangeWaypoint(
+  system: SolarSystem,
   parent: CelestialObject,
-  point: "L4" | "L5",
+  point: LagrangePoint,
   type: EndState.Intercept | EndState.Dock,
 ): Waypoint {
   if (parent.type === ObjectType.Star) {
     throw new Error("lagrangeWaypoint: a star has no Lagrange points to anchor to");
   }
 
-  const offset = point === "L4" ? Math.PI / 3 : -Math.PI / 3;
+  // Central body: the star for a planet, the parent planet for a moon.
+  const central = parent.type === ObjectType.Moon
+    ? flatten(system).get(parent.parentId!)?.obj
+    : system.star;
+  if (!central) {
+    throw new Error("lagrangeWaypoint: could not resolve the central body");
+  }
+
+  const mParent = massKg(parent);
+  const mu = mParent / (massKg(central) + mParent);
+  const { radiusFactor, phaseOffset } = lagrangePointGeometry(point, mu);
+  const radius = parent.orbitRadius * radiusFactor;
 
   if (parent.type === ObjectType.Moon) {
-    // Planetocentric: co-orbital with the moon around its parent planet.
-    // Free-phase appendage routing, so the ±60° offset is not carried.
+    // Planetocentric: co-orbital appendage routing is free-phase, so the phase
+    // offset is not carried. NOTE: this task leaves the radius at the moon's own
+    // orbit radius; Task 3 switches it to the collinear-adjusted `radius`.
     return {
       pSpec: {
         id: `${point}:${parent.id}`,
@@ -675,10 +699,10 @@ export function lagrangeWaypoint(
   return {
     spec: {
       id: `${point}:${parent.id}`,
-      orbitRadiusAu: parent.orbitRadius,
+      orbitRadiusAu: radius,
       eccentricity: parent.eccentricity,
       periapsisAngle: parent.periapsisAngle,
-      orbitalPhase: ((parent.orbitalPhase + offset / (2 * Math.PI)) % 1 + 1) % 1,
+      orbitalPhase: ((parent.orbitalPhase + phaseOffset) % 1 + 1) % 1,
     },
     type,
   };

@@ -9,7 +9,7 @@ import {
 } from "./index.ts";
 import { EndState, RankMode, type Route, RouteNodeKind } from "./types.ts";
 import { sumPrecise } from "./sum.ts";
-import { AU_M, DAY_S, muStar } from "./units.ts";
+import { AU_M, DAY_S, M_EARTH_KG, M_SUN_KG, muStar } from "./units.ts";
 
 const system = generateSolarSystem({ seed: 1 });
 const a = system.objects[0].id;
@@ -869,7 +869,7 @@ Deno.test("getBestRoutes: Dock is rejected on a real body", () => {
 
 Deno.test("lagrangeWaypoint: rejects a star parent", () => {
   assertThrows(
-    () => lagrangeWaypoint(system.star, "L4", EndState.Dock),
+    () => lagrangeWaypoint(system, system.star, "L4", EndState.Dock),
     Error,
     "a star has no Lagrange points",
   );
@@ -877,7 +877,7 @@ Deno.test("lagrangeWaypoint: rejects a star parent", () => {
 
 Deno.test("lagrangeWaypoint: L4 leads parent by 1/6 of a phase", () => {
   const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
-  const wp = lagrangeWaypoint(planet, "L4", EndState.Dock);
+  const wp = lagrangeWaypoint(system, planet, "L4", EndState.Dock);
   if (!("spec" in wp)) throw new Error("planet parent should yield a heliocentric spec");
   assertEquals(wp.spec.id, `L4:${planet.id}`);
   assertEquals(wp.spec.orbitRadiusAu, planet.orbitRadius);
@@ -889,7 +889,7 @@ Deno.test("lagrangeWaypoint: L4 leads parent by 1/6 of a phase", () => {
 
 Deno.test("lagrangeWaypoint: L5 trails parent by 1/6 of a phase", () => {
   const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
-  const wp = lagrangeWaypoint(planet, "L5", EndState.Intercept);
+  const wp = lagrangeWaypoint(system, planet, "L5", EndState.Intercept);
   if (!("spec" in wp)) throw new Error("planet parent should yield a heliocentric spec");
   const expected = ((planet.orbitalPhase - 1 / 6) % 1 + 1) % 1;
   assertAlmostEquals(wp.spec.orbitalPhase!, expected, 1e-12);
@@ -897,7 +897,7 @@ Deno.test("lagrangeWaypoint: L5 trails parent by 1/6 of a phase", () => {
 
 Deno.test("lagrangeWaypoint: routes end-to-end to a planet's L5", () => {
   const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
-  const dest = lagrangeWaypoint(planet, "L5", EndState.Dock);
+  const dest = lagrangeWaypoint(system, planet, "L5", EndState.Dock);
   const routes = getBestRoutes(system, { obj: a, type: EndState.Orbit }, dest);
   if (routes.length === 0) throw new Error("expected routes to L5");
   assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `L5:${planet.id}`);
@@ -1011,7 +1011,7 @@ Deno.test("getBestRoutes: pSpec auto-generates an id from parent and radius", ()
 Deno.test("lagrangeWaypoint: moon parent yields a planetocentric pSpec", () => {
   if (!giant42) throw new Error("seed 42 fixture missing");
   const moon = giant42.moons[0];
-  const wp = lagrangeWaypoint(moon, "L4", EndState.Dock);
+  const wp = lagrangeWaypoint(sys42, moon, "L4", EndState.Dock);
   if (!("pSpec" in wp)) throw new Error("moon parent should yield a pSpec");
   assertEquals(wp.pSpec.id, `L4:${moon.id}`);
   assertEquals(wp.pSpec.parentId, moon.parentId);
@@ -1021,7 +1021,7 @@ Deno.test("lagrangeWaypoint: moon parent yields a planetocentric pSpec", () => {
 Deno.test("lagrangeWaypoint: planet parent still yields a heliocentric spec", () => {
   const planet = sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
     sys42.objects.find((o) => o.id !== giant42!.id)!;
-  const wp = lagrangeWaypoint(planet, "L5", EndState.Intercept);
+  const wp = lagrangeWaypoint(sys42, planet, "L5", EndState.Intercept);
   if (!("spec" in wp)) throw new Error("planet parent should yield a spec");
   assertEquals(wp.spec.orbitRadiusAu, planet.orbitRadius);
 });
@@ -1029,7 +1029,7 @@ Deno.test("lagrangeWaypoint: planet parent still yields a heliocentric spec", ()
 Deno.test("lagrangeWaypoint: routes to a moon's L5 (planetocentric, same-parent)", () => {
   if (!giant42) throw new Error("seed 42 fixture missing");
   const moon = giant42.moons[0];
-  const dest = lagrangeWaypoint(moon, "L5", EndState.Dock);
+  const dest = lagrangeWaypoint(sys42, moon, "L5", EndState.Dock);
   // Origin: a sibling moon around the same giant → same-parent routing.
   const routes = getBestRoutes(
     sys42,
@@ -1060,4 +1060,32 @@ Deno.test("lagrangePointGeometry: collinear factors for a Sun–Earth mass ratio
   // Sanity: L1 ≈ 0.99, L2 ≈ 1.01 of the orbit radius.
   assertAlmostEquals(l1.radiusFactor, 0.99, 1e-2);
   assertAlmostEquals(l2.radiusFactor, 1.01, 1e-2);
+});
+
+Deno.test("lagrangeWaypoint: planet L1/L2 sit inside/outside the parent orbit", () => {
+  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const mu = (planet.mass * M_EARTH_KG) /
+    (system.star.mass * M_SUN_KG + planet.mass * M_EARTH_KG);
+  const alpha = Math.cbrt(mu / 3);
+  const l1 = lagrangeWaypoint(system, planet, "L1", EndState.Dock);
+  const l2 = lagrangeWaypoint(system, planet, "L2", EndState.Intercept);
+  if (!("spec" in l1) || !("spec" in l2)) {
+    throw new Error("planet parent should yield a heliocentric spec");
+  }
+  assertEquals(l1.spec.id, `L1:${planet.id}`);
+  assertAlmostEquals(l1.spec.orbitRadiusAu, planet.orbitRadius * (1 - alpha), 1e-12);
+  assertAlmostEquals(l2.spec.orbitRadiusAu, planet.orbitRadius * (1 + alpha), 1e-12);
+  // Collinear points share the parent's phase (no leading/trailing offset).
+  assertAlmostEquals(l1.spec.orbitalPhase!, ((planet.orbitalPhase) % 1 + 1) % 1, 1e-12);
+});
+
+Deno.test("lagrangeWaypoint: planet L3 sits opposite the parent at 180°", () => {
+  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const mu = (planet.mass * M_EARTH_KG) /
+    (system.star.mass * M_SUN_KG + planet.mass * M_EARTH_KG);
+  const wp = lagrangeWaypoint(system, planet, "L3", EndState.Dock);
+  if (!("spec" in wp)) throw new Error("planet parent should yield a spec");
+  assertAlmostEquals(wp.spec.orbitRadiusAu, planet.orbitRadius * (1 + (5 * mu) / 12), 1e-12);
+  const expected = ((planet.orbitalPhase + 0.5) % 1 + 1) % 1;
+  assertAlmostEquals(wp.spec.orbitalPhase!, expected, 1e-12);
 });
