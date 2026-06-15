@@ -338,3 +338,19 @@ Deno.test("isPureRole distinguishes anchors from balances", () => {
   assertEquals(isPureRole("balanced-fast-soon"), false);
   assertEquals(isPureRole(undefined), false);
 });
+
+Deno.test("routeViewsForPick colors by role and returns up to 7", () => {
+  const sys = twoPlanetSystem();
+  const planets = sys.objects.filter((o) =>
+    o.type !== "asteroid" && o.moons !== undefined
+  );
+  if (planets.length < 2) throw new Error("fixture needs >= 2 planets");
+  const views = routeViewsForPick(sys, planets[0].id, planets[1].id, 0);
+  if (views.length === 0) throw new Error("expected at least one route view");
+  // Every view's color matches its role's roleColor().
+  for (const v of views) {
+    assertEquals(v.color, roleColor(v.role));
+  }
+  // At most 7 routes.
+  assertEquals(views.length <= 7, true);
+});

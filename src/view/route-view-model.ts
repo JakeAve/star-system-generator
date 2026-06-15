@@ -369,10 +369,11 @@ export function routeViewsForPick(
     system,
     { obj: fromId, type: EndState.Orbit },
     { obj: toId, type: EndState.Orbit },
-    { startWindow: currentDay, balance: opts.balance ?? true },
+    { startWindow: currentDay, balance: opts.balance ?? true, findSoonest: true },
   );
   return routes.map((route) =>
     buildRouteViewModel(system, route, {
+      role: route.role,
       color: roleColor(route.role),
     })
   );
