@@ -30,7 +30,7 @@ const STYLES = `
   content: ""; width: 2.5rem; height: 0.25rem; border-radius: 2px; background: #444;
   pointer-events: none;
 }
-#cs-sheet.cs-peek #cs-content > *:not(#cs-detail) { pointer-events: none; }
+#cs-sheet.cs-peek #cs-content > *:not(#cs-detail):not(#cs-route-detail) { pointer-events: none; }
 #cs-sheet.cs-peek #cs-detail > *:not(#cs-handle) { pointer-events: none; }
 #cs-detail-head {
   display: flex; flex-direction: column;
