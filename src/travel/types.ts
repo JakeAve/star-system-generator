@@ -89,6 +89,16 @@ export interface RouteLeg {
   deltaV: number; // km/s; injection at leg start
 }
 
+/** Optimization role a route was selected to fill (set by selectBestRoutes2). */
+export type RouteRole =
+  | "cheapest"
+  | "fastest"
+  | "soonest"
+  | "balanced-cheap-fast"
+  | "balanced-cheap-soon"
+  | "balanced-fast-soon"
+  | "balanced-all";
+
 export interface Route {
   bodies: string[];
   nodes: RouteNode[]; // nodes.length === bodies.length
@@ -103,6 +113,8 @@ export interface Route {
   // its soonest in-window occurrence.
   phaseDay?: number;
   recurDays?: number;
+  /** Optimization role this route fills; set by selectBestRoutes2, undefined otherwise. */
+  role?: RouteRole;
 }
 
 /**
