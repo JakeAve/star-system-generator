@@ -675,6 +675,7 @@ export function createCanvasOrrery(
     starfield = [];
     highlightIds = new Set();
     currentRoutes = [];
+    hoveredRouteId = null;
     elapsedDays = 0;
     lastTime = null;
     paused = false;
@@ -735,9 +736,13 @@ export function createCanvasOrrery(
     setHighlight,
     setRoutes(routeViews) {
       currentRoutes = [...routeViews]; // copy so later caller mutation can't change the overlay
+      hoveredRouteId = null;
+      opts.onRouteHover?.(null, 0, 0);
     },
     setRoute(routeView) {
       currentRoutes = routeView ? [routeView] : [];
+      hoveredRouteId = null;
+      opts.onRouteHover?.(null, 0, 0);
     },
     getCurrentDay() {
       return elapsedDays;
