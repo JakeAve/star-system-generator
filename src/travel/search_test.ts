@@ -550,6 +550,44 @@ Deno.test("selectBestRoutes2: empty input yields no picks", () => {
   assertEquals(selectBestRoutes2([]).length, 0);
 });
 
+function mkRoute(p: { dv: number; dur: number; depart: number; notation: string }): Route {
+  return {
+    bodies: [],
+    nodes: [],
+    legs: [],
+    departAt: p.depart,
+    duration: p.dur,
+    totalDeltaV: p.dv,
+    notation: p.notation,
+  };
+}
+
+Deno.test("selectBestRoutes2 tags pure roles", () => {
+  // Distinct cheapest / fastest / soonest so the three anchors differ.
+  // cheap: lowest dv=1, arrives late (700)
+  // fast: shortest dur=50, departs late so arrival=250
+  // soon: earliest arrival=100 (depart=0, dur=100), but not the fastest duration
+  const cheap = mkRoute({ dv: 1, dur: 500, depart: 200, notation: "cheap" });
+  const fast = mkRoute({ dv: 9, dur: 50, depart: 200, notation: "fast" });
+  const soon = mkRoute({ dv: 9, dur: 100, depart: 0, notation: "soon" });
+  const out = selectBestRoutes2([cheap, fast, soon]);
+  const byNotation = new Map(out.map((r) => [r.notation, r.role]));
+  assertEquals(byNotation.get("cheap"), "cheapest");
+  assertEquals(byNotation.get("fast"), "fastest");
+  assertEquals(byNotation.get("soon"), "soonest");
+});
+
+Deno.test("selectBestRoutes2 dedup keeps the first-seen role", () => {
+  // One route dominates on every axis -> it is cheapest AND fastest AND soonest.
+  const dom = mkRoute({ dv: 1, dur: 10, depart: 0, notation: "dom" });
+  const other = mkRoute({ dv: 5, dur: 500, depart: 200, notation: "other" });
+  const out = selectBestRoutes2([dom, other]);
+  const domView = out.find((r) => r.notation === "dom");
+  assertEquals(domView?.role, "cheapest"); // first candidate wins
+  // The original input objects must not have been mutated.
+  assertEquals(dom.role, undefined);
+});
+
 Deno.test("findDirectRoutes: reframe mode tags every route with phaseDay/recurDays", () => {
   const routes = findDirectRoutes(
     fromBody,

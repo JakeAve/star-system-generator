@@ -27,6 +27,7 @@ import {
   type RouteLeg,
   type RouteNode,
   RouteNodeKind,
+  type RouteRole,
   type TravelOptions,
 } from "./types.ts";
 import { DAY_S, mpsToKmps } from "./units.ts";
@@ -1120,7 +1121,16 @@ export function selectBestRoutes2(routes: Route[]): Route[] {
   const fs = nearest(boxes.fs);
   const triple = nearest(boxes.triple);
 
-  return dedupeRoutes([cheapest, fastest, soonest, cf, cs, fs, triple]);
+  const tagged: Route[] = [
+    { ...cheapest, role: "cheapest" as RouteRole },
+    { ...fastest, role: "fastest" as RouteRole },
+    { ...soonest, role: "soonest" as RouteRole },
+    { ...cf, role: "balanced-cheap-fast" as RouteRole },
+    { ...cs, role: "balanced-cheap-soon" as RouteRole },
+    { ...fs, role: "balanced-fast-soon" as RouteRole },
+    { ...triple, role: "balanced-all" as RouteRole },
+  ];
+  return dedupeRoutes(tagged);
 }
 
 /**
