@@ -194,6 +194,27 @@ Deno.test("hitTestRoutes: a near leg beats a farther node on another route", () 
   assertEquals(hit?.routeId, "A");
 });
 
+Deno.test("hitTestRoutes: routes with shared endpoints are disambiguated by arc, not node", () => {
+  // Simulates the multi-route overlay: two routes sharing the same departure (0,0) and
+  // arrival (100,0) nodes, but with different arcs (one bows up, one bows down).
+  // The old code always picked route A (first in array) because nodes tied on distance.
+  // The new code picks by leg arc proximity, so hovering over B's arc returns B.
+  const sharedDepart = { x: 0, y: 0 };
+  const sharedArrive = { x: 100, y: 0 };
+  const arcA = { nodes: [sharedDepart, sharedArrive], legPoints: [{ x: 0, y: 0 }, { x: 50, y: -30 }, { x: 100, y: 0 }] };
+  const arcB = { nodes: [sharedDepart, sharedArrive], legPoints: [{ x: 0, y: 0 }, { x: 50, y: 30 }, { x: 100, y: 0 }] };
+  const a = fakeRoute("A", arcA);
+  const b = fakeRoute("B", arcB);
+
+  // Cursor near the middle of B's arc (y=+30 side): B should win.
+  const hitB = hitTestRoutes([a, b], 50, 25, 15);
+  assertEquals(hitB?.routeId, "B");
+
+  // Cursor near the middle of A's arc (y=-30 side): A should win.
+  const hitA = hitTestRoutes([a, b], 50, -25, 15);
+  assertEquals(hitA?.routeId, "A");
+});
+
 Deno.test("hitTestRoutes: returns null outside radius", () => {
   const r = fakeRoute("R", {
     nodes: [{ x: 100, y: 100 }],

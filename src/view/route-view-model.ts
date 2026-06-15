@@ -83,11 +83,18 @@ function pointToSegmentDistance(
 }
 
 /**
- * Hit-test a world-space point against route geometry. For each route, a node within `radius`
- * wins over that route's legs (a node sits on leg endpoints, so clicking a junction selects the
- * node); otherwise the route's nearest leg within `radius` is its candidate. Across routes, the
- * candidate with the smallest distance wins — so a near leg on one route is not overridden by a
- * far node on another. Returns null when nothing is within `radius`. Pure: no DOM, no engine state.
+ * Hit-test a world-space point against route geometry.
+ *
+ * Cross-route winner is determined by **leg arc distance** (not node distance). All routes in a
+ * multi-route overlay share departure and arrival node positions, so node distances are equal
+ * across routes near the endpoints and cannot disambiguate them. Leg arcs have geometrically
+ * distinct paths and reliably identify the intended route. Routes without legs fall back to node
+ * distance (degenerate case preserved for compatibility).
+ *
+ * Within the winning route the original priority applies: any node within `radius` beats a leg
+ * (a node is a meaningful waypoint; selecting it provides more context than a mid-arc leg pick).
+ *
+ * Returns null when nothing is within `radius`. Pure: no DOM, no engine state.
  */
 export function hitTestRoutes(
   routes: RouteView[],
@@ -95,43 +102,59 @@ export function hitTestRoutes(
   y: number,
   radius: number,
 ): RoutePickTarget | null {
-  let best: { d: number; target: RoutePickTarget } | null = null;
+  // Phase 1: select the nearest route by leg arc distance; priority (sort order) breaks ties.
+  // Routes are pre-sorted by visual priority (routesForHit: soonest > fastest > cheapest >
+  // balanced), so equal-distance ties resolve to the visually-topmost route. Strict < keeps
+  // the earlier (higher-priority) route when distances are equal.
+  let best: { cmpD: number; route: RouteView } | null = null;
 
   for (const route of routes) {
-    // Per-route: nearest node within radius takes priority (junction); else nearest leg.
-    let nodeBest: { d: number; node: RouteNodeView } | null = null;
-    for (const node of route.nodes) {
-      const d = Math.hypot(node.x - x, node.y - y);
-      if (d <= radius && (!nodeBest || d < nodeBest.d)) nodeBest = { d, node };
-    }
-
-    let cand: { d: number; target: RoutePickTarget } | null = null;
-    if (nodeBest) {
-      cand = {
-        d: nodeBest.d,
-        target: { kind: "node", routeId: route.id, node: nodeBest.node },
-      };
-    } else {
-      let legBest: { d: number; leg: RouteLegView } | null = null;
-      for (const leg of route.legs) {
-        for (let i = 1; i < leg.points.length; i++) {
-          const a = leg.points[i - 1], b = leg.points[i];
-          const d = pointToSegmentDistance(x, y, a.x, a.y, b.x, b.y);
-          if (d <= radius && (!legBest || d < legBest.d)) legBest = { d, leg };
-        }
-      }
-      if (legBest) {
-        cand = {
-          d: legBest.d,
-          target: { kind: "leg", routeId: route.id, leg: legBest.leg },
-        };
+    let legD = Infinity;
+    for (const leg of route.legs) {
+      for (let i = 1; i < leg.points.length; i++) {
+        const a = leg.points[i - 1], b = leg.points[i];
+        const d = pointToSegmentDistance(x, y, a.x, a.y, b.x, b.y);
+        if (d < legD) legD = d;
       }
     }
 
-    if (cand && (!best || cand.d < best.d)) best = cand;
+    // For routes without legs, fall back to node distance.
+    let cmpD = legD;
+    if (route.legs.length === 0) {
+      let nodeD = Infinity;
+      for (const node of route.nodes) {
+        const d = Math.hypot(node.x - x, node.y - y);
+        if (d < nodeD) nodeD = d;
+      }
+      cmpD = nodeD;
+    }
+
+    if (cmpD <= radius && (!best || cmpD < best.cmpD)) best = { cmpD, route };
   }
 
-  return best ? best.target : null;
+  if (!best) return null;
+  const winner = best.route;
+
+  // Phase 2: within the winning route, node beats leg if any node is within radius.
+
+  let nodeBest: { d: number; node: RouteNodeView } | null = null;
+  for (const node of winner.nodes) {
+    const d = Math.hypot(node.x - x, node.y - y);
+    if (d <= radius && (!nodeBest || d < nodeBest.d)) nodeBest = { d, node };
+  }
+  if (nodeBest) return { kind: "node", routeId: winner.id, node: nodeBest.node };
+
+  let legBest: { d: number; leg: RouteLegView } | null = null;
+  for (const leg of winner.legs) {
+    for (let i = 1; i < leg.points.length; i++) {
+      const a = leg.points[i - 1], b = leg.points[i];
+      const d = pointToSegmentDistance(x, y, a.x, a.y, b.x, b.y);
+      if (d <= radius && (!legBest || d < legBest.d)) legBest = { d, leg };
+    }
+  }
+  if (legBest) return { kind: "leg", routeId: winner.id, leg: legBest.leg };
+
+  return null;
 }
 
 /** A chevron placement along a route polyline: a point and the travel-direction angle (rad). */
@@ -374,6 +397,8 @@ export function routeViewsForPick(
   );
   return routes.map((route) =>
     buildRouteViewModel(system, route, {
+      // Include role in the id so parallel routes sharing the same notation stay distinct.
+      id: route.role ? `${route.notation}@${route.role}` : route.notation,
       color: roleColor(route.role),
     })
   );

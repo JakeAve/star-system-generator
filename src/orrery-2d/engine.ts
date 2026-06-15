@@ -166,10 +166,25 @@ export function createCanvasOrrery(
     if (wasLocking) opts.onLockBreak?.();
   }
 
+  // Sort routes for hit testing so they match visual draw priority: routes drawn on top
+  // (later in draw order) win distance ties. Within pure roles: soonest > fastest > cheapest.
+  // The currently-hovered route is always first so hover is sticky (prevents flicker).
+  function routesForHit(): RouteView[] {
+    return [...currentRoutes].sort((a, b) => {
+      const rank = (r: RouteView): number => {
+        if (r.role === "soonest") return 3;
+        if (r.role === "fastest") return 2;
+        if (r.role === "cheapest") return 1;
+        return 0;
+      };
+      return rank(b) - rank(a);
+    });
+  }
+
   function handleTap(screenX: number, screenY: number) {
     const { x: wx, y: wy } = screenToWorld(screenX, screenY);
     const MIN_HIT = 20 / cam.scale;
-    const routeHit = hitTestRoutes(currentRoutes, wx, wy, MIN_HIT);
+    const routeHit = hitTestRoutes(routesForHit(), wx, wy, MIN_HIT);
     if (routeHit) {
       opts.onRoutePick?.(routeHit);
       return;
@@ -201,7 +216,7 @@ export function createCanvasOrrery(
     if (!dragStart) {
       const { x: wx, y: wy } = screenToWorld(e.clientX, e.clientY);
       const MIN_HIT = 20 / cam.scale;
-      const hit = hitTestRoutes(currentRoutes, wx, wy, MIN_HIT);
+      const hit = hitTestRoutes(routesForHit(), wx, wy, MIN_HIT);
       const id = hit ? hit.routeId : null;
       if (id !== hoveredRouteId) {
         hoveredRouteId = id;
