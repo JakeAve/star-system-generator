@@ -8,7 +8,7 @@ import {
   visualRadius,
 } from "../core/kinematics.ts";
 import { centroidOf, enclosingRadius } from "../view/framing.ts";
-import { chevronsAlong, hitTestRoutes } from "../view/route-view-model.ts";
+import { chevronsAlong, hitTestRoutes, isPureRole } from "../view/route-view-model.ts";
 import type { RoutePickTarget, RouteView } from "../view/route-view-model.ts";
 
 const FLY_DURATION = 1.5;
@@ -110,6 +110,7 @@ export function createCanvasOrrery(
   let starfield: { x: number; y: number }[] = [];
   let highlightIds: Set<string> = new Set();
   let currentRoutes: RouteView[] = [];
+  let hoveredRouteId: string | null = null;
   // Marching-chevron animation: subtle directional flow along route legs.
   // Tunables — spacing/size are screen px (divided by scale); speed is spacings/sec.
   const CHEVRON_SPACING_PX = 46;
@@ -388,8 +389,20 @@ export function createCanvasOrrery(
     if (currentRoutes.length === 0) return;
     ctx.save(); // isolate route styling (stroke/fill/lineWidth) from the rest of the frame
 
-    for (const route of currentRoutes) {
+    // Draw balanced routes first, pure routes on top, hovered route always last (topmost).
+    const ordered = [...currentRoutes].sort((a, b) => {
+      const rank = (rv: typeof a) =>
+        (rv.id === hoveredRouteId ? 2 : isPureRole(rv.role) ? 1 : 0);
+      return rank(a) - rank(b);
+    });
+
+    for (const route of ordered) {
       const color = route.color ?? "#ffd633";
+      const hovered = route.id === hoveredRouteId;
+      const balanced = !isPureRole(route.role);
+      // Balanced routes recede (thinner, translucent) unless hovered; hovered routes thicken.
+      const arcWidth = (hovered ? 3 : balanced ? 1.2 : 2) / cam.scale;
+      const arcAlpha = hovered ? 1 : balanced ? 0.5 : 1;
 
       // Ghost bodies: faint body-tinted discs at the route's times.
       ctx.save();
@@ -404,8 +417,10 @@ export function createCanvasOrrery(
       ctx.restore();
 
       // Transfer arcs (route color).
+      ctx.save();
+      ctx.globalAlpha = arcAlpha;
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2 / cam.scale;
+      ctx.lineWidth = arcWidth;
       for (const leg of route.legs) {
         if (leg.points.length < 2) continue;
         ctx.beginPath();
@@ -415,13 +430,14 @@ export function createCanvasOrrery(
         }
         ctx.stroke();
       }
+      ctx.restore();
 
       // Marching chevrons: subtle arrows flowing toward the destination (direction of travel).
       const spacing = CHEVRON_SPACING_PX / cam.scale;
       const arm = CHEVRON_ARM_PX / cam.scale;
       const spread = 2.5; // arms angled back from the tip (~143°)
       ctx.lineWidth = 1.4 / cam.scale;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = 0.85 * arcAlpha;
       for (const leg of route.legs) {
         for (const c of chevronsAlong(leg.points, spacing, routePhase)) {
           ctx.beginPath();
