@@ -433,6 +433,7 @@ export function createCanvasOrrery(
       ctx.restore();
 
       // Marching chevrons: subtle arrows flowing toward the destination (direction of travel).
+      ctx.save();
       const spacing = CHEVRON_SPACING_PX / cam.scale;
       const arm = CHEVRON_ARM_PX / cam.scale;
       const spread = 2.5; // arms angled back from the tip (~143°)
@@ -453,7 +454,7 @@ export function createCanvasOrrery(
           ctx.stroke();
         }
       }
-      ctx.globalAlpha = 1;
+      ctx.restore();
 
       // Node markers: filled dot for depart/arrive, hollow ring for flyby.
       for (const n of route.nodes) {
