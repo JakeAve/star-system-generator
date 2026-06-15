@@ -271,11 +271,15 @@ Deno.test("routeViewsForPick: returns an array of RouteViews with distinct color
   for (const v of views) {
     if (!v.color) throw new Error("expected a color on each view");
   }
-  // Colors are distinct across views (if more than one returned).
-  const colors = views.map((v) => v.color);
-  const unique = new Set(colors);
-  if (unique.size !== colors.length) {
-    throw new Error("duplicate colors in multi-route overlay");
+  // Pure-role views (cheapest/fastest/soonest) each have a distinct saturated color.
+  // Balanced views intentionally share the same muted gray — not checked here.
+  const pureViews = views.filter((v) =>
+    v.role === "cheapest" || v.role === "fastest" || v.role === "soonest"
+  );
+  const pureColors = pureViews.map((v) => v.color);
+  const uniquePure = new Set(pureColors);
+  if (uniquePure.size !== pureColors.length) {
+    throw new Error("pure-role routes should have distinct colors");
   }
 });
 

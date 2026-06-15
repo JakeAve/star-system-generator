@@ -321,14 +321,14 @@ export function buildRouteViewModel(
   };
 }
 
-const PURE_ROLE_COLOR: Record<string, string> = {
+export const PURE_ROLE_COLOR: Record<string, string> = {
   cheapest: "#4fc3f7",
   fastest: "#ffd633",
   soonest: "#ef5350",
 };
-const BALANCED_COLOR = "#8a8f9c";
+export const BALANCED_COLOR = "#8a8f9c";
 
-const ROLE_DISPLAY_NAME: Record<string, string> = {
+export const ROLE_DISPLAY_NAME: Record<string, string> = {
   cheapest: "Cheapest",
   fastest: "Fastest",
   soonest: "Soonest",
