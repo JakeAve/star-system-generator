@@ -156,6 +156,23 @@ export const ECCENTRICITY_DEFAULTS: Record<
 
 export const CAPTURED_MOON_ECCENTRICITY = { min: 0.1, max: 0.5 };
 
+// ── Captured-moon broadening ─────────────────────────────────────────────────
+
+/** Per-parent-type probability that a given moon is captured (irregular). */
+export const CAPTURE_PROBABILITY_DEFAULTS: Record<ObjectType, number> = {
+  [ObjectType.GasGiant]: 0.35,
+  [ObjectType.IceGiant]: 0.35,
+  [ObjectType.RockyPlanet]: 0.05,
+  [ObjectType.DwarfPlanet]: 0.05, // no builder makes dwarf moons today; unused for now
+  [ObjectType.Star]: 0,
+  [ObjectType.Moon]: 0,
+  [ObjectType.Asteroid]: 0,
+  [ObjectType.Comet]: 0,
+};
+
+/** Probability a captured moon orbits retrograde. */
+export const CAPTURED_MOON_RETROGRADE = 0.75;
+
 // ── Retrograde defaults ──────────────────────────────────────────────────────
 
 export const RETROGRADE_DEFAULTS: Record<ObjectType, number> = {
@@ -493,6 +510,8 @@ export const DEFAULT_CONFIG: GeneratorConfig = {
   densityRanges: DENSITY_RANGES,
   eccentricityDefaults: ECCENTRICITY_DEFAULTS,
   capturedMoonEccentricity: CAPTURED_MOON_ECCENTRICITY,
+  captureProbabilityDefaults: CAPTURE_PROBABILITY_DEFAULTS,
+  capturedMoonRetrograde: CAPTURED_MOON_RETROGRADE,
   retrogradeDefaults: RETROGRADE_DEFAULTS,
   resourceWeights: RESOURCE_WEIGHTS,
   frostLineMultipliers: FROST_LINE_MULTIPLIERS,
@@ -502,7 +521,8 @@ export const DEFAULT_CONFIG: GeneratorConfig = {
   starMass: STAR_MASS,
   starRadius: STAR_RADIUS,
   starWeights: STAR_WEIGHTS,
-  moonHillSphereRange: { min: 0.05, max: 0.4 },
+  regularMoonHillRange: { min: 0.05, max: 0.25 },
+  capturedMoonHillRange: { min: 0.30, max: 0.60 },
   tidalLockThresholdDays: { planet: 10, moon: 80 },
   rotationPeriodDays: {
     gasGiant: { min: 0.3, max: 1.5 },

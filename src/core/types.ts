@@ -136,6 +136,8 @@ export interface GenerationSlot {
   /** Grand Tack water enrichment bonus (0–1) */
   waterBonus?: number;
   capturedMoons?: boolean;
+  /** Overrides per-parent-type capture probability (0–1) for this slot's moons */
+  captureProbability?: number;
   /** First N objects from this slot are knownAtStart */
   knownCount?: number;
   /** Chance an asteroid body is promoted to DwarfPlanet (0–1) */
@@ -193,6 +195,10 @@ export interface GeneratorConfig {
   /** Default eccentricity range per object type; overridden by slot.eccentricityRange */
   eccentricityDefaults: Record<ObjectType, EccentricitySpec>;
   capturedMoonEccentricity: EccentricitySpec;
+  /** Per-parent-type capture probability; overridden by slot.captureProbability */
+  captureProbabilityDefaults: Record<ObjectType, number>;
+  /** Probability a captured moon orbits retrograde */
+  capturedMoonRetrograde: number;
   /** Default retrograde probability per object type; overridden by slot.retrogradeProbability */
   retrogradeDefaults: Record<ObjectType, number>;
   resourceWeights: Record<ObjectType, ResourceWeights>;
@@ -212,7 +218,10 @@ export interface GeneratorConfig {
   starMass: Record<SpectralType, [number, number]>;
   starRadius: Record<SpectralType, [number, number]>;
   starWeights: Array<{ value: SpectralType; weight: number }>;
-  moonHillSphereRange: { min: number; max: number };
+  /** Distance band (fraction of parent Hill radius) for regular moons */
+  regularMoonHillRange: { min: number; max: number };
+  /** Distance band (fraction of parent Hill radius) for captured moons */
+  capturedMoonHillRange: { min: number; max: number };
   tidalLockThresholdDays: { planet: number; moon: number };
   rotationPeriodDays: {
     gasGiant: { min: number; max: number };

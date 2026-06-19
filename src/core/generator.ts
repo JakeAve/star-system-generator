@@ -199,7 +199,7 @@ function makeMoon(
   const hillSphereAU = parentOrbitAU *
     Math.cbrt((parentMass * M_EARTH_IN_SOLAR) / (3 * starMass));
   const moonOrbitAU = hillSphereAU *
-    rng.float(config.moonHillSphereRange.min, config.moonHillSphereRange.max);
+    rng.float(config.regularMoonHillRange.min, config.regularMoonHillRange.max);
   // Kepler's third law for moon orbiting parent planet
   const orbitPeriod = Math.max(
     1,
