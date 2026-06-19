@@ -77,6 +77,8 @@ export interface CelestialObject {
   orbitalPhase: number;
   /** Argument of periapsis (radians, 0–2π): rotates the orbit's major axis. */
   periapsisAngle: number;
+  /** Orbital direction: true = retrograde (reverse). Coplanar model. */
+  retrograde: boolean;
   rotationPeriodDays: number;
   tidallyLocked: boolean;
 }

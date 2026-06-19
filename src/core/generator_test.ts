@@ -720,3 +720,73 @@ Deno.test("eccentricity model: generation is deterministic per seed", () => {
   const b = generateSolarSystem({ seed: 7 });
   assertEquals(JSON.stringify(a), JSON.stringify(b));
 });
+
+// ── Retrograde field tests ─────────────────────────────────────────────────────
+
+function nonStarNonMoonBodies(sys: ReturnType<typeof generateSolarSystem>) {
+  return sys.objects.filter(
+    (o) => o.type !== ObjectType.Star && o.type !== ObjectType.Moon,
+  );
+}
+
+Deno.test("generation: retrograde=1.0 marks every eligible body retrograde", () => {
+  const sys = generateSolarSystem({
+    seed: 42,
+    retrogradeDefaults: {
+      [ObjectType.Star]: 0,
+      [ObjectType.RockyPlanet]: 1,
+      [ObjectType.GasGiant]: 1,
+      [ObjectType.IceGiant]: 1,
+      [ObjectType.Moon]: 0,
+      [ObjectType.Asteroid]: 1,
+      [ObjectType.DwarfPlanet]: 1,
+      [ObjectType.Comet]: 1,
+    },
+  });
+  const bodies = nonStarNonMoonBodies(sys);
+  assert(bodies.length > 0, "expected at least one eligible body");
+  assert(
+    bodies.every((b) => b.retrograde === true),
+    "all eligible bodies should be retrograde",
+  );
+});
+
+Deno.test("generation: retrograde=0 leaves everything prograde; moons/star always prograde", () => {
+  const sys = generateSolarSystem({
+    seed: 42,
+    retrogradeDefaults: {
+      [ObjectType.Star]: 0,
+      [ObjectType.RockyPlanet]: 0,
+      [ObjectType.GasGiant]: 0,
+      [ObjectType.IceGiant]: 0,
+      [ObjectType.Moon]: 0,
+      [ObjectType.Asteroid]: 0,
+      [ObjectType.DwarfPlanet]: 0,
+      [ObjectType.Comet]: 0,
+    },
+  });
+  assertEquals(sys.star.retrograde, false);
+  for (const o of sys.objects) {
+    assertEquals(o.retrograde, false);
+    for (const m of o.moons) assertEquals(m.retrograde, false);
+  }
+});
+
+Deno.test("generation: moons stay prograde even at high body retrograde rate", () => {
+  const sys = generateSolarSystem({
+    seed: 7,
+    retrogradeDefaults: {
+      [ObjectType.Star]: 0,
+      [ObjectType.RockyPlanet]: 1,
+      [ObjectType.GasGiant]: 1,
+      [ObjectType.IceGiant]: 1,
+      [ObjectType.Moon]: 0,
+      [ObjectType.Asteroid]: 1,
+      [ObjectType.DwarfPlanet]: 1,
+      [ObjectType.Comet]: 1,
+    },
+  });
+  for (const o of sys.objects) {
+    for (const m of o.moons) assertEquals(m.retrograde, false);
+  }
+});

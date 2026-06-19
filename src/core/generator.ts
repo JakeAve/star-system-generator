@@ -164,6 +164,7 @@ function generateStar(
     eccentricity: 0,
     orbitalPhase: 0,
     periapsisAngle: 0,
+    retrograde: false,
     rotationPeriodDays: 0,
     tidallyLocked: false,
     settlementCap: 0,
@@ -243,6 +244,7 @@ function makeMoon(
     capturedMoon: captured || undefined,
     orbitalPhase: r2(rng.float(0, 1)),
     periapsisAngle: r3(rng.float(0, Math.PI * 2)),
+    retrograde: false,
     rotationPeriodDays,
     tidallyLocked,
   };
@@ -325,6 +327,7 @@ function makeRockyPlanet(
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
     periapsisAngle: r3(rng.float(0, Math.PI * 2)),
+    retrograde: false,
     rotationPeriodDays,
     tidallyLocked,
   };
@@ -403,6 +406,7 @@ function makeGasGiant(
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
     periapsisAngle: r3(rng.float(0, Math.PI * 2)),
+    retrograde: false,
     rotationPeriodDays,
     tidallyLocked,
   };
@@ -480,6 +484,7 @@ function makeIceGiant(
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
     periapsisAngle: r3(rng.float(0, Math.PI * 2)),
+    retrograde: false,
     rotationPeriodDays,
     tidallyLocked,
   };
@@ -528,6 +533,7 @@ function makeAsteroid(
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
     periapsisAngle: r3(rng.float(0, Math.PI * 2)),
+    retrograde: false,
     rotationPeriodDays: r2(rng.float(rotRange.min, rotRange.max)),
     tidallyLocked: false,
   };
@@ -578,6 +584,7 @@ function makeComet(
     knownAtStart: false,
     orbitalPhase: r2(rng.float(0, 1)),
     periapsisAngle: r3(rng.float(0, Math.PI * 2)),
+    retrograde: false,
     rotationPeriodDays: r2(rng.float(rotRange.min, rotRange.max)),
     tidallyLocked: false,
   };
@@ -649,6 +656,9 @@ export function generateSolarSystem(
       const eccSpec = slot.eccentricityRange ??
         cfg.eccentricityDefaults[effectiveType];
       const ecc = r3(drawEccentricity(rng, eccSpec));
+      const retroProb = slot.retrogradeProbability ??
+        cfg.retrogradeDefaults[effectiveType];
+      const retrograde = rng.next() < retroProb;
       const moonCount = slot.moonsRange
         ? rng.int(slot.moonsRange.min, slot.moonsRange.max)
         : 0;
@@ -732,6 +742,7 @@ export function generateSolarSystem(
         );
       }
 
+      obj.retrograde = retrograde;
       obj.knownAtStart = isKnown && obj.type !== ObjectType.Comet;
       objects.push(obj);
     }
