@@ -135,3 +135,23 @@ Deno.test("visualRadius floors at MIN and is pure", () => {
   assertEquals(visualRadius(0) >= 0.015, true);
   assertEquals(visualRadius(100) > visualRadius(1), true);
 });
+
+Deno.test("angleAtTime: retrograde negates the angular-rate advance", () => {
+  const prograde = angleAtTime(0, 100, 25, false);
+  const retro = angleAtTime(0, 100, 25, true);
+  // prograde advances +π/2 over a quarter period; retrograde the opposite.
+  assertEquals(prograde, (Math.PI * 2 / 100) * 25);
+  assertEquals(retro, -prograde);
+});
+
+Deno.test("angleAtTime: defaults to prograde when retrograde omitted", () => {
+  assertEquals(angleAtTime(0.5, 100, 25), angleAtTime(0.5, 100, 25, false));
+});
+
+Deno.test("eccentricAngleAtTime: retrograde traverses the same ellipse in reverse", () => {
+  // Negating the rate at +t equals advancing prograde to -t (same mean anomaly),
+  // so the eccentric anomaly matches for any e and any initial phase.
+  const retro = eccentricAngleAtTime(0.5, 100, 25, 0.3, true);
+  const progradeReversed = eccentricAngleAtTime(0.5, 100, -25, 0.3, false);
+  assertEquals(retro, progradeReversed);
+});

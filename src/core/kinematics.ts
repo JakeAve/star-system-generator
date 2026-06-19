@@ -59,8 +59,10 @@ export function angleAtTime(
   initialAngle: number,
   orbitPeriod: number,
   elapsedDays: number,
+  retrograde = false,
 ): number {
-  return initialAngle + ((Math.PI * 2) / orbitPeriod) * elapsedDays;
+  const sign = retrograde ? -1 : 1;
+  return initialAngle + sign * ((Math.PI * 2) / orbitPeriod) * elapsedDays;
 }
 
 /**
@@ -98,9 +100,10 @@ export function eccentricAngleAtTime(
   orbitPeriod: number,
   elapsedDays: number,
   eccentricity: number,
+  retrograde = false,
 ): number {
   return solveKepler(
-    angleAtTime(initialMeanAngle, orbitPeriod, elapsedDays),
+    angleAtTime(initialMeanAngle, orbitPeriod, elapsedDays, retrograde),
     eccentricity,
   );
 }
