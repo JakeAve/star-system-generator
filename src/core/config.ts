@@ -156,6 +156,19 @@ export const ECCENTRICITY_DEFAULTS: Record<
 
 export const CAPTURED_MOON_ECCENTRICITY = { min: 0.1, max: 0.5 };
 
+// ── Retrograde defaults ──────────────────────────────────────────────────────
+
+export const RETROGRADE_DEFAULTS: Record<ObjectType, number> = {
+  [ObjectType.Star]: 0,
+  [ObjectType.RockyPlanet]: 0.02,
+  [ObjectType.GasGiant]: 0.02,
+  [ObjectType.IceGiant]: 0.02,
+  [ObjectType.Moon]: 0.0,
+  [ObjectType.Asteroid]: 0.03,
+  [ObjectType.DwarfPlanet]: 0.03,
+  [ObjectType.Comet]: 0.45,
+};
+
 // ── Star luminosity ranges ────────────────────────────────────────────────────
 
 export const STAR_LUMINOSITY: Record<SpectralType, [number, number]> = {
@@ -275,6 +288,7 @@ export const ARCHETYPE_PROFILES: Record<MigrationArchetype, ArchetypeProfile> =
           auRange: { min: 0.15, max: 1.0 },
           moonsRange: { min: 1, max: 5 },
           eccentricityRange: { sigma: 0.25, max: 0.5 },
+          retrogradeProbability: 0.10,
           knownCount: 1,
         },
         {
@@ -319,6 +333,7 @@ export const ARCHETYPE_PROFILES: Record<MigrationArchetype, ArchetypeProfile> =
           moonsRange: { min: 0, max: 1 },
           eccentricityRange: { sigma: 0.02, max: 0.05 },
           capturedMoons: true,
+          retrogradeProbability: 0.15,
           knownCount: 1,
         },
         {
@@ -478,6 +493,7 @@ export const DEFAULT_CONFIG: GeneratorConfig = {
   densityRanges: DENSITY_RANGES,
   eccentricityDefaults: ECCENTRICITY_DEFAULTS,
   capturedMoonEccentricity: CAPTURED_MOON_ECCENTRICITY,
+  retrogradeDefaults: RETROGRADE_DEFAULTS,
   resourceWeights: RESOURCE_WEIGHTS,
   frostLineMultipliers: FROST_LINE_MULTIPLIERS,
   settlementConfig: SETTLEMENT_CONFIG,

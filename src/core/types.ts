@@ -129,6 +129,8 @@ export interface GenerationSlot {
   moonsRange?: { min: number; max: number };
   /** Overrides per-type eccentricity default for objects in this slot */
   eccentricityRange?: EccentricitySpec;
+  /** Overrides per-type retrograde probability (0–1) for objects in this slot */
+  retrogradeProbability?: number;
   /** Grand Tack water enrichment bonus (0–1) */
   waterBonus?: number;
   capturedMoons?: boolean;
@@ -189,6 +191,8 @@ export interface GeneratorConfig {
   /** Default eccentricity range per object type; overridden by slot.eccentricityRange */
   eccentricityDefaults: Record<ObjectType, EccentricitySpec>;
   capturedMoonEccentricity: EccentricitySpec;
+  /** Default retrograde probability per object type; overridden by slot.retrogradeProbability */
+  retrogradeDefaults: Record<ObjectType, number>;
   resourceWeights: Record<ObjectType, ResourceWeights>;
   frostLineMultipliers: Record<Resource, { inner: number; outer: number }>;
   settlementConfig: {
