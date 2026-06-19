@@ -764,6 +764,7 @@ Deno.test("generation: retrograde=0 leaves everything prograde; moons/star alway
       [ObjectType.DwarfPlanet]: 0,
       [ObjectType.Comet]: 0,
     },
+    capturedMoonRetrograde: 0,
   });
   assertEquals(sys.star.retrograde, false);
   for (const o of sys.objects) {
@@ -785,6 +786,7 @@ Deno.test("generation: moons stay prograde even at high body retrograde rate", (
       [ObjectType.DwarfPlanet]: 1,
       [ObjectType.Comet]: 1,
     },
+    capturedMoonRetrograde: 0,
   });
   for (const o of sys.objects) {
     for (const m of o.moons) assertEquals(m.retrograde, false);
