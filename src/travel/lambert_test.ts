@@ -12,6 +12,7 @@ Deno.test("solveLambert: recovers the velocities of a known short-way arc", () =
     eccentricity: e,
     periapsisAngle: 0.5,
     orbitalPhase: 0.05,
+    retrograde: false,
   };
   const periodDays = Math.sqrt(a ** 3) * 365.25;
   const t1 = periodDays * 0.05;

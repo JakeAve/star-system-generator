@@ -1,13 +1,14 @@
-import { assertAlmostEquals } from "@std/assert";
-import { conic, stateAt, transferConic } from "./state.ts";
+import { assertAlmostEquals, assertEquals } from "@std/assert";
+import { conic, type OrbitElements, stateAt, transferConic } from "./state.ts";
 import { AU_M, muStar } from "./units.ts";
 
 const MU = muStar(1); // 1 solar mass central body
+const MU_SUN = muStar(1);
 
 Deno.test("stateAt: circular orbit has |r|=a and speed=circular velocity", () => {
   const a = 1; // AU
   const s = stateAt(
-    { orbitRadiusAu: a, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 },
+    { orbitRadiusAu: a, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false },
     MU,
     0,
   );
@@ -20,7 +21,7 @@ Deno.test("stateAt: circular orbit has |r|=a and speed=circular velocity", () =>
 Deno.test("stateAt: at periapsis (phase 0) r=a(1-e) and speed matches vis-viva", () => {
   const a = 1.5, e = 0.3;
   const s = stateAt(
-    { orbitRadiusAu: a, eccentricity: e, periapsisAngle: 0, orbitalPhase: 0 },
+    { orbitRadiusAu: a, eccentricity: e, periapsisAngle: 0, orbitalPhase: 0, retrograde: false },
     MU,
     0,
   );
@@ -40,6 +41,7 @@ Deno.test("stateAt: speed matches vis-viva at an arbitrary later time", () => {
       eccentricity: e,
       periapsisAngle: 0.7,
       orbitalPhase: 0.1,
+      retrograde: false,
     },
     MU,
     periodDays * 0.37,
@@ -58,6 +60,7 @@ Deno.test("conic: recovers a and e from a state vector", () => {
       eccentricity: e,
       periapsisAngle: 1.1,
       orbitalPhase: 0.22,
+      retrograde: false,
     },
     MU,
     123,
@@ -75,6 +78,7 @@ Deno.test("transferConic recovers orientation and swept anomaly span from a know
     eccentricity: 0.2,
     periapsisAngle: 0.7, // argument of periapsis we expect to recover
     orbitalPhase: 0,
+    retrograde: false,
   };
   const s1 = stateAt(el, mu, 0);
   const s2 = stateAt(el, mu, 80); // 80 days later along the same orbit
@@ -94,4 +98,42 @@ Deno.test("transferConic recovers orientation and swept anomaly span from a know
   const c = conic(s1.position, s1.velocity, mu);
   assertAlmostEquals(tc.aAu, c.aAu, 1e-9);
   assertAlmostEquals(tc.e, c.e, 1e-9);
+});
+
+Deno.test("stateAt: retrograde sweeps clockwise (mirror of prograde across the periapsis axis)", () => {
+  const base = {
+    orbitRadiusAu: 1,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0, // start on +x axis
+  };
+  const pro: OrbitElements = { ...base, retrograde: false };
+  const retro: OrbitElements = { ...base, retrograde: true };
+
+  const t = 30; // days; a small slice of a ~365-day orbit
+  const sp = stateAt(pro, MU_SUN, t);
+  const sr = stateAt(retro, MU_SUN, t);
+
+  // Same starting axis → equal x; opposite angular sense → opposite y.
+  assertAlmostEquals(sr.position.x, sp.position.x, 1);
+  assertAlmostEquals(sr.position.y, -sp.position.y, 1);
+  assertEquals(sp.position.y > 0, true, "prograde sweeps to +y");
+  assertEquals(sr.position.y < 0, true, "retrograde sweeps to -y");
+});
+
+Deno.test("stateAt: retrograde reverses the specific angular momentum sign", () => {
+  const el: OrbitElements = {
+    orbitRadiusAu: 1,
+    eccentricity: 0.1,
+    periapsisAngle: 0.3,
+    orbitalPhase: 0.2,
+    retrograde: true,
+  };
+  const s = stateAt(el, MU_SUN, 0);
+  const h = s.position.x * s.velocity.y - s.position.y * s.velocity.x;
+  assertEquals(h < 0, true, "retrograde => h = r x v < 0");
+
+  const pro = stateAt({ ...el, retrograde: false }, MU_SUN, 0);
+  const hp = pro.position.x * pro.velocity.y - pro.position.y * pro.velocity.x;
+  assertEquals(hp > 0, true, "prograde => h > 0");
 });

@@ -40,14 +40,12 @@ const FLYBY_TYPES = new Set<ObjectType>([
 ]);
 
 function elementsOf(o: CelestialObject): OrbitElements {
-  // NOTE: `o.retrograde` is intentionally not mapped here — travel physics stays
-  // prograde for all bodies in Phase 1. Retrograde travel is deferred to Phase 5
-  // (negate mean motion in stateAt, carry the sign through velocity/conic terms).
   return {
     orbitRadiusAu: o.orbitRadius,
     eccentricity: o.eccentricity,
     periapsisAngle: o.periapsisAngle,
     orbitalPhase: o.orbitalPhase,
+    retrograde: o.retrograde,
   };
 }
 
@@ -87,6 +85,7 @@ function resolveWaypoint(
           eccentricity: s.eccentricity ?? 0,
           periapsisAngle: s.periapsisAngle ?? 0,
           orbitalPhase: s.orbitalPhase ?? 0,
+          retrograde: s.retrograde ?? false,
         },
         endpoint: { mu: 0, radiusM: 0 },
       },
@@ -126,6 +125,7 @@ function resolveWaypoint(
           eccentricity: 0,
           periapsisAngle: 0,
           orbitalPhase: 0,
+          retrograde: false,
         },
         endpoint: { mu: 0, radiusM: 0 },
       },

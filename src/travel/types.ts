@@ -35,6 +35,7 @@ export interface VirtualBodySpec {
   eccentricity?: number; // default 0 (circular)
   periapsisAngle?: number; // argument of periapsis, radians; default 0
   orbitalPhase?: number; // mean-anomaly fraction at t=0, 0..1; default 0
+  retrograde?: boolean; // default false (prograde); true = clockwise orbit sense
 }
 
 export interface PlanetoSpec {

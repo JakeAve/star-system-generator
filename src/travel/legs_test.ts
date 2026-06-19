@@ -41,6 +41,7 @@ const dummyElements = {
   eccentricity: 0,
   periapsisAngle: 0,
   orbitalPhase: 0,
+  retrograde: false,
 };
 
 const candidate: TransferCandidate = {

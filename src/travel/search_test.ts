@@ -23,6 +23,7 @@ const fromBody = {
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0,
+    retrograde: false,
   },
   endpoint: { mu: 3.986e14, radiusM: 6.371e6 },
 };
@@ -33,6 +34,7 @@ const toBody = {
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0.5,
+    retrograde: false,
   },
   endpoint: { mu: 4.28e13, radiusM: 3.39e6 },
 };
@@ -140,6 +142,7 @@ Deno.test("findDirectRoutes: planetocentric grid is scaled to the central mass (
       eccentricity: 0,
       periapsisAngle: 0,
       orbitalPhase: 0,
+      retrograde: false,
     },
     endpoint: { mu: muBody(0.02), radiusM: 1.7e6 },
   };
@@ -150,6 +153,7 @@ Deno.test("findDirectRoutes: planetocentric grid is scaled to the central mass (
       eccentricity: 0,
       periapsisAngle: 0,
       orbitalPhase: 0.4,
+      retrograde: false,
     },
     endpoint: { mu: muBody(0.02), radiusM: 1.7e6 },
   };
@@ -180,6 +184,7 @@ const inner: BodyRef = {
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0,
+    retrograde: false,
   },
   endpoint: { mu: muBody(1), radiusM: R_EARTH_M },
 };
@@ -190,6 +195,7 @@ const outer: BodyRef = {
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0.3,
+    retrograde: false,
   },
   endpoint: { mu: muBody(95), radiusM: R_EARTH_M * 9 },
 };
@@ -200,6 +206,7 @@ const giant: BodyRef = {
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0.6,
+    retrograde: false,
   },
   endpoint: { mu: muBody(318), radiusM: R_EARTH_M * 11 },
 };
@@ -307,6 +314,7 @@ const giant2: BodyRef = {
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0.15,
+    retrograde: false,
   },
   endpoint: { mu: muBody(95), radiusM: R_EARTH_M * 9 },
 };
@@ -317,6 +325,7 @@ const farOuter: BodyRef = {
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0.7,
+    retrograde: false,
   },
   endpoint: { mu: muBody(17), radiusM: R_EARTH_M * 4 },
 };
@@ -492,6 +501,7 @@ Deno.test("findCrossFrameRoutes: planet → moon produces Transit-bearing routes
       eccentricity: 0,
       periapsisAngle: 0,
       orbitalPhase: 0,
+      retrograde: false,
     },
   };
   const to: CrossFrameEndpoint = {
@@ -504,6 +514,7 @@ Deno.test("findCrossFrameRoutes: planet → moon produces Transit-bearing routes
       eccentricity: 0,
       periapsisAngle: 0,
       orbitalPhase: 1.2,
+      retrograde: false,
     },
     parent: {
       body: { mu: muBody(300), radiusM: R_EARTH_M * 11 },
@@ -622,7 +633,7 @@ Deno.test("findDirectRoutes: fixed mode (no sweep) leaves routes untagged", () =
 Deno.test("findSingleAssistRoutes: reframe mode tags assist routes with finite recurDays", () => {
   const via: BodyRef = {
     id: "v1",
-    elements: { orbitRadiusAu: 0.7, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.25 },
+    elements: { orbitRadiusAu: 0.7, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.25, retrograde: false },
     endpoint: { mu: 3.2e14, radiusM: 6e6 },
   };
   const routes = findSingleAssistRoutes(
@@ -650,7 +661,7 @@ Deno.test("findSingleAssistRoutes: reframe mode tags assist routes with finite r
 Deno.test("findSingleAssistRoutes: fixed mode leaves assist routes untagged", () => {
   const via: BodyRef = {
     id: "v1",
-    elements: { orbitRadiusAu: 0.7, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.25 },
+    elements: { orbitRadiusAu: 0.7, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.25, retrograde: false },
     endpoint: { mu: 3.2e14, radiusM: 6e6 },
   };
   const routes = findSingleAssistRoutes(
@@ -763,6 +774,7 @@ Deno.test("findDirectRoutes: each leg carries a full transfer conic (orientation
       eccentricity: 0,
       periapsisAngle: 0,
       orbitalPhase: 0,
+      retrograde: false,
     },
     endpoint: { mu: muBody(0.02), radiusM: 1.7e6 },
   };
@@ -773,6 +785,7 @@ Deno.test("findDirectRoutes: each leg carries a full transfer conic (orientation
       eccentricity: 0,
       periapsisAngle: 0,
       orbitalPhase: 0.4,
+      retrograde: false,
     },
     endpoint: { mu: muBody(0.02), radiusM: 1.7e6 },
   };

@@ -7,6 +7,7 @@ export interface OrbitElements {
   eccentricity: number;
   periapsisAngle: number; // argument of periapsis, radians
   orbitalPhase: number; // mean-anomaly fraction at t=0, 0..1
+  retrograde: boolean; // true = orbit traversed in the reverse (clockwise) sense
 }
 
 export interface StateVector {
@@ -25,15 +26,16 @@ export function stateAt(
 ): StateVector {
   const a = el.orbitRadiusAu * AU_M;
   const e = Math.min(Math.max(el.eccentricity, 0), 0.999);
-  const n = Math.sqrt(muCentral / (a * a * a)); // rad/s
-  const M = el.orbitalPhase * 2 * Math.PI + n * tDays * DAY_S;
+  const n = Math.sqrt(muCentral / (a * a * a)); // rad/s (magnitude)
+  const signedN = el.retrograde ? -n : n;
+  const M = el.orbitalPhase * 2 * Math.PI + signedN * tDays * DAY_S;
   const E = solveKepler(M, e);
   const cosE = Math.cos(E);
   const sinE = Math.sin(E);
   const b = a * Math.sqrt(1 - e * e);
   const px = a * (cosE - e);
   const py = b * sinE;
-  const dEdt = n / (1 - e * cosE); // dE/dt, rad/s
+  const dEdt = signedN / (1 - e * cosE); // dE/dt, rad/s (carries the sign)
   const vx = -a * sinE * dEdt;
   const vy = b * cosE * dEdt;
   const c = Math.cos(el.periapsisAngle);

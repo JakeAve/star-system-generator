@@ -16,12 +16,14 @@ Deno.test("sweepTransfers: cheapest candidate ≈ Hohmann total for circular cop
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0,
+    retrograde: false,
   };
   const to = {
     orbitRadiusAu: 1.524,
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0.5,
+    retrograde: false,
   };
   const cands = sweepTransfers(from, to, MU, {
     departHorizonDays: 800,
@@ -48,12 +50,14 @@ Deno.test("sweepTransfers: produces only finite candidates", () => {
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0,
+    retrograde: false,
   };
   const to = {
     orbitRadiusAu: 1.524,
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0.5,
+    retrograde: false,
   };
   const cands = sweepTransfers(from, to, MU, {
     departHorizonDays: 800,
@@ -79,12 +83,14 @@ Deno.test("sweepTransfers: discards physically-absurd v∞ artifacts", () => {
     eccentricity: 0,
     periapsisAngle: 0,
     orbitalPhase: 0,
+    retrograde: false,
   };
   const to = {
     orbitRadiusAu: 5.2,
     eccentricity: 0.05,
     periapsisAngle: 0.3,
     orbitalPhase: 0.25,
+    retrograde: false,
   };
   const cands = sweepTransfers(from, to, MU, {
     departHorizonDays: 4000,
@@ -103,8 +109,8 @@ Deno.test("sweepTransfers: discards physically-absurd v∞ artifacts", () => {
 
 Deno.test("sweepTransfers: reframe samples depart at exact Δd spacing and tags candidates", () => {
   const mu = muStar(1);
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 };
-  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3 };
+  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
+  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3, retrograde: false };
   const opts = {
     departHorizonDays: 60,
     departSamples: 0, // ignored under reframe
@@ -126,8 +132,8 @@ Deno.test("sweepTransfers: reframe samples depart at exact Δd spacing and tags 
 
 Deno.test("sweepTransfers: reframe windows nest (narrow depart set ⊆ wide depart set)", () => {
   const mu = muStar(1);
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 };
-  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3 };
+  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
+  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3, retrograde: false };
   const reframe = {
     deltaD: 5, minD: 4, maxD: 120, deltaT: 10, minT: 4, maxT: 120, recurDays: 500,
   };
@@ -141,8 +147,8 @@ Deno.test("sweepTransfers: reframe windows nest (narrow depart set ⊆ wide depa
 
 Deno.test("sweepTransfers: no reframe arg leaves candidates untagged (fixed path)", () => {
   const mu = muStar(1);
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 };
-  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3 };
+  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
+  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3, retrograde: false };
   const cands = sweepTransfers(from, to, mu, {
     departHorizonDays: 200, departSamples: 12, tofMinDays: 50, tofMaxDays: 130, tofSamples: 12,
   });
@@ -155,8 +161,8 @@ Deno.test("sweepTransfers: no reframe arg leaves candidates untagged (fixed path
 Deno.test("sweepTransfers tags each candidate with the full transfer conic", () => {
   // Two coplanar circular orbits about a 1-solar-mass star.
   const mu = muStar(1);
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0 };
-  const to = { orbitRadiusAu: 1.6, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3 };
+  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
+  const to = { orbitRadiusAu: 1.6, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3, retrograde: false };
   const cands = sweepTransfers(from, to, mu, {
     departHorizonDays: 200,
     departSamples: 4,
