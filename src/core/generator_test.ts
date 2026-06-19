@@ -2,7 +2,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { RNG } from "./rng.ts";
-import { massFromRadiusDensity, rsig } from "./generator.ts";
+import { makeMoon, massFromRadiusDensity, M_EARTH_IN_SOLAR, rsig } from "./generator.ts";
 
 Deno.test("rsig: rounds to 4 significant figures at any magnitude", () => {
   assertEquals(rsig(94.041), 94.04);
@@ -789,4 +789,50 @@ Deno.test("generation: moons stay prograde even at high body retrograde rate", (
   for (const o of sys.objects) {
     for (const m of o.moons) assertEquals(m.retrograde, false);
   }
+});
+
+// ── makeMoon: captured-moon broadening (Phase 2) ─────────────────────────────
+
+function idGen() {
+  let n = 0;
+  return () => `m${n++}`;
+}
+
+// Helper: expected Hill radius (AU) for the moon's parent.
+function hillAU(parentOrbitAU: number, parentMass: number, starMass: number) {
+  return parentOrbitAU * Math.cbrt((parentMass * M_EARTH_IN_SOLAR) / (3 * starMass));
+}
+
+Deno.test("makeMoon: captureProbability=1 yields a captured moon with wide ecc and far distance", () => {
+  const rng = new RNG(42);
+  const m = makeMoon(rng, idGen(), 0, "p", 5.0, 300, 1.0, DEFAULT_CONFIG, 2.7, 1.0);
+  assertEquals(m.capturedMoon, true);
+  assert(m.eccentricity >= 0.1 && m.eccentricity <= 0.5, `ecc ${m.eccentricity}`);
+  const ratio = m.orbitRadius / hillAU(5.0, 300, 1.0);
+  assert(ratio >= 0.30 - 1e-3 && ratio <= 0.60 + 1e-3, `captured band ratio ${ratio}`);
+});
+
+Deno.test("makeMoon: captureProbability=0 yields a regular prograde moon, close in", () => {
+  const rng = new RNG(42);
+  const m = makeMoon(rng, idGen(), 0, "p", 5.0, 300, 1.0, DEFAULT_CONFIG, 2.7, 0.0);
+  assertEquals(m.capturedMoon, undefined);
+  assertEquals(m.retrograde, false);
+  assert(m.eccentricity <= 0.05, `regular ecc ${m.eccentricity}`);
+  const ratio = m.orbitRadius / hillAU(5.0, 300, 1.0);
+  assert(ratio >= 0.05 - 1e-3 && ratio <= 0.25 + 1e-3, `regular band ratio ${ratio}`);
+});
+
+Deno.test("makeMoon: captured moon honors capturedMoonRetrograde (=1 all retrograde, =0 none)", () => {
+  const allRetro = { ...DEFAULT_CONFIG, capturedMoonRetrograde: 1 };
+  const noRetro = { ...DEFAULT_CONFIG, capturedMoonRetrograde: 0 };
+  const a = makeMoon(new RNG(7), idGen(), 0, "p", 5.0, 300, 1.0, allRetro, 2.7, 1.0);
+  const b = makeMoon(new RNG(7), idGen(), 0, "p", 5.0, 300, 1.0, noRetro, 2.7, 1.0);
+  assertEquals(a.retrograde, true);
+  assertEquals(b.retrograde, false);
+});
+
+Deno.test("makeMoon: regular moon never retrograde even if capturedMoonRetrograde=1", () => {
+  const allRetro = { ...DEFAULT_CONFIG, capturedMoonRetrograde: 1 };
+  const m = makeMoon(new RNG(7), idGen(), 0, "p", 5.0, 300, 1.0, allRetro, 2.7, 0.0);
+  assertEquals(m.retrograde, false);
 });

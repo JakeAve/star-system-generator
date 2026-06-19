@@ -51,7 +51,7 @@ export function massFromRadiusDensity(radius: number, density: number): number {
 }
 
 /** M⊕ expressed in M☉ — used for moon Kepler calculations. */
-const M_EARTH_IN_SOLAR = 3.003e-6;
+export const M_EARTH_IN_SOLAR = 3.003e-6;
 
 // ── Settlement cap ────────────────────────────────────────────────────────────
 
@@ -176,7 +176,7 @@ function generateStar(
 
 // ── Moon builder ──────────────────────────────────────────────────────────────
 
-function makeMoon(
+export function makeMoon(
   rng: RNG,
   nextId: () => string,
   index: number,
@@ -186,8 +186,9 @@ function makeMoon(
   starMass: number,
   config: GeneratorConfig,
   frostLineAU: number,
-  captured: boolean,
+  captureProbability: number,
 ): CelestialObject {
+  const captured = rng.next() < captureProbability;
   const rr = config.radiusRanges.moon;
   const dr = config.densityRanges.moon;
   const radius = rsig(rng.float(rr.min, rr.max));
@@ -198,8 +199,11 @@ function makeMoon(
   // Hill sphere radius in AU; moons are stable within ~0.5 r_H
   const hillSphereAU = parentOrbitAU *
     Math.cbrt((parentMass * M_EARTH_IN_SOLAR) / (3 * starMass));
+  const hillRange = captured
+    ? config.capturedMoonHillRange
+    : config.regularMoonHillRange;
   const moonOrbitAU = hillSphereAU *
-    rng.float(config.regularMoonHillRange.min, config.regularMoonHillRange.max);
+    rng.float(hillRange.min, hillRange.max);
   // Kepler's third law for moon orbiting parent planet
   const orbitPeriod = Math.max(
     1,
@@ -244,7 +248,7 @@ function makeMoon(
     capturedMoon: captured || undefined,
     orbitalPhase: r2(rng.float(0, 1)),
     periapsisAngle: r3(rng.float(0, Math.PI * 2)),
-    retrograde: false,
+    retrograde: captured ? rng.next() < config.capturedMoonRetrograde : false,
     rotationPeriodDays,
     tidallyLocked,
   };
@@ -259,6 +263,7 @@ function makeRockyPlanet(
   index: number,
   eccentricity: number,
   moonCount: number,
+  captureProbability: number,
   radiusRange: { min: number; max: number },
   densityRange: { min: number; max: number },
   waterBonus: number,
@@ -321,7 +326,7 @@ function makeRockyPlanet(
           starMass,
           config,
           frostLineAU,
-          false,
+          captureProbability,
         ),
     ),
     knownAtStart: false,
@@ -342,7 +347,7 @@ function makeGasGiant(
   index: number,
   eccentricity: number,
   moonCount: number,
-  capturedMoons: boolean,
+  captureProbability: number,
   config: GeneratorConfig,
   frostLineAU: number,
   starMass: number,
@@ -400,7 +405,7 @@ function makeGasGiant(
           starMass,
           config,
           frostLineAU,
-          capturedMoons,
+          captureProbability,
         ),
     ),
     knownAtStart: false,
@@ -421,6 +426,7 @@ function makeIceGiant(
   index: number,
   eccentricity: number,
   moonCount: number,
+  captureProbability: number,
   config: GeneratorConfig,
   frostLineAU: number,
   starMass: number,
@@ -478,7 +484,7 @@ function makeIceGiant(
           starMass,
           config,
           frostLineAU,
-          false,
+          captureProbability,
         ),
     ),
     knownAtStart: false,
@@ -662,6 +668,8 @@ export function generateSolarSystem(
       const moonCount = slot.moonsRange
         ? rng.int(slot.moonsRange.min, slot.moonsRange.max)
         : 0;
+      const captureProb = slot.captureProbability ??
+        (slot.capturedMoons ? 1.0 : cfg.captureProbabilityDefaults[effectiveType]);
 
       let obj: CelestialObject;
 
@@ -690,7 +698,7 @@ export function generateSolarSystem(
           giantIdx++,
           ecc,
           moonCount,
-          slot.capturedMoons ?? false,
+          captureProb,
           cfg,
           frostLineAU,
           star.mass,
@@ -703,6 +711,7 @@ export function generateSolarSystem(
           iceGiantIdx++,
           ecc,
           moonCount,
+          captureProb,
           cfg,
           frostLineAU,
           star.mass,
@@ -733,6 +742,7 @@ export function generateSolarSystem(
           planetIdx++,
           ecc,
           moonCount,
+          captureProb,
           radiusRange,
           densityRange,
           slot.waterBonus ?? 0,
