@@ -698,13 +698,18 @@ export function lagrangeWaypoint(
   }
 
   // Heliocentric: co-orbital with the planet around the star.
+  // L4/L5 lead/trail in the direction of motion; for a retrograde parent that
+  // direction is reversed, so flip the equilateral phase offset's sign. L1/L2
+  // (offset 0) and L3 (180°, sign-symmetric) are unaffected.
+  const signedPhaseOffset = parent.retrograde ? -phaseOffset : phaseOffset;
   return {
     spec: {
       id: `${point}:${parent.id}`,
       orbitRadiusAu: radius,
       eccentricity: parent.eccentricity,
       periapsisAngle: parent.periapsisAngle,
-      orbitalPhase: ((parent.orbitalPhase + phaseOffset) % 1 + 1) % 1,
+      orbitalPhase: ((parent.orbitalPhase + signedPhaseOffset) % 1 + 1) % 1,
+      retrograde: parent.retrograde,
     },
     type,
   };

@@ -895,6 +895,28 @@ Deno.test("lagrangeWaypoint: L5 trails parent by 1/6 of a phase", () => {
   assertAlmostEquals(wp.spec.orbitalPhase!, expected, 1e-12);
 });
 
+Deno.test("lagrangeWaypoint: retrograde planet flips the L4 leading offset and tags the waypoint", () => {
+  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const retroPlanet = { ...planet, retrograde: true };
+  const wp = lagrangeWaypoint(system, retroPlanet, "L4", EndState.Dock);
+  if (!("spec" in wp)) throw new Error("planet parent should yield a heliocentric spec");
+  // Leading in the direction of motion => lower inertial angle for a retrograde body.
+  const expected = ((retroPlanet.orbitalPhase - 1 / 6) % 1 + 1) % 1;
+  assertAlmostEquals(wp.spec.orbitalPhase!, expected, 1e-12);
+  assertEquals(wp.spec.retrograde, true);
+});
+
+Deno.test("lagrangeWaypoint: retrograde parent leaves L1 collinear geometry unchanged", () => {
+  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const pro = lagrangeWaypoint(system, { ...planet, retrograde: false }, "L1", EndState.Intercept);
+  const retro = lagrangeWaypoint(system, { ...planet, retrograde: true }, "L1", EndState.Intercept);
+  if (!("spec" in pro) || !("spec" in retro)) throw new Error("expected heliocentric specs");
+  // L1 phaseOffset is 0; only the retrograde tag differs, radius/phase match.
+  assertAlmostEquals(retro.spec.orbitRadiusAu, pro.spec.orbitRadiusAu, 1e-12);
+  assertAlmostEquals(retro.spec.orbitalPhase!, pro.spec.orbitalPhase!, 1e-12);
+  assertEquals(retro.spec.retrograde, true);
+});
+
 Deno.test("lagrangeWaypoint: routes end-to-end to a planet's L5", () => {
   const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
   const dest = lagrangeWaypoint(system, planet, "L5", EndState.Dock);
