@@ -145,6 +145,35 @@ Deno.test("sweepTransfers: reframe windows nest (narrow depart set ⊆ wide depa
   for (const d of narrowDeparts) assertEquals(wideSet.has(d), true);
 });
 
+Deno.test("sweepTransfers: all-prograde pair is unchanged by the both-arc search", () => {
+  // Same fixture as the Hohmann-baseline test; the prograde arc must still win,
+  // so the cheapest total is the Hohmann total within tolerance.
+  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
+  const to = { orbitRadiusAu: 1.524, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.5, retrograde: false };
+  const cands = sweepTransfers(from, to, MU, {
+    departHorizonDays: 800, departSamples: 40, tofMinDays: 200, tofMaxDays: 400, tofSamples: 40,
+  });
+  const h = hohmann(1 * AU_M, 1.524 * AU_M, MU);
+  const best = cands.reduce((m, c) =>
+    c.vInfDepart + c.vInfArrive < m.vInfDepart + m.vInfArrive ? c : m
+  );
+  assertAlmostEquals((best.vInfDepart + best.vInfArrive) / 1000, (h.dvDepart + h.dvArrive) / 1000, 0.3);
+});
+
+Deno.test("sweepTransfers: reaching a retrograde target yields finite candidates and a retrograde-arc pick", () => {
+  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
+  // Target orbits the opposite way:
+  const to = { orbitRadiusAu: 1.524, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.5, retrograde: true };
+  const cands = sweepTransfers(from, to, MU, {
+    departHorizonDays: 800, departSamples: 40, tofMinDays: 200, tofMaxDays: 400, tofSamples: 40,
+  });
+  assertEquals(cands.length > 0, true);
+  assertEquals(cands.every((c) => Number.isFinite(c.vInfDepart) && Number.isFinite(c.vInfArrive)), true);
+  // With a retrograde target, the cheaper arc for at least one cell is the
+  // retrograde one (transfer conic walks nu1 -> nu2 backward => nu2 < nu1).
+  assertEquals(cands.some((c) => c.nu2 < c.nu1), true);
+});
+
 Deno.test("sweepTransfers: no reframe arg leaves candidates untagged (fixed path)", () => {
   const mu = muStar(1);
   const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };

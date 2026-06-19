@@ -124,41 +124,43 @@ export function sweepTransfers(
         sFrom.position.y * sTo.position.x;
       const r2 = Math.hypot(sTo.position.x, sTo.position.y);
       if (Math.abs(crossZ) < COLLINEAR_EPS * r1 * r2) continue;
-      const { v1, v2 } = solveLambert(
-        sFrom.position,
-        sTo.position,
-        tofDays * DAY_S,
-        mu,
-        true,
-      );
-      if (!Number.isFinite(v1.x) || !Number.isFinite(v2.x)) continue;
-      const vInfDepart = Math.hypot(
-        v1.x - sFrom.velocity.x,
-        v1.y - sFrom.velocity.y,
-      );
-      const vInfArrive = Math.hypot(
-        v2.x - sTo.velocity.x,
-        v2.y - sTo.velocity.y,
-      );
-      if (vInfDepart > MAX_VINF_MPS || vInfArrive > MAX_VINF_MPS) continue;
-      const c = transferConic(sFrom.position, v1, sTo.position, mu);
-      if (!Number.isFinite(c.aAu) || !Number.isFinite(c.e)) continue;
+      const evalArc = (prograde: boolean) => {
+        const { v1, v2 } = solveLambert(
+          sFrom.position,
+          sTo.position,
+          tofDays * DAY_S,
+          mu,
+          prograde,
+        );
+        if (!Number.isFinite(v1.x) || !Number.isFinite(v2.x)) return null;
+        const vInfDepart = Math.hypot(v1.x - sFrom.velocity.x, v1.y - sFrom.velocity.y);
+        const vInfArrive = Math.hypot(v2.x - sTo.velocity.x, v2.y - sTo.velocity.y);
+        if (vInfDepart > MAX_VINF_MPS || vInfArrive > MAX_VINF_MPS) return null;
+        const c = transferConic(sFrom.position, v1, sTo.position, mu);
+        if (!Number.isFinite(c.aAu) || !Number.isFinite(c.e)) return null;
+        return { v1, v2, vInfDepart, vInfArrive, c };
+      };
+
+      const arcs = [evalArc(true), evalArc(false)].filter((x) => x !== null);
+      if (arcs.length === 0) continue;
+      const pick = arcs.reduce((m, x) =>
+        x!.vInfDepart + x!.vInfArrive < m!.vInfDepart + m!.vInfArrive ? x : m
+      )!;
+
       out.push({
         departDay,
         tofDays,
         arriveDay,
-        v1,
-        v2,
-        vInfDepart,
-        vInfArrive,
-        aAu: c.aAu,
-        e: c.e,
-        argPeriapsis: c.argPeriapsis,
-        nu1: c.nu1,
-        nu2: c.nu2,
-        ...(reframe
-          ? { phaseDay: departDay, recurDays: reframe.recurDays }
-          : {}),
+        v1: pick.v1,
+        v2: pick.v2,
+        vInfDepart: pick.vInfDepart,
+        vInfArrive: pick.vInfArrive,
+        aAu: pick.c.aAu,
+        e: pick.c.e,
+        argPeriapsis: pick.c.argPeriapsis,
+        nu1: pick.c.nu1,
+        nu2: pick.c.nu2,
+        ...(reframe ? { phaseDay: departDay, recurDays: reframe.recurDays } : {}),
       });
     }
   }
