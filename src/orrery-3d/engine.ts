@@ -86,6 +86,7 @@ interface AnimObj {
   periapsisAngle: number;
   initialAngle: number;
   orbitPeriod: number;
+  retrograde: boolean;
   flyOffset: number;
 }
 
@@ -343,6 +344,7 @@ export function createOrrery(
         (body.data as { orbitPeriod?: number }).orbitPeriod || 1,
         0,
         a > 0 ? c / a : 0,
+        (body.data as { retrograde?: boolean }).retrograde ?? false,
       ),
       periapsisAngle,
     ));
@@ -359,6 +361,7 @@ export function createOrrery(
       periapsisAngle,
       initialAngle,
       orbitPeriod: (body.data as { orbitPeriod?: number }).orbitPeriod || 1,
+      retrograde: (body.data as { retrograde?: boolean }).retrograde ?? false,
       flyOffset: Math.max(FLY_OFFSET_MIN, body.visualR * FLY_OFFSET_FACTOR),
     });
     return mesh;
@@ -401,6 +404,7 @@ export function createOrrery(
       periapsisAngle: 0,
       initialAngle: 0,
       orbitPeriod: 1,
+      retrograde: false,
       flyOffset: starFlyOffset,
     });
 
@@ -519,6 +523,7 @@ export function createOrrery(
           obj.orbitPeriod,
           elapsedDays,
           obj.a > 0 ? obj.c / obj.a : 0,
+          obj.retrograde,
         );
         obj.mesh.position.copy(
           orbitPos(obj.a, obj.b, obj.c, angle, obj.periapsisAngle),

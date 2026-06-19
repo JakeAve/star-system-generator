@@ -80,6 +80,7 @@ export function buildViewModel(
       (body.data as CelestialObject).orbitPeriod || 1,
       elapsedDays,
       (body.data as CelestialObject).eccentricity ?? 0,
+      (body.data as CelestialObject).retrograde,
     );
     const local = orbitPosition(
       body.ellipse.a,

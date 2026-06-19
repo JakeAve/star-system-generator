@@ -69,6 +69,7 @@ interface AnimObj {
   periapsisAngle: number;
   initialAngle: number;
   orbitPeriod: number;
+  retrograde: boolean;
   parentId: string | null;
   worldX: number;
   worldY: number;
@@ -542,6 +543,7 @@ export function createCanvasOrrery(
       periapsisAngle: 0,
       initialAngle: 0,
       orbitPeriod: 1,
+      retrograde: false,
       parentId: null,
     });
     const sorted = [...system.objects].sort((a, b) =>
@@ -559,6 +561,7 @@ export function createCanvasOrrery(
         periapsisAngle: obj.periapsisAngle ?? 0,
         initialAngle: (obj.orbitalPhase ?? 0) * Math.PI * 2,
         orbitPeriod: obj.orbitPeriod || 1,
+        retrograde: obj.retrograde,
         parentId: null,
         worldX: 0,
         worldY: 0,
@@ -576,6 +579,7 @@ export function createCanvasOrrery(
           periapsisAngle: moon.periapsisAngle ?? 0,
           initialAngle: (moon.orbitalPhase ?? 0) * Math.PI * 2,
           orbitPeriod: moon.orbitPeriod || 1,
+          retrograde: moon.retrograde,
           parentId: obj.id,
           worldX: 0,
           worldY: 0,
@@ -594,6 +598,7 @@ export function createCanvasOrrery(
         obj.orbitPeriod,
         elapsedDays,
         obj.a > 0 ? obj.c / obj.a : 0,
+        obj.retrograde,
       );
       const pos = orbitPosition(obj.a, obj.b, obj.c, angle, obj.periapsisAngle);
       if (obj.parentId === null) {
