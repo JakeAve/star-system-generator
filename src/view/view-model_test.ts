@@ -12,6 +12,7 @@ import {
 function singlePlanetSystem(
   eccentricity: number,
   orbitalPhase: number,
+  retrograde = false,
 ): SolarSystem {
   const star = {
     id: "star",
@@ -49,7 +50,7 @@ function singlePlanetSystem(
     moons: [],
     orbitalPhase,
     periapsisAngle: 0,
-    retrograde: false,
+    retrograde,
     rotationPeriodDays: 1,
     tidallyLocked: false,
     knownAtStart: true,
@@ -113,4 +114,23 @@ Deno.test("buildViewModel: eccentric body placed by Kepler solve at t=0", () => 
   const expected = orbitPosition(a, b, c, E, 0);
   assertAlmostEquals(planet.position.x, expected.x, 1e-9);
   assertAlmostEquals(planet.position.y, expected.y, 1e-9);
+});
+
+Deno.test("buildViewModel: retrograde body sweeps the opposite angular direction", () => {
+  // Circular orbit (e=0) starting at periapsis (phase 0 → angle 0 → +x axis).
+  // A quarter period later a prograde body is at +90° (+y); the retrograde
+  // body, traversing the same circle in reverse, is at -90° (-y). This proves
+  // `retrograde` is actually threaded through buildViewModel, not dropped.
+  const quarterPeriod = 365 / 4;
+  const prograde = buildViewModel(singlePlanetSystem(0, 0, false), quarterPeriod)
+    .find((b) => b.id === "p1")!;
+  const retro = buildViewModel(singlePlanetSystem(0, 0, true), quarterPeriod)
+    .find((b) => b.id === "p1")!;
+
+  // Same orbit, mirrored across the periapsis (x) axis: equal x, opposite y.
+  assertAlmostEquals(retro.position.x, prograde.position.x, 1e-9);
+  assertAlmostEquals(retro.position.y, -prograde.position.y, 1e-9);
+  // And the sweep is genuinely in opposite directions, not both stuck at y=0.
+  assertEquals(prograde.position.y > 0, true);
+  assertEquals(retro.position.y < 0, true);
 });
