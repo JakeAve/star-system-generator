@@ -40,6 +40,9 @@ const FLYBY_TYPES = new Set<ObjectType>([
 ]);
 
 function elementsOf(o: CelestialObject): OrbitElements {
+  // NOTE: `o.retrograde` is intentionally not mapped here — travel physics stays
+  // prograde for all bodies in Phase 1. Retrograde travel is deferred to Phase 5
+  // (negate mean motion in stateAt, carry the sign through velocity/conic terms).
   return {
     orbitRadiusAu: o.orbitRadius,
     eccentricity: o.eccentricity,
