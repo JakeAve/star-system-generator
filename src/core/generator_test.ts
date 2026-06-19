@@ -838,3 +838,47 @@ Deno.test("makeMoon: regular moon never retrograde even if capturedMoonRetrograd
   const m = makeMoon(new RNG(7), idGen(), 0, "p", 5.0, 300, 1.0, allRetro, 2.7, 0.0);
   assertEquals(m.retrograde, false);
 });
+
+// Phase 3 — retrograde survives the two real persistence paths: deterministic
+// regeneration from the seed, and full-JSON serialization (localStorage).
+Deno.test("generateSolarSystem: retrograde is a boolean on every body and reproduces from seed", () => {
+  let retroCount = 0;
+  for (let seed = 0; seed < 40; seed++) {
+    const a = generateSolarSystem({ seed });
+    const b = generateSolarSystem({ seed });
+    const aBodies = allObjects(a);
+    const bBodies = allObjects(b);
+    assertEquals(aBodies.length, bBodies.length, `body count drift at seed ${seed}`);
+    for (let i = 0; i < aBodies.length; i++) {
+      // Required field: never undefined/optional on a generated body.
+      assertEquals(
+        typeof aBodies[i].retrograde,
+        "boolean",
+        `non-boolean retrograde at seed ${seed}, body ${aBodies[i].id}`,
+      );
+      // Deterministic: same seed → same direction on the same body.
+      assertEquals(
+        aBodies[i].retrograde,
+        bBodies[i].retrograde,
+        `retrograde drift at seed ${seed}, body ${aBodies[i].id}`,
+      );
+      if (aBodies[i].retrograde) retroCount++;
+    }
+  }
+  // Guard against a silently-broken roll that leaves everything prograde:
+  // seeds 0–39 reliably yield retrograde comets/captured moons.
+  assert(retroCount > 0, "expected at least one retrograde body across seeds 0–39");
+});
+
+Deno.test("generateSolarSystem: retrograde survives a full JSON round-trip", () => {
+  // Seed 0 carries retrograde bodies; serialize the whole system as the
+  // localStorage path does and confirm nothing about it changes.
+  const system = generateSolarSystem({ seed: 0 });
+  const roundTripped = JSON.parse(JSON.stringify(system));
+  assertEquals(roundTripped, system);
+  const before = allObjects(system).map((o) => [o.id, o.retrograde]);
+  const after = allObjects(roundTripped).map((o) => [o.id, o.retrograde]);
+  assertEquals(after, before);
+  // Keep the round-trip meaningful: seed 0 carries a retrograde body to preserve.
+  assert(before.some(([, r]) => r === true), "seed 0 expected a retrograde body");
+});
