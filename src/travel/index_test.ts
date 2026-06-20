@@ -1062,6 +1062,27 @@ Deno.test("lagrangeWaypoint: routes to a moon's L5 (planetocentric, same-parent)
   assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `L5:${moon.id}`);
 });
 
+// --- Retrograde planet end-to-end (Phase 5 regression guard) ----------------------------
+
+Deno.test("getRoutes: produces a finite, sane route to a retrograde planet", () => {
+  // Flip the target body retrograde; route to it from the (prograde) first body.
+  const retroSystem = {
+    ...system,
+    objects: system.objects.map((o) => o.id === b ? { ...o, retrograde: true } : o),
+  };
+  const routes = getRoutes(
+    retroSystem,
+    { obj: a, type: EndState.Orbit },
+    { obj: b, type: EndState.Orbit },
+    { maxAssists: 0 },
+  );
+  assertEquals(routes.length > 0, true, "expected at least one route to the retrograde target");
+  for (const r of routes) {
+    assertEquals(Number.isFinite(r.totalDeltaV) && r.totalDeltaV > 0, true);
+    assertEquals(Number.isFinite(r.duration) && r.duration > 0, true);
+  }
+});
+
 Deno.test("lagrangePointGeometry: L4/L5 are co-orbital with ±1/6 phase", () => {
   assertEquals(lagrangePointGeometry("L4", 0), { radiusFactor: 1, phaseOffset: 1 / 6 });
   assertEquals(lagrangePointGeometry("L5", 0), { radiusFactor: 1, phaseOffset: -1 / 6 });
