@@ -1064,6 +1064,32 @@ Deno.test("lagrangeWaypoint: routes to a moon's L5 (planetocentric, same-parent)
 
 // --- Retrograde planet end-to-end (Phase 5 regression guard) ----------------------------
 
+Deno.test("getRoutes: a retrograde captured moon deep in the Hill band still produces cross-frame routes", () => {
+  if (!giant42) {
+    throw new Error("seed 42 expected to have a planet with >= 2 moons");
+  }
+  const moon = giant42.moons[0];
+  const deepMoon = { ...moon, retrograde: true, orbitRadius: moon.orbitRadius * 2 };
+  const retroSystem = {
+    ...sys42,
+    objects: sys42.objects.map((o) =>
+      o.id === giant42!.id ? { ...o, moons: [deepMoon, ...giant42!.moons.slice(1)] } : o
+    ),
+  };
+  const depart = sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
+    sys42.objects.find((o) => o.id !== giant42!.id)!;
+  const routes = getRoutes(
+    retroSystem,
+    { obj: depart.id, type: EndState.Orbit },
+    { obj: deepMoon.id, type: EndState.Orbit },
+    { maxAssists: 0 },
+  );
+  assertEquals(routes.length > 0, true);
+  for (const r of routes) {
+    assertEquals(Number.isFinite(r.totalDeltaV) && r.totalDeltaV > 0, true);
+  }
+});
+
 Deno.test("getRoutes: produces a finite, sane route to a retrograde planet", () => {
   // Flip the target body retrograde; route to it from the (prograde) first body.
   const retroSystem = {
