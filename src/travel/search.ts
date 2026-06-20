@@ -31,7 +31,11 @@ import {
   type TravelOptions,
 } from "./types.ts";
 import { DAY_S, mpsToKmps } from "./units.ts";
-import { buildCrossFrameRoute, type CrossFrameEndpoint } from "./legs.ts";
+import {
+  buildCrossFrameRoute,
+  type CrossFrameEndpoint,
+  planetoAppendage,
+} from "./legs.ts";
 import { sumPrecise } from "./sum.ts";
 
 export interface BodyRef {
@@ -300,6 +304,24 @@ export function findCrossFrameRoutes(
     options,
     reframeOn,
   );
+  // A moon origin departs its parent escape leg *before* the heliocentric leg flies, so the
+  // mission departure is helioDepart − escapeTof. buildCrossFrameRoute drops any candidate
+  // whose departure lands before t=0; when the escape leg is longer than the heliocentric
+  // departure window (a distant moon about a massive parent), every swept candidate is
+  // dropped and zero routes are found until the sim clock advances past the escape time of
+  // flight. Shift the depart sweep forward by that offset so the mission departures fall in
+  // the requested [startWindow, …] window regardless of the clock. The reframe path samples
+  // from day 0 and projects via phaseDay afterward, so it must not be shifted here.
+  if (!reframeOn && from.parent) {
+    const fromAp = planetoAppendage(from.parent.body, from.parent.moonOrbitRadiusM);
+    const originTerminal = buildTerminal(
+      from.body,
+      from.endState,
+      fromAp.moonVInfMps,
+      "depart",
+    );
+    opts.departStartDay += fromAp.tofDays + originTerminal.duration;
+  }
   const reframe = reframeFor(options, opts.recurDays);
   const cands = sweepTransfers(
     from.anchorElements,

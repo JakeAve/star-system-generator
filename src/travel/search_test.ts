@@ -535,6 +535,61 @@ Deno.test("findCrossFrameRoutes: planet → moon produces Transit-bearing routes
   }
 });
 
+Deno.test("findCrossFrameRoutes: a distant-origin moon still routes at startWindow 0", () => {
+  // Regression: when the origin moon's escape leg is longer than the heliocentric
+  // departure window, every swept candidate's mission departure (helioDepart − escapeTof)
+  // lands before t=0 and is dropped, yielding zero routes until the sim clock advances
+  // past the escape time-of-flight. The departure sweep must shift forward by the escape
+  // time-of-flight so routes are found regardless of startWindow.
+  const mu = muStar(1);
+  // Two parents close to the star -> short synodic recurrence (the heliocentric window).
+  const from: CrossFrameEndpoint = {
+    id: "M_far",
+    endState: EndState.Orbit,
+    body: { mu: muBody(0.02), radiusM: R_EARTH_M * 0.3 },
+    anchorId: "G_outer",
+    anchorElements: {
+      orbitRadiusAu: 0.5,
+      eccentricity: 0,
+      periapsisAngle: 0,
+      orbitalPhase: 0,
+      retrograde: false,
+    },
+    // Distant moon about a giant -> a long (hundreds of days) escape Hohmann.
+    parent: {
+      body: { mu: muBody(300), radiusM: R_EARTH_M * 11 },
+      moonOrbitRadiusM: 0.25 * AU_M,
+    },
+  };
+  const to: CrossFrameEndpoint = {
+    id: "M_near",
+    endState: EndState.Orbit,
+    body: { mu: muBody(0.02), radiusM: R_EARTH_M * 0.3 },
+    anchorId: "P_inner",
+    anchorElements: {
+      orbitRadiusAu: 0.3,
+      eccentricity: 0,
+      periapsisAngle: 0,
+      orbitalPhase: 0.4,
+      retrograde: false,
+    },
+    parent: {
+      body: { mu: muBody(1), radiusM: R_EARTH_M },
+      moonOrbitRadiusM: 1.5e8,
+    },
+  };
+  const routes = findCrossFrameRoutes(from, to, "star", mu, {
+    rank: RankMode.All,
+    startWindow: 0,
+  });
+  if (routes.length === 0) {
+    throw new Error("expected routes from a distant-origin moon at startWindow 0");
+  }
+  for (const r of routes) {
+    if (!(r.departAt >= 0)) throw new Error("departAt must be non-negative");
+  }
+});
+
 Deno.test("selectBestRoutes2: returns the 7 picks deduped, each matching a brute-force scan", () => {
   const all = findDirectRoutes(
     fromBody, toBody, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All },
