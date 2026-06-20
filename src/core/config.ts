@@ -524,6 +524,7 @@ export const DEFAULT_CONFIG: GeneratorConfig = {
   regularMoonHillRange: { min: 0.05, max: 0.25 },
   capturedMoonHillRange: { min: 0.30, max: 0.60 },
   tidalLockThresholdDays: { planet: 10, moon: 80 },
+  lowOrbitAltitudeFraction: 0.05,
   rotationPeriodDays: {
     gasGiant: { min: 0.3, max: 1.5 },
     iceGiant: { min: 0.6, max: 1.5 },

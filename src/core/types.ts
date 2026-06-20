@@ -223,6 +223,8 @@ export interface GeneratorConfig {
   /** Distance band (fraction of parent Hill radius) for captured moons */
   capturedMoonHillRange: { min: number; max: number };
   tidalLockThresholdDays: { planet: number; moon: number };
+  /** "Low" orbit altitude as a fraction of the body's radius above its surface. */
+  lowOrbitAltitudeFraction: number;
   rotationPeriodDays: {
     gasGiant: { min: number; max: number };
     iceGiant: { min: number; max: number };
