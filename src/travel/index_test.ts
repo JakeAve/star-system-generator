@@ -1,4 +1,4 @@
-import { assertEquals, assertAlmostEquals, assertThrows } from "@std/assert";
+import { assert, assertAlmostEquals, assertEquals, assertThrows } from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
 import {
   getBestRoutes,
@@ -1084,9 +1084,10 @@ Deno.test("getRoutes: a retrograde captured moon deep in the Hill band still pro
     { obj: deepMoon.id, type: EndState.Orbit },
     { maxAssists: 0 },
   );
-  assertEquals(routes.length > 0, true);
+  assert(routes.length > 0);
   for (const r of routes) {
-    assertEquals(Number.isFinite(r.totalDeltaV) && r.totalDeltaV > 0, true);
+    assert(Number.isFinite(r.totalDeltaV) && r.totalDeltaV > 0);
+    assert(Number.isFinite(r.duration) && r.duration > 0);
   }
 });
 
@@ -1102,10 +1103,10 @@ Deno.test("getRoutes: produces a finite, sane route to a retrograde planet", () 
     { obj: b, type: EndState.Orbit },
     { maxAssists: 0 },
   );
-  assertEquals(routes.length > 0, true, "expected at least one route to the retrograde target");
+  assert(routes.length > 0, "expected at least one route to the retrograde target");
   for (const r of routes) {
-    assertEquals(Number.isFinite(r.totalDeltaV) && r.totalDeltaV > 0, true);
-    assertEquals(Number.isFinite(r.duration) && r.duration > 0, true);
+    assert(Number.isFinite(r.totalDeltaV) && r.totalDeltaV > 0);
+    assert(Number.isFinite(r.duration) && r.duration > 0);
   }
 });
 

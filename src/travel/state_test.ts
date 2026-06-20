@@ -1,9 +1,8 @@
-import { assertAlmostEquals, assertEquals } from "@std/assert";
+import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
 import { conic, type OrbitElements, stateAt, transferConic } from "./state.ts";
 import { AU_M, muStar } from "./units.ts";
 
 const MU = muStar(1); // 1 solar mass central body
-const MU_SUN = muStar(1);
 
 Deno.test("stateAt: circular orbit has |r|=a and speed=circular velocity", () => {
   const a = 1; // AU
@@ -111,14 +110,14 @@ Deno.test("stateAt: retrograde sweeps clockwise (mirror of prograde across the p
   const retro: OrbitElements = { ...base, retrograde: true };
 
   const t = 30; // days; a small slice of a ~365-day orbit
-  const sp = stateAt(pro, MU_SUN, t);
-  const sr = stateAt(retro, MU_SUN, t);
+  const sp = stateAt(pro, MU, t);
+  const sr = stateAt(retro, MU, t);
 
   // Same starting axis → equal x; opposite angular sense → opposite y.
   assertAlmostEquals(sr.position.x, sp.position.x, 1);
   assertAlmostEquals(sr.position.y, -sp.position.y, 1);
-  assertEquals(sp.position.y > 0, true, "prograde sweeps to +y");
-  assertEquals(sr.position.y < 0, true, "retrograde sweeps to -y");
+  assert(sp.position.y > 0, "prograde sweeps to +y");
+  assert(sr.position.y < 0, "retrograde sweeps to -y");
 });
 
 Deno.test("stateAt: retrograde reverses the specific angular momentum sign", () => {
@@ -129,11 +128,11 @@ Deno.test("stateAt: retrograde reverses the specific angular momentum sign", () 
     orbitalPhase: 0.2,
     retrograde: true,
   };
-  const s = stateAt(el, MU_SUN, 0);
+  const s = stateAt(el, MU, 0);
   const h = s.position.x * s.velocity.y - s.position.y * s.velocity.x;
-  assertEquals(h < 0, true, "retrograde => h = r x v < 0");
+  assert(h < 0, "retrograde => h = r x v < 0");
 
-  const pro = stateAt({ ...el, retrograde: false }, MU_SUN, 0);
+  const pro = stateAt({ ...el, retrograde: false }, MU, 0);
   const hp = pro.position.x * pro.velocity.y - pro.position.y * pro.velocity.x;
-  assertEquals(hp > 0, true, "prograde => h > 0");
+  assert(hp > 0, "prograde => h > 0");
 });

@@ -1,4 +1,4 @@
-import { assertAlmostEquals, assertEquals } from "@std/assert";
+import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
 import { hohmann, sweepTransfers } from "./transfers.ts";
 import { AU_M, muStar } from "./units.ts";
 
@@ -167,11 +167,11 @@ Deno.test("sweepTransfers: reaching a retrograde target yields finite candidates
   const cands = sweepTransfers(from, to, MU, {
     departHorizonDays: 800, departSamples: 40, tofMinDays: 200, tofMaxDays: 400, tofSamples: 40,
   });
-  assertEquals(cands.length > 0, true);
-  assertEquals(cands.every((c) => Number.isFinite(c.vInfDepart) && Number.isFinite(c.vInfArrive)), true);
+  assert(cands.length > 0);
+  assert(cands.every((c) => Number.isFinite(c.vInfDepart) && Number.isFinite(c.vInfArrive)));
   // With a retrograde target, the cheaper arc for at least one cell is the
   // retrograde one (transfer conic walks nu1 -> nu2 backward => nu2 < nu1).
-  assertEquals(cands.some((c) => c.nu2 < c.nu1), true);
+  assert(cands.some((c) => c.nu2 < c.nu1));
 });
 
 Deno.test("sweepTransfers: no reframe arg leaves candidates untagged (fixed path)", () => {

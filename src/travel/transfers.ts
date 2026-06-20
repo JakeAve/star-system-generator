@@ -141,11 +141,13 @@ export function sweepTransfers(
         return { v1, v2, vInfDepart, vInfArrive, c };
       };
 
-      const arcs = [evalArc(true), evalArc(false)].filter((x) => x !== null);
+      const arcs = [evalArc(true), evalArc(false)].filter(
+        (x): x is NonNullable<typeof x> => x !== null,
+      );
       if (arcs.length === 0) continue;
       const pick = arcs.reduce((m, x) =>
-        x!.vInfDepart + x!.vInfArrive < m!.vInfDepart + m!.vInfArrive ? x : m
-      )!;
+        x.vInfDepart + x.vInfArrive < m.vInfDepart + m.vInfArrive ? x : m
+      );
 
       out.push({
         departDay,
