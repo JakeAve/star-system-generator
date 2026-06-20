@@ -86,3 +86,9 @@ Deno.test("computeOrbit: negative distance throws", () => {
     "non-negative",
   );
 });
+
+import { computeOrbit as computeOrbitFromIndex } from "./index.ts";
+
+Deno.test("index: re-exports computeOrbit", () => {
+  assertEquals(typeof computeOrbitFromIndex, "function");
+});

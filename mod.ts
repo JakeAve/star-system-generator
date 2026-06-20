@@ -48,6 +48,16 @@ export {
   getBestRoutes3,
   getRoutes,
 } from "./src/travel/index.ts";
+export { computeOrbit } from "./src/orbit/index.ts";
+export type {
+  AppliedSpec,
+  DistanceUnit,
+  NamedOrbitType,
+  OrbitBand,
+  OrbitResult,
+  OrbitSpec,
+  OrbitUnavailable,
+} from "./src/orbit/index.ts";
 export {
   buildRouteViewModel,
   roleDisplayName,
