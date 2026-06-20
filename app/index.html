@@ -172,6 +172,37 @@
         font-size: 0.85rem;
         color: #555;
       }
+      .seed-entry {
+        display: flex;
+        align-items: stretch;
+        gap: 2px;
+      }
+      .seed-entry .seed-row {
+        flex: 1;
+        min-width: 0;
+      }
+      .seed-delete {
+        flex: 0 0 auto;
+        background: none;
+        border: 1px solid transparent;
+        color: #555;
+        font-family: inherit;
+        font-size: 1rem;
+        line-height: 1;
+        cursor: pointer;
+        padding: 0 0.7rem;
+      }
+      .seed-delete:hover {
+        color: #e57373;
+        border-color: #333;
+      }
+      .seed-delete.armed {
+        color: #fff;
+        background: #7f1d1d;
+        border-color: #b91c1c;
+        font-size: 0.7rem;
+        letter-spacing: 0.05em;
+      }
     </style>
   </head>
   <body>
@@ -204,7 +235,7 @@
 
     <script type="module">
       import { generateSolarSystem } from "./star-seeder.bundle.js";
-      import { listSeeds, saveSystem } from "./storage.js";
+      import { listSeeds, removeSystem, saveSystem } from "./storage.js";
 
       const seedInput = document.getElementById("seed-input");
       const generateBtn = document.getElementById("generate-btn");
@@ -251,9 +282,13 @@
       const listEl = document.getElementById("list");
       const seeds = listSeeds();
 
-      if (seeds.length === 0) {
+      function showEmpty() {
         listEl.innerHTML =
           '<p class="empty">No seeds saved yet — generate one above.</p>';
+      }
+
+      if (seeds.length === 0) {
+        showEmpty();
       } else {
         const ARCHETYPE_LABEL = {
           dynamicallyCold: "cold",
@@ -324,7 +359,43 @@
 
           details.append(metaSpan, meta2Span);
           a.append(numSpan, details);
-          listEl.appendChild(a);
+
+          const entry = document.createElement("div");
+          entry.className = "seed-entry";
+
+          const del = document.createElement("button");
+          del.className = "seed-delete";
+          del.type = "button";
+          del.textContent = "✕";
+          del.title = `Delete seed ${sys.seed}`;
+          del.setAttribute("aria-label", `Delete seed ${sys.seed}`);
+
+          // Two-click confirm: first click arms the button, second click deletes.
+          // Arming auto-reverts after 3s so a stray click never lingers.
+          let armed = false;
+          let revertTimer = 0;
+          const disarm = () => {
+            armed = false;
+            clearTimeout(revertTimer);
+            del.classList.remove("armed");
+            del.textContent = "✕";
+          };
+          del.addEventListener("click", () => {
+            if (!armed) {
+              armed = true;
+              del.classList.add("armed");
+              del.textContent = "DELETE?";
+              revertTimer = setTimeout(disarm, 3000);
+              return;
+            }
+            clearTimeout(revertTimer);
+            removeSystem(sys.seed);
+            entry.remove();
+            if (listEl.querySelectorAll(".seed-entry").length === 0) showEmpty();
+          });
+
+          entry.append(a, del);
+          listEl.appendChild(entry);
         }
       }
     </script>
