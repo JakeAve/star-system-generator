@@ -3,8 +3,11 @@ import {
   AU_M,
   auToM,
   dayToS,
+  hillRadius,
+  M_SUN_IN_EARTH,
   muBody,
   muStar,
+  R_SUN_M,
   sphereOfInfluence,
 } from "./units.ts";
 
@@ -24,4 +27,18 @@ Deno.test("sphereOfInfluence: Earth around Sun ≈ 9.2e8 m", () => {
 Deno.test("conversions: auToM and dayToS", () => {
   assertAlmostEquals(auToM(1), 1.495978707e11, 1);
   assertAlmostEquals(dayToS(1), 86400, 1e-6);
+});
+
+Deno.test("R_SUN_M: solar radius ≈ 6.957e8 m", () => {
+  assertAlmostEquals(R_SUN_M, 6.957e8, 1e6);
+});
+
+Deno.test("M_SUN_IN_EARTH: ≈ 333000 Earth masses", () => {
+  assertAlmostEquals(M_SUN_IN_EARTH, 333000, 2000);
+});
+
+Deno.test("hillRadius: Earth's Moon Hill sphere ≈ 6.1e7 m", () => {
+  // Moon orbits Earth at 3.844e8 m; m_moon/m_earth ≈ 0.0123
+  const r = hillRadius(3.844e8, 0.0123, 1);
+  assertAlmostEquals(r, 6.1e7, 5e6);
 });

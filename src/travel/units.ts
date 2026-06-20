@@ -11,6 +11,8 @@ export const M_EARTH_KG = 5.9722e24;
 export const AU_M = 1.495978707e11;
 /** Earth radius, m. */
 export const R_EARTH_M = 6.371e6;
+/** Solar radius, m. */
+export const R_SUN_M = 6.957e8;
 /** Seconds per day. */
 export const DAY_S = 86400;
 
@@ -22,6 +24,18 @@ export function muStar(massSolar: number): number {
 /** μ = G·M (m³/s²) for a non-star body whose mass is given in Earth masses. */
 export function muBody(massEarth: number): number {
   return G * M_EARTH_KG * massEarth;
+}
+
+/** Solar mass expressed in Earth masses (M☉ / M⊕). */
+export const M_SUN_IN_EARTH = M_SUN_KG / M_EARTH_KG;
+
+/** Hill-sphere radius (m): a·∛(m_body / (3·m_central)). Masses in any consistent unit. */
+export function hillRadius(
+  aM: number,
+  mBody: number,
+  mCentral: number,
+): number {
+  return aM * Math.cbrt(mBody / (3 * mCentral));
 }
 
 /** Sphere-of-influence radius (m): a·(m_body/m_central)^(2/5). Masses in any consistent unit. */
