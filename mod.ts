@@ -47,7 +47,10 @@ export {
   getBestRoutes,
   getBestRoutes3,
   getRoutes,
+  lagrangeWaypoint,
+  orbitWaypoint,
 } from "./src/travel/index.ts";
+export type { LagrangePoint } from "./src/travel/index.ts";
 export { computeOrbit } from "./src/orbit/index.ts";
 export type {
   AppliedSpec,

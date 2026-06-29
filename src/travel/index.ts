@@ -1,6 +1,7 @@
 // src/travel/index.ts
 import type { CelestialObject, SolarSystem } from "../core/types.ts";
 import { ObjectType } from "../core/types.ts";
+import type { OrbitResult, OrbitUnavailable } from "../orbit/types.ts";
 import {
   balanceBoxes,
   dedupeRoutes,
@@ -711,6 +712,43 @@ export function lagrangeWaypoint(
       orbitalPhase: ((parent.orbitalPhase + signedPhaseOffset) % 1 + 1) % 1,
       retrograde: parent.retrograde,
     },
+    type,
+  };
+}
+
+/**
+ * Build a waypoint for a station in orbit around `body` (e.g. a space station the
+ * orbit API sized via computeOrbit). The station is massless: only Intercept or Dock
+ * are meaningful (it has no sphere of influence). Returns a planetocentric pSpec
+ * anchored to the planet at the orbit's radius.
+ *
+ * Throws for:
+ * - Stars (no central body to anchor a planetocentric orbit to).
+ * - Moons. A pSpec anchors to a top-level planet, so the router has no frame for a
+ *   station nested under a moon. Approximating it as co-orbital with the moon would
+ *   silently omit the moon's capture Δv — wrong for a transfer-cost tool — so it is
+ *   rejected outright rather than mis-costed.
+ * - OrbitUnavailable results (the orbit never resolved to a radius).
+ */
+export function orbitWaypoint(
+  body: CelestialObject,
+  result: OrbitResult | OrbitUnavailable,
+  type: EndState.Intercept | EndState.Dock,
+): Waypoint {
+  if (body.type === ObjectType.Star) {
+    throw new Error("orbitWaypoint: a star cannot anchor a planetocentric orbit");
+  }
+  if (body.type === ObjectType.Moon) {
+    throw new Error(
+      "orbitWaypoint: stations in orbit around a moon are not supported (the router has no sub-moon frame)",
+    );
+  }
+  if (!result.applicable) {
+    throw new Error(`orbitWaypoint: orbit is not applicable — ${result.reason}`);
+  }
+
+  return {
+    pSpec: { id: `station:${body.id}`, parentId: body.id, orbitRadiusAu: result.radiusAu },
     type,
   };
 }

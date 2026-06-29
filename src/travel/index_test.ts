@@ -6,7 +6,9 @@ import {
   getRoutes,
   lagrangePointGeometry,
   lagrangeWaypoint,
+  orbitWaypoint,
 } from "./index.ts";
+import { computeOrbit } from "../orbit/index.ts";
 import { EndState, RankMode, type Route, RouteNodeKind } from "./types.ts";
 import { sumPrecise } from "./sum.ts";
 import { AU_M, DAY_S, M_EARTH_KG, M_SUN_KG, muStar } from "./units.ts";
@@ -1194,4 +1196,65 @@ Deno.test("lagrangeWaypoint: routes end-to-end to a planet's L2", () => {
   const routes = getBestRoutes(system, { obj: a, type: EndState.Orbit }, dest);
   if (routes.length === 0) throw new Error("expected routes to L2");
   assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `L2:${planet.id}`);
+});
+
+// orbitWaypoint
+
+Deno.test("orbitWaypoint: planet body yields planetocentric pSpec at orbit radius", () => {
+  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const result = computeOrbit(planet, { value: 500, unit: "km" }, system);
+  if (!result.applicable) throw new Error("expected applicable orbit");
+  const wp = orbitWaypoint(planet, result, EndState.Dock);
+  if (!("pSpec" in wp)) throw new Error("planet should yield a planetocentric pSpec");
+  assertEquals(wp.pSpec.parentId, planet.id);
+  assertEquals(wp.pSpec.id, `station:${planet.id}`);
+  assertAlmostEquals(wp.pSpec.orbitRadiusAu, result.radiusAu, 1e-12);
+  assertEquals(wp.type, EndState.Dock);
+});
+
+Deno.test("orbitWaypoint: rejects a moon body (no sub-moon frame)", () => {
+  const giant = sys42.objects.find((o) => o.moons.length > 0);
+  if (!giant) throw new Error("seed 42 has no giant");
+  const moon = giant.moons[0];
+  const result = computeOrbit(moon, { value: 200, unit: "km" }, sys42);
+  if (!result.applicable) throw new Error("expected applicable orbit");
+  assertThrows(
+    () => orbitWaypoint(moon, result, EndState.Intercept),
+    Error,
+    "moon",
+  );
+});
+
+Deno.test("orbitWaypoint: rejects a star body", () => {
+  const result = computeOrbit(
+    { ...system.objects[0], type: "star" as never },
+    { value: 1, unit: "AU" },
+    system,
+  );
+  assertThrows(
+    () => orbitWaypoint(system.star, result, EndState.Dock),
+    Error,
+    "star",
+  );
+});
+
+Deno.test("orbitWaypoint: rejects an OrbitUnavailable result", () => {
+  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const unavailable = { applicable: false as const, spec: { type: "synchronous" as const }, reason: "no rotation" };
+  assertThrows(
+    () => orbitWaypoint(planet, unavailable, EndState.Dock),
+    Error,
+    "applicable",
+  );
+});
+
+Deno.test("orbitWaypoint: routes end-to-end from another body to a planet station", () => {
+  // Use the last planet as the station host and the first (a) as origin — guaranteed distinct.
+  const planet = system.objects[system.objects.length - 1];
+  const result = computeOrbit(planet, { type: "low" }, system);
+  if (!result.applicable) throw new Error("expected applicable orbit");
+  const dest = orbitWaypoint(planet, result, EndState.Dock);
+  const routes = getBestRoutes(system, { obj: a, type: EndState.Orbit }, dest);
+  if (routes.length === 0) throw new Error("expected routes to station");
+  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `station:${planet.id}`);
 });
