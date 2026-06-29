@@ -20,6 +20,7 @@
   },
   "fmt": {
     "exclude": [
+      "app/*.html",
       "app/*.bundle.js",
       "seeds",
       "bench",
