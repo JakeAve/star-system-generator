@@ -70,5 +70,7 @@ Deno.test("buildTerminal: dock ignores body mu/radius (massless station)", () =>
   const massless = { mu: 0, radiusM: 0 };
   const t = buildTerminal(massless, EndState.Dock, vInf, "arrive");
   assertAlmostEquals(t.totalDeltaV, vInf / 1000, 1e-9);
-  if (!Number.isFinite(t.totalDeltaV)) throw new Error("dock Δv must be finite");
+  if (!Number.isFinite(t.totalDeltaV)) {
+    throw new Error("dock Δv must be finite");
+  }
 });

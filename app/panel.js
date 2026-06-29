@@ -145,10 +145,10 @@ let bodySelectedController = null;
 let currentHeight = PEEK_PX;
 
 function isDesktop() {
-  return window.matchMedia("(min-width: 900px)").matches;
+  return globalThis.matchMedia("(min-width: 900px)").matches;
 }
 function maxHeightPx() {
-  return window.innerHeight;
+  return globalThis.innerHeight;
 }
 function openHeight() {
   return maxHeightPx() * OPEN_FRACTION_ON_CLICK;
@@ -316,14 +316,21 @@ function showDetail(obj) {
       const btn = document.createElement("button");
       btn.id = id;
       btn.textContent = label;
-      btn.addEventListener("click", () => panelCallbacks.onRouteAction?.(action, obj.id));
+      btn.addEventListener(
+        "click",
+        () => panelCallbacks.onRouteAction?.(action, obj.id),
+      );
       return btn;
     };
 
     if (routeState.phase === "idle") {
-      buttonsRow.append(makeRouteBtn("cs-route-start", "⊕ Start Route", "start"));
+      buttonsRow.append(
+        makeRouteBtn("cs-route-start", "⊕ Start Route", "start"),
+      );
     } else if (routeState.fromId === obj.id) {
-      buttonsRow.append(makeRouteBtn("cs-route-cancel", "✕ Cancel Route", "cancel"));
+      buttonsRow.append(
+        makeRouteBtn("cs-route-cancel", "✕ Cancel Route", "cancel"),
+      );
     } else {
       buttonsRow.append(
         makeRouteBtn("cs-route-finish", "✓ Finish Route", "finish"),
@@ -414,15 +421,14 @@ export function buildPanel(seed, animObjects, callbacks) {
   document.addEventListener("bodySelected", (e) => onBodySelected(e.detail), {
     signal: bodySelectedController.signal,
   });
-  window.matchMedia("(min-width: 900px)").addEventListener("change", () => {
+  globalThis.matchMedia("(min-width: 900px)").addEventListener("change", () => {
     setHeight(currentHeight, false);
   }, { signal: bodySelectedController.signal });
 
   function showRoute(view) {
     // Title row.
     const name = ROUTE_ROLE_NAME[view.role] ?? "Route";
-    const totals =
-      `Δv ${view.totalDeltaV.toFixed(2)} km/s · ` +
+    const totals = `Δv ${view.totalDeltaV.toFixed(2)} km/s · ` +
       `${fmtDays(view.duration)} · ` +
       `day ${view.departAt.toFixed(0)} → ${view.arriveAt.toFixed(0)}`;
 
@@ -431,7 +437,8 @@ export function buildPanel(seed, animObjects, callbacks) {
     box.id = "cs-route-detail";
 
     const h3 = document.createElement("h3");
-    h3.style.cssText = "color:#fff;margin:0.5rem 0 0.25rem;font-size:0.8125rem;";
+    h3.style.cssText =
+      "color:#fff;margin:0.5rem 0 0.25rem;font-size:0.8125rem;";
     h3.textContent = name;
 
     const totalsEl = document.createElement("div");
@@ -456,7 +463,9 @@ export function buildPanel(seed, animObjects, callbacks) {
       const row = document.createElement("div");
       row.className = "cs-route-node";
       row.textContent =
-        `${n.kind} @ ${n.id} · day ${n.time.toFixed(0)} · Δv ${n.deltaV.toFixed(2)} km/s` +
+        `${n.kind} @ ${n.id} · day ${n.time.toFixed(0)} · Δv ${
+          n.deltaV.toFixed(2)
+        } km/s` +
         (n.flyby ? ` · v∞ ${n.flyby.vInfinity.toFixed(2)} km/s` : "");
       nodesEl.appendChild(row);
     }

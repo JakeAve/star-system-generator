@@ -165,7 +165,12 @@
 
           function drawRoutesFor(fromId, toId) {
             try {
-              const views = routeViewsForPick(data, fromId, toId, orrery.getCurrentDay());
+              const views = routeViewsForPick(
+                data,
+                fromId,
+                toId,
+                orrery.getCurrentDay(),
+              );
               if (views.length === 0) {
                 orrery.setRoutes([]);
                 currentRouteViews = [];

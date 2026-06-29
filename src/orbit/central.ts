@@ -1,7 +1,11 @@
 // src/orbit/central.ts
 // Resolve the central body's μ, surface radius, and the stable orbit band.
 
-import { type CelestialObject, ObjectType, type SolarSystem } from "../core/types.ts";
+import {
+  type CelestialObject,
+  ObjectType,
+  type SolarSystem,
+} from "../core/types.ts";
 import {
   AU_M,
   hillRadius,

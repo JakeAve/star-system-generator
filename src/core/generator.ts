@@ -1,18 +1,18 @@
 // system-seeder-2/generator.ts
 
 import {
-  CelestialObject,
-  DeepPartial,
-  EccentricitySpec,
-  GeneratorConfig,
-  MigrationArchetype,
+  type CelestialObject,
+  type DeepPartial,
+  type EccentricitySpec,
+  type GeneratorConfig,
+  type MigrationArchetype,
   ObjectType,
   Resource,
-  ResourceDeposit,
-  ResourceWeights,
-  SolarSystem,
-  SpectralType,
-  Star,
+  type ResourceDeposit,
+  type ResourceWeights,
+  type SolarSystem,
+  type SpectralType,
+  type Star,
 } from "./types.ts";
 import { generateName, resetNameCounter, RNG } from "./rng.ts";
 import { pickArchetypeWeights } from "./config.ts";
@@ -669,7 +669,9 @@ export function generateSolarSystem(
         ? rng.int(slot.moonsRange.min, slot.moonsRange.max)
         : 0;
       const captureProb = slot.captureProbability ??
-        (slot.capturedMoons ? 1.0 : cfg.captureProbabilityDefaults[effectiveType]);
+        (slot.capturedMoons
+          ? 1.0
+          : cfg.captureProbabilityDefaults[effectiveType]);
 
       let obj: CelestialObject;
 

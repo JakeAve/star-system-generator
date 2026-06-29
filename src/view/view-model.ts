@@ -1,7 +1,7 @@
 // Layer 2 — plain-data "what to draw" for a system at a moment in time.
 // No Three.js, no DOM. Engines consume this and render in their own space.
 
-import { CelestialObject, SolarSystem } from "../core/types.ts";
+import type { CelestialObject, SolarSystem } from "../core/types.ts";
 import {
   eccentricAngleAtTime,
   orbitParams,

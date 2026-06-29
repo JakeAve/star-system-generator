@@ -8,7 +8,11 @@ import {
   visualRadius,
 } from "../core/kinematics.ts";
 import { centroidOf, enclosingRadius } from "../view/framing.ts";
-import { chevronsAlong, hitTestRoutes, isPureRole } from "../view/route-view-model.ts";
+import {
+  chevronsAlong,
+  hitTestRoutes,
+  isPureRole,
+} from "../view/route-view-model.ts";
 import type { RoutePickTarget, RouteView } from "../view/route-view-model.ts";
 import type { RouteRole } from "../travel/types.ts";
 
@@ -53,7 +57,12 @@ export interface CanvasOrreryOptions {
   onRoutePick?: (target: RoutePickTarget) => void;
   /** Fires on route hover with the hovered route's summary + cursor screen pos, or null on exit. */
   onRouteHover?: (
-    info: { routeId: string; role?: RouteRole; totalDeltaV: number; duration: number } | null,
+    info: {
+      routeId: string;
+      role?: RouteRole;
+      totalDeltaV: number;
+      duration: number;
+    } | null,
     screenX: number,
     screenY: number,
   ) => void;
@@ -224,7 +233,12 @@ export function createCanvasOrrery(
         const rv = id ? currentRoutes.find((r) => r.id === id) : null;
         opts.onRouteHover?.(
           rv
-            ? { routeId: rv.id, role: rv.role, totalDeltaV: rv.totalDeltaV, duration: rv.duration }
+            ? {
+              routeId: rv.id,
+              role: rv.role,
+              totalDeltaV: rv.totalDeltaV,
+              duration: rv.duration,
+            }
             : null,
           e.clientX,
           e.clientY,
@@ -233,7 +247,12 @@ export function createCanvasOrrery(
         // Still hovering the same route — update tooltip position.
         const rv = currentRoutes.find((r) => r.id === id)!;
         opts.onRouteHover?.(
-          { routeId: rv.id, role: rv.role, totalDeltaV: rv.totalDeltaV, duration: rv.duration },
+          {
+            routeId: rv.id,
+            role: rv.role,
+            totalDeltaV: rv.totalDeltaV,
+            duration: rv.duration,
+          },
           e.clientX,
           e.clientY,
         );
@@ -444,8 +463,9 @@ export function createCanvasOrrery(
 
     // Draw balanced routes first, pure routes on top, hovered route always last (topmost).
     const ordered = [...currentRoutes].sort((a, b) => {
-      const rank = (rv: typeof a) =>
-        (rv.id === hoveredRouteId ? 2 : isPureRole(rv.role) ? 1 : 0);
+      const rank = (
+        rv: typeof a,
+      ) => (rv.id === hoveredRouteId ? 2 : isPureRole(rv.role) ? 1 : 0);
       return rank(a) - rank(b);
     });
 

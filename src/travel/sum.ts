@@ -2,10 +2,12 @@
 // Correctly-rounded summation via Math.sumPrecise (TC39 proposal-math-sum, ES2025).
 // Falls back to a Neumaier compensated sum for browsers that have not yet shipped it.
 // The two implementations are numerically equivalent for all-positive inputs (route durations).
-const nativeSumPrecise = typeof (Math as unknown as Record<string, unknown>).sumPrecise ===
-    "function"
-  ? (Math as unknown as { sumPrecise(values: Iterable<number>): number }).sumPrecise.bind(Math)
-  : null;
+const nativeSumPrecise =
+  typeof (Math as unknown as Record<string, unknown>).sumPrecise ===
+      "function"
+    ? (Math as unknown as { sumPrecise(values: Iterable<number>): number })
+      .sumPrecise.bind(Math)
+    : null;
 
 function neumaierSum(values: Iterable<number>): number {
   let sum = 0;

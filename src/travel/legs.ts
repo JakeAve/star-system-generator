@@ -146,7 +146,13 @@ export function buildCrossFrameRoute(
     departTime: helioDepart,
     arriveTime: helioArrive,
     timeOfFlight: c.tofDays,
-    transfer: { a: c.aAu, e: c.e, argPeriapsis: c.argPeriapsis, nu1: c.nu1, nu2: c.nu2 },
+    transfer: {
+      a: c.aAu,
+      e: c.e,
+      argPeriapsis: c.argPeriapsis,
+      nu1: c.nu1,
+      nu2: c.nu2,
+    },
     deltaV: 0,
   });
 

@@ -2,7 +2,12 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { RNG } from "./rng.ts";
-import { makeMoon, massFromRadiusDensity, M_EARTH_IN_SOLAR, rsig } from "./generator.ts";
+import {
+  M_EARTH_IN_SOLAR,
+  makeMoon,
+  massFromRadiusDensity,
+  rsig,
+} from "./generator.ts";
 
 Deno.test("rsig: rounds to 4 significant figures at any magnitude", () => {
   assertEquals(rsig(94.041), 94.04);
@@ -65,7 +70,7 @@ Deno.test("RNG: different seeds produce different sequences", () => {
 
 import { DEFAULT_CONFIG } from "./config.ts";
 import {
-  CelestialObject,
+  type CelestialObject,
   MigrationArchetype,
   ObjectType,
   Resource,
@@ -177,7 +182,7 @@ Deno.test("settlementCap: rockyPlanet scales with radiusMultiplier 1.5 (1–3)",
 });
 
 import { generateDeposits } from "./generator.ts";
-import { ResourceDeposit } from "./types.ts";
+import type { ResourceDeposit } from "./types.ts";
 
 Deno.test("generateDeposits: all deposits use valid Resource values", () => {
   const validResources = new Set(Object.values(Resource));
@@ -802,40 +807,105 @@ function idGen() {
 
 // Helper: expected Hill radius (AU) for the moon's parent.
 function hillAU(parentOrbitAU: number, parentMass: number, starMass: number) {
-  return parentOrbitAU * Math.cbrt((parentMass * M_EARTH_IN_SOLAR) / (3 * starMass));
+  return parentOrbitAU *
+    Math.cbrt((parentMass * M_EARTH_IN_SOLAR) / (3 * starMass));
 }
 
 Deno.test("makeMoon: captureProbability=1 yields a captured moon with wide ecc and far distance", () => {
   const rng = new RNG(42);
-  const m = makeMoon(rng, idGen(), 0, "p", 5.0, 300, 1.0, DEFAULT_CONFIG, 2.7, 1.0);
+  const m = makeMoon(
+    rng,
+    idGen(),
+    0,
+    "p",
+    5.0,
+    300,
+    1.0,
+    DEFAULT_CONFIG,
+    2.7,
+    1.0,
+  );
   assertEquals(m.capturedMoon, true);
-  assert(m.eccentricity >= 0.1 && m.eccentricity <= 0.5, `ecc ${m.eccentricity}`);
+  assert(
+    m.eccentricity >= 0.1 && m.eccentricity <= 0.5,
+    `ecc ${m.eccentricity}`,
+  );
   const ratio = m.orbitRadius / hillAU(5.0, 300, 1.0);
-  assert(ratio >= 0.30 - 1e-3 && ratio <= 0.60 + 1e-3, `captured band ratio ${ratio}`);
+  assert(
+    ratio >= 0.30 - 1e-3 && ratio <= 0.60 + 1e-3,
+    `captured band ratio ${ratio}`,
+  );
 });
 
 Deno.test("makeMoon: captureProbability=0 yields a regular prograde moon, close in", () => {
   const rng = new RNG(42);
-  const m = makeMoon(rng, idGen(), 0, "p", 5.0, 300, 1.0, DEFAULT_CONFIG, 2.7, 0.0);
+  const m = makeMoon(
+    rng,
+    idGen(),
+    0,
+    "p",
+    5.0,
+    300,
+    1.0,
+    DEFAULT_CONFIG,
+    2.7,
+    0.0,
+  );
   assertEquals(m.capturedMoon, undefined);
   assertEquals(m.retrograde, false);
   assert(m.eccentricity <= 0.05, `regular ecc ${m.eccentricity}`);
   const ratio = m.orbitRadius / hillAU(5.0, 300, 1.0);
-  assert(ratio >= 0.05 - 1e-3 && ratio <= 0.25 + 1e-3, `regular band ratio ${ratio}`);
+  assert(
+    ratio >= 0.05 - 1e-3 && ratio <= 0.25 + 1e-3,
+    `regular band ratio ${ratio}`,
+  );
 });
 
 Deno.test("makeMoon: captured moon honors capturedMoonRetrograde (=1 all retrograde, =0 none)", () => {
   const allRetro = { ...DEFAULT_CONFIG, capturedMoonRetrograde: 1 };
   const noRetro = { ...DEFAULT_CONFIG, capturedMoonRetrograde: 0 };
-  const a = makeMoon(new RNG(7), idGen(), 0, "p", 5.0, 300, 1.0, allRetro, 2.7, 1.0);
-  const b = makeMoon(new RNG(7), idGen(), 0, "p", 5.0, 300, 1.0, noRetro, 2.7, 1.0);
+  const a = makeMoon(
+    new RNG(7),
+    idGen(),
+    0,
+    "p",
+    5.0,
+    300,
+    1.0,
+    allRetro,
+    2.7,
+    1.0,
+  );
+  const b = makeMoon(
+    new RNG(7),
+    idGen(),
+    0,
+    "p",
+    5.0,
+    300,
+    1.0,
+    noRetro,
+    2.7,
+    1.0,
+  );
   assertEquals(a.retrograde, true);
   assertEquals(b.retrograde, false);
 });
 
 Deno.test("makeMoon: regular moon never retrograde even if capturedMoonRetrograde=1", () => {
   const allRetro = { ...DEFAULT_CONFIG, capturedMoonRetrograde: 1 };
-  const m = makeMoon(new RNG(7), idGen(), 0, "p", 5.0, 300, 1.0, allRetro, 2.7, 0.0);
+  const m = makeMoon(
+    new RNG(7),
+    idGen(),
+    0,
+    "p",
+    5.0,
+    300,
+    1.0,
+    allRetro,
+    2.7,
+    0.0,
+  );
   assertEquals(m.retrograde, false);
 });
 
@@ -848,7 +918,11 @@ Deno.test("generateSolarSystem: retrograde is a boolean on every body and reprod
     const b = generateSolarSystem({ seed });
     const aBodies = allObjects(a);
     const bBodies = allObjects(b);
-    assertEquals(aBodies.length, bBodies.length, `body count drift at seed ${seed}`);
+    assertEquals(
+      aBodies.length,
+      bBodies.length,
+      `body count drift at seed ${seed}`,
+    );
     for (let i = 0; i < aBodies.length; i++) {
       // Required field: never undefined/optional on a generated body.
       assertEquals(
@@ -867,7 +941,10 @@ Deno.test("generateSolarSystem: retrograde is a boolean on every body and reprod
   }
   // Guard against a silently-broken roll that leaves everything prograde:
   // seeds 0–39 reliably yield retrograde comets/captured moons.
-  assert(retroCount > 0, "expected at least one retrograde body across seeds 0–39");
+  assert(
+    retroCount > 0,
+    "expected at least one retrograde body across seeds 0–39",
+  );
 });
 
 Deno.test("generateSolarSystem: retrograde survives a full JSON round-trip", () => {
@@ -880,5 +957,8 @@ Deno.test("generateSolarSystem: retrograde survives a full JSON round-trip", () 
   const after = allObjects(roundTripped).map((o) => [o.id, o.retrograde]);
   assertEquals(after, before);
   // Keep the round-trip meaningful: seed 0 carries a retrograde body to preserve.
-  assert(before.some(([, r]) => r === true), "seed 0 expected a retrograde body");
+  assert(
+    before.some(([, r]) => r === true),
+    "seed 0 expected a retrograde body",
+  );
 });

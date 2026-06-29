@@ -28,7 +28,11 @@ export function parseViewState(search: string): ViewState {
   const mode: FocusMode | null = rawMode === "lock" || rawMode === "frame"
     ? rawMode
     : null;
-  return { hl: idList(params.get("hl")), focus: idList(params.get("focus")), mode };
+  return {
+    hl: idList(params.get("hl")),
+    focus: idList(params.get("focus")),
+    mode,
+  };
 }
 
 /** Apply the default-by-count rule: single focus → lock, multiple → frame. */

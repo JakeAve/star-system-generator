@@ -1,4 +1,4 @@
-import { DeepPartial, GeneratorConfig } from "./types.ts";
+import type { DeepPartial, GeneratorConfig } from "./types.ts";
 import { DEFAULT_CONFIG } from "./config.ts";
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {

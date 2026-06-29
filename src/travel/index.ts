@@ -20,7 +20,14 @@ import {
 } from "./search.ts";
 import type { BodyRef } from "./search.ts";
 import type { CrossFrameEndpoint } from "./legs.ts";
-import { auToM, M_EARTH_KG, M_SUN_KG, muBody, muStar, R_EARTH_M } from "./units.ts";
+import {
+  auToM,
+  M_EARTH_KG,
+  M_SUN_KG,
+  muBody,
+  muStar,
+  R_EARTH_M,
+} from "./units.ts";
 import type { OrbitElements } from "./state.ts";
 import {
   EndState,
@@ -399,7 +406,9 @@ export function getBestRoutes(
       endWindow,
       departWindowDays,
     });
-    return findSoonest ? selectBestRoutes2(all) : selectBestRoutes(all, balance);
+    return findSoonest
+      ? selectBestRoutes2(all)
+      : selectBestRoutes(all, balance);
   }
 
   const mu = muStar(system.star.mass);
@@ -420,7 +429,18 @@ export function getBestRoutes(
   };
 
   const runAnchor = (obj: "deltaV" | "duration" | "arrival") =>
-    searchBest(obj, fromRef, toRef, from.type, to.type, flybyBodies, mu, system.star.id, assists, passOpts);
+    searchBest(
+      obj,
+      fromRef,
+      toRef,
+      from.type,
+      to.type,
+      flybyBodies,
+      mu,
+      system.star.id,
+      assists,
+      passOpts,
+    );
 
   const cheapest = findCheapest ? runAnchor("deltaV") : null;
   const fastest = findFastest ? runAnchor("duration") : null;
@@ -432,7 +452,10 @@ export function getBestRoutes(
 
   const arr = (r: Route) => r.departAt + r.duration;
 
-  const runBalance = (box: UtopiaBox, seeds: (Route | null)[]): Route | null => {
+  const runBalance = (
+    box: UtopiaBox,
+    seeds: (Route | null)[],
+  ): Route | null => {
     let initialBest = Infinity;
     let initialIncumbent: Route | null = null;
     for (const r of seeds) {
@@ -475,7 +498,11 @@ export function getBestRoutes(
       durMin: fastest.duration,
       durMax: cheapest.duration,
     };
-    return dedupeRoutes([fastest, runBalance(box, [fastest, cheapest]), cheapest]);
+    return dedupeRoutes([
+      fastest,
+      runBalance(box, [fastest, cheapest]),
+      cheapest,
+    ]);
   }
   if (cheapest && soonest) {
     const box: UtopiaBox = {
@@ -484,7 +511,11 @@ export function getBestRoutes(
       arrMin: arr(soonest),
       arrMax: arr(cheapest),
     };
-    return dedupeRoutes([soonest, runBalance(box, [soonest, cheapest]), cheapest]);
+    return dedupeRoutes([
+      soonest,
+      runBalance(box, [soonest, cheapest]),
+      cheapest,
+    ]);
   }
   if (fastest && soonest) {
     const box: UtopiaBox = {
@@ -493,7 +524,11 @@ export function getBestRoutes(
       arrMin: arr(soonest),
       arrMax: arr(fastest),
     };
-    return dedupeRoutes([fastest, runBalance(box, [fastest, soonest]), soonest]);
+    return dedupeRoutes([
+      fastest,
+      runBalance(box, [fastest, soonest]),
+      soonest,
+    ]);
   }
 
   return dedupeRoutes([cheapest, fastest, soonest]);
@@ -669,7 +704,9 @@ export function lagrangeWaypoint(
   type: EndState.Intercept | EndState.Dock,
 ): Waypoint {
   if (parent.type === ObjectType.Star) {
-    throw new Error("lagrangeWaypoint: a star has no Lagrange points to anchor to");
+    throw new Error(
+      "lagrangeWaypoint: a star has no Lagrange points to anchor to",
+    );
   }
 
   // Central body: the star for a planet, the parent planet for a moon.
@@ -736,7 +773,9 @@ export function orbitWaypoint(
   type: EndState.Intercept | EndState.Dock,
 ): Waypoint {
   if (body.type === ObjectType.Star) {
-    throw new Error("orbitWaypoint: a star cannot anchor a planetocentric orbit");
+    throw new Error(
+      "orbitWaypoint: a star cannot anchor a planetocentric orbit",
+    );
   }
   if (body.type === ObjectType.Moon) {
     throw new Error(
@@ -744,11 +783,17 @@ export function orbitWaypoint(
     );
   }
   if (!result.applicable) {
-    throw new Error(`orbitWaypoint: orbit is not applicable — ${result.reason}`);
+    throw new Error(
+      `orbitWaypoint: orbit is not applicable — ${result.reason}`,
+    );
   }
 
   return {
-    pSpec: { id: `station:${body.id}`, parentId: body.id, orbitRadiusAu: result.radiusAu },
+    pSpec: {
+      id: `station:${body.id}`,
+      parentId: body.id,
+      orbitRadiusAu: result.radiusAu,
+    },
     type,
   };
 }

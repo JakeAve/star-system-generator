@@ -391,7 +391,9 @@
             clearTimeout(revertTimer);
             removeSystem(sys.seed);
             entry.remove();
-            if (listEl.querySelectorAll(".seed-entry").length === 0) showEmpty();
+            if (
+              listEl.querySelectorAll(".seed-entry").length === 0
+            ) showEmpty();
           });
 
           entry.append(a, del);

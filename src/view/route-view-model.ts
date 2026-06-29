@@ -142,7 +142,9 @@ export function hitTestRoutes(
     const d = Math.hypot(node.x - x, node.y - y);
     if (d <= radius && (!nodeBest || d < nodeBest.d)) nodeBest = { d, node };
   }
-  if (nodeBest) return { kind: "node", routeId: winner.id, node: nodeBest.node };
+  if (nodeBest) {
+    return { kind: "node", routeId: winner.id, node: nodeBest.node };
+  }
 
   let legBest: { d: number; leg: RouteLegView } | null = null;
   for (const leg of winner.legs) {
@@ -393,7 +395,11 @@ export function routeViewsForPick(
     system,
     { obj: fromId, type: EndState.Orbit },
     { obj: toId, type: EndState.Orbit },
-    { startWindow: currentDay, balance: opts.balance ?? true, findSoonest: true },
+    {
+      startWindow: currentDay,
+      balance: opts.balance ?? true,
+      findSoonest: true,
+    },
   );
   return routes.map((route) =>
     buildRouteViewModel(system, route, {

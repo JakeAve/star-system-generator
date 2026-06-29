@@ -45,7 +45,11 @@ Deno.test("utopiaDist: 2-axis (Δv, duration) box matches the legacy normalized 
   // arrival is absent from the box, so the arr argument must be ignored.
   assertAlmostEquals(utopiaDist(10, 100, 99999, box), 0, 1e-12);
   assertAlmostEquals(utopiaDist(20, 300, 0, box), Math.SQRT2, 1e-12);
-  assertAlmostEquals(utopiaDist(15, 200, 12345, box), Math.hypot(0.5, 0.5), 1e-12);
+  assertAlmostEquals(
+    utopiaDist(15, 200, 12345, box),
+    Math.hypot(0.5, 0.5),
+    1e-12,
+  );
 });
 
 Deno.test("utopiaDist: arrival axis participates only when the box carries arr ranges", () => {
@@ -57,7 +61,12 @@ Deno.test("utopiaDist: arrival axis participates only when the box carries arr r
 
 Deno.test("utopiaDist: 3-axis triple box normalizes all three", () => {
   const box: UtopiaBox = {
-    dvMin: 0, dvMax: 10, durMin: 0, durMax: 10, arrMin: 0, arrMax: 10,
+    dvMin: 0,
+    dvMax: 10,
+    durMin: 0,
+    durMax: 10,
+    arrMin: 0,
+    arrMax: 10,
   };
   assertAlmostEquals(utopiaDist(0, 0, 0, box), 0, 1e-12);
   assertAlmostEquals(utopiaDist(10, 10, 10, box), Math.sqrt(3), 1e-12);
@@ -427,14 +436,32 @@ Deno.test("findDoubleAssistRoutes: deterministic", () => {
 
 Deno.test("searchBest: arrival objective minimizes departAt + duration", () => {
   const best = searchBest(
-    "arrival", inner, outer, EndState.Orbit, EndState.Orbit, [giant], MU, "star", 2, {},
+    "arrival",
+    inner,
+    outer,
+    EndState.Orbit,
+    EndState.Orbit,
+    [giant],
+    MU,
+    "star",
+    2,
+    {},
   );
   if (!best) throw new Error("expected a route");
   const arrival = best.departAt + best.duration;
   const all = findSingleAssistRoutes(
-    inner, outer, EndState.Orbit, EndState.Orbit, [giant], MU, "star", { rank: RankMode.All },
+    inner,
+    outer,
+    EndState.Orbit,
+    EndState.Orbit,
+    [giant],
+    MU,
+    "star",
+    { rank: RankMode.All },
   ).concat(
-    findDirectRoutes(inner, outer, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All }),
+    findDirectRoutes(inner, outer, EndState.Orbit, EndState.Orbit, MU, "star", {
+      rank: RankMode.All,
+    }),
   );
   const minArrival = Math.min(...all.map((r) => r.departAt + r.duration));
   assertAlmostEquals(arrival, minArrival, 1e-6);
@@ -442,10 +469,25 @@ Deno.test("searchBest: arrival objective minimizes departAt + duration", () => {
 
 Deno.test("searchBest: arrival ties broken by least Δv", () => {
   const best = searchBest(
-    "arrival", inner, outer, EndState.Orbit, EndState.Orbit, [giant], MU, "star", 2, {},
+    "arrival",
+    inner,
+    outer,
+    EndState.Orbit,
+    EndState.Orbit,
+    [giant],
+    MU,
+    "star",
+    2,
+    {},
   )!;
   const all = findDirectRoutes(
-    inner, outer, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All },
+    inner,
+    outer,
+    EndState.Orbit,
+    EndState.Orbit,
+    MU,
+    "star",
+    { rank: RankMode.All },
   );
   const bestArr = best.departAt + best.duration;
   for (const r of all) {
@@ -460,10 +502,20 @@ Deno.test("searchBest: arrival ties broken by least Δv", () => {
 Deno.test("searchBest: capDirectDepartAtSynodic bounds a direct departure to one synodic period", () => {
   const huge = 100000;
   const capped = searchBest(
-    "deltaV", fromBody, toBody, EndState.Orbit, EndState.Orbit, [], MU, "star", 0,
+    "deltaV",
+    fromBody,
+    toBody,
+    EndState.Orbit,
+    EndState.Orbit,
+    [],
+    MU,
+    "star",
+    0,
     { departWindowDays: huge, capDirectDepartAtSynodic: true },
   )!;
-  if (!Number.isFinite(capped.departAt)) throw new Error("expected finite departAt");
+  if (!Number.isFinite(capped.departAt)) {
+    throw new Error("expected finite departAt");
+  }
 
   // Synodic horizon, mirroring defaultSweepOpts (not exported): orbital period
   // T = 2π√(a³/μ) in days; synodic = 1/|1/T_in − 1/T_out|, capped at the outer period.
@@ -471,8 +523,12 @@ Deno.test("searchBest: capDirectDepartAtSynodic bounds a direct departure to one
     const m = au * AU_M;
     return (2 * Math.PI * Math.sqrt((m * m * m) / MU)) / DAY_S;
   };
-  const tIn = periodDays(Math.min(fromBody.elements.orbitRadiusAu, toBody.elements.orbitRadiusAu));
-  const tOut = periodDays(Math.max(fromBody.elements.orbitRadiusAu, toBody.elements.orbitRadiusAu));
+  const tIn = periodDays(
+    Math.min(fromBody.elements.orbitRadiusAu, toBody.elements.orbitRadiusAu),
+  );
+  const tOut = periodDays(
+    Math.max(fromBody.elements.orbitRadiusAu, toBody.elements.orbitRadiusAu),
+  );
   const horizon = Math.min(1 / Math.abs(1 / tIn - 1 / tOut), tOut);
 
   // The cap must bound the direct departure to within one synodic horizon.
@@ -481,7 +537,15 @@ Deno.test("searchBest: capDirectDepartAtSynodic bounds a direct departure to one
   }
   // And it must actually pull the departure in vs. the huge uncapped window.
   const uncapped = searchBest(
-    "deltaV", fromBody, toBody, EndState.Orbit, EndState.Orbit, [], MU, "star", 0,
+    "deltaV",
+    fromBody,
+    toBody,
+    EndState.Orbit,
+    EndState.Orbit,
+    [],
+    MU,
+    "star",
+    0,
     { departWindowDays: huge },
   )!;
   if (!(capped.departAt < uncapped.departAt)) {
@@ -583,7 +647,9 @@ Deno.test("findCrossFrameRoutes: a distant-origin moon still routes at startWind
     startWindow: 0,
   });
   if (routes.length === 0) {
-    throw new Error("expected routes from a distant-origin moon at startWindow 0");
+    throw new Error(
+      "expected routes from a distant-origin moon at startWindow 0",
+    );
   }
   for (const r of routes) {
     if (!(r.departAt >= 0)) throw new Error("departAt must be non-negative");
@@ -592,7 +658,13 @@ Deno.test("findCrossFrameRoutes: a distant-origin moon still routes at startWind
 
 Deno.test("selectBestRoutes2: returns the 7 picks deduped, each matching a brute-force scan", () => {
   const all = findDirectRoutes(
-    fromBody, toBody, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All },
+    fromBody,
+    toBody,
+    EndState.Orbit,
+    EndState.Orbit,
+    MU,
+    "star",
+    { rank: RankMode.All },
   );
   const picks = selectBestRoutes2(all);
   if (picks.length === 0) throw new Error("expected picks");
@@ -600,13 +672,20 @@ Deno.test("selectBestRoutes2: returns the 7 picks deduped, each matching a brute
   const arr = (r: typeof all[number]) => r.departAt + r.duration;
   const min = (f: (r: typeof all[number]) => number) =>
     all.reduce((a, b) => (f(b) < f(a) ? b : a));
-  const key = (r: typeof all[number]) => `${r.departAt}|${r.duration}|${r.notation}`;
+  const key = (r: typeof all[number]) =>
+    `${r.departAt}|${r.duration}|${r.notation}`;
   const keys = new Set(picks.map(key));
-  if (!keys.has(key(min((r) => r.totalDeltaV)))) throw new Error("cheapest missing");
-  if (!keys.has(key(min((r) => r.duration)))) throw new Error("fastest missing");
+  if (!keys.has(key(min((r) => r.totalDeltaV)))) {
+    throw new Error("cheapest missing");
+  }
+  if (!keys.has(key(min((r) => r.duration)))) {
+    throw new Error("fastest missing");
+  }
   if (!keys.has(key(min(arr)))) throw new Error("soonest missing");
   for (const p of picks) {
-    if (!all.some((r) => key(r) === key(p))) throw new Error("pick not from candidate set");
+    if (!all.some((r) => key(r) === key(p))) {
+      throw new Error("pick not from candidate set");
+    }
   }
   assertEquals(picks.length, new Set(picks.map(key)).size);
   if (picks.length > 7) throw new Error("more than 7 picks");
@@ -616,7 +695,9 @@ Deno.test("selectBestRoutes2: empty input yields no picks", () => {
   assertEquals(selectBestRoutes2([]).length, 0);
 });
 
-function mkRoute(p: { dv: number; dur: number; depart: number; notation: string }): Route {
+function mkRoute(
+  p: { dv: number; dur: number; depart: number; notation: string },
+): Route {
   return {
     bodies: [],
     nodes: [],
@@ -664,7 +745,16 @@ Deno.test("findDirectRoutes: reframe mode tags every route with phaseDay/recurDa
     "star",
     {
       rank: RankMode.All,
-      sweep: { kind: "resolutionTarget", deltaD: 10, minD: 6, maxD: 60, deltaT: 20, minT: 6, maxT: 60, nowDay: 0 },
+      sweep: {
+        kind: "resolutionTarget",
+        deltaD: 10,
+        minD: 6,
+        maxD: 60,
+        deltaT: 20,
+        minT: 6,
+        maxT: 60,
+        nowDay: 0,
+      },
     },
   );
   assertEquals(routes.length > 0, true);
@@ -677,7 +767,13 @@ Deno.test("findDirectRoutes: reframe mode tags every route with phaseDay/recurDa
 
 Deno.test("findDirectRoutes: fixed mode (no sweep) leaves routes untagged", () => {
   const routes = findDirectRoutes(
-    fromBody, toBody, EndState.Orbit, EndState.Orbit, MU, "star", { rank: RankMode.All },
+    fromBody,
+    toBody,
+    EndState.Orbit,
+    EndState.Orbit,
+    MU,
+    "star",
+    { rank: RankMode.All },
   );
   for (const r of routes) {
     assertEquals(r.phaseDay, undefined);
@@ -688,7 +784,13 @@ Deno.test("findDirectRoutes: fixed mode (no sweep) leaves routes untagged", () =
 Deno.test("findSingleAssistRoutes: reframe mode tags assist routes with finite recurDays", () => {
   const via: BodyRef = {
     id: "v1",
-    elements: { orbitRadiusAu: 0.7, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.25, retrograde: false },
+    elements: {
+      orbitRadiusAu: 0.7,
+      eccentricity: 0,
+      periapsisAngle: 0,
+      orbitalPhase: 0.25,
+      retrograde: false,
+    },
     endpoint: { mu: 3.2e14, radiusM: 6e6 },
   };
   const routes = findSingleAssistRoutes(
@@ -701,7 +803,16 @@ Deno.test("findSingleAssistRoutes: reframe mode tags assist routes with finite r
     "star",
     {
       rank: RankMode.All,
-      sweep: { kind: "resolutionTarget", deltaD: 30, minD: 4, maxD: 16, deltaT: 60, minT: 4, maxT: 16, nowDay: 0 },
+      sweep: {
+        kind: "resolutionTarget",
+        deltaD: 30,
+        minD: 4,
+        maxD: 16,
+        deltaT: 60,
+        minT: 4,
+        maxT: 16,
+        nowDay: 0,
+      },
     },
   );
   if (routes.length === 0) return; // geometry-dependent; tagging is the assertion when present
@@ -716,11 +827,24 @@ Deno.test("findSingleAssistRoutes: reframe mode tags assist routes with finite r
 Deno.test("findSingleAssistRoutes: fixed mode leaves assist routes untagged", () => {
   const via: BodyRef = {
     id: "v1",
-    elements: { orbitRadiusAu: 0.7, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.25, retrograde: false },
+    elements: {
+      orbitRadiusAu: 0.7,
+      eccentricity: 0,
+      periapsisAngle: 0,
+      orbitalPhase: 0.25,
+      retrograde: false,
+    },
     endpoint: { mu: 3.2e14, radiusM: 6e6 },
   };
   const routes = findSingleAssistRoutes(
-    fromBody, toBody, EndState.Orbit, EndState.Orbit, [via], MU, "star", { rank: RankMode.All },
+    fromBody,
+    toBody,
+    EndState.Orbit,
+    EndState.Orbit,
+    [via],
+    MU,
+    "star",
+    { rank: RankMode.All },
   );
   for (const r of routes) {
     assertEquals(r.phaseDay, undefined);
@@ -737,8 +861,14 @@ function taggedRoute(): Route {
       { bodyId: "b", time: 50, kind: RouteNodeKind.Arrive, deltaV: 0 },
     ],
     legs: [{
-      fromBodyId: "a", toBodyId: "b", centralBodyId: "star",
-      departTime: 10, arriveTime: 50, timeOfFlight: 40, transfer: { a: 1, e: 0, argPeriapsis: 0, nu1: 0, nu2: Math.PI }, deltaV: 0,
+      fromBodyId: "a",
+      toBodyId: "b",
+      centralBodyId: "star",
+      departTime: 10,
+      arriveTime: 50,
+      timeOfFlight: 40,
+      transfer: { a: 1, e: 0, argPeriapsis: 0, nu1: 0, nu2: Math.PI },
+      deltaV: 0,
     }],
     departAt: 10,
     duration: 40,
@@ -795,8 +925,14 @@ Deno.test("projectRoutes: cross-frame route (phaseDay ≠ departAt) shifts by ex
       { bodyId: "p", time: 60, kind: RouteNodeKind.Arrive, deltaV: 0 },
     ],
     legs: [{
-      fromBodyId: "m", toBodyId: "p", centralBodyId: "star",
-      departTime: 3, arriveTime: 60, timeOfFlight: 57, transfer: { a: 1, e: 0, argPeriapsis: 0, nu1: 0, nu2: Math.PI }, deltaV: 0,
+      fromBodyId: "m",
+      toBodyId: "p",
+      centralBodyId: "star",
+      departTime: 3,
+      arriveTime: 60,
+      timeOfFlight: 57,
+      transfer: { a: 1, e: 0, argPeriapsis: 0, nu1: 0, nu2: Math.PI },
+      deltaV: 0,
     }],
     departAt: 3, // route leaves the moon at day 3...
     duration: 57,

@@ -5,7 +5,7 @@ import { orbitParams, orbitPosition, solveKepler } from "../core/kinematics.ts";
 import {
   MigrationArchetype,
   ObjectType,
-  SolarSystem,
+  type SolarSystem,
   SpectralType,
 } from "../core/types.ts";
 
@@ -122,7 +122,10 @@ Deno.test("buildViewModel: retrograde body sweeps the opposite angular direction
   // body, traversing the same circle in reverse, is at -90° (-y). This proves
   // `retrograde` is actually threaded through buildViewModel, not dropped.
   const quarterPeriod = 365 / 4;
-  const prograde = buildViewModel(singlePlanetSystem(0, 0, false), quarterPeriod)
+  const prograde = buildViewModel(
+    singlePlanetSystem(0, 0, false),
+    quarterPeriod,
+  )
     .find((b) => b.id === "p1")!;
   const retro = buildViewModel(singlePlanetSystem(0, 0, true), quarterPeriod)
     .find((b) => b.id === "p1")!;

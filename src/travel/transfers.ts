@@ -133,8 +133,14 @@ export function sweepTransfers(
           prograde,
         );
         if (!Number.isFinite(v1.x) || !Number.isFinite(v2.x)) return null;
-        const vInfDepart = Math.hypot(v1.x - sFrom.velocity.x, v1.y - sFrom.velocity.y);
-        const vInfArrive = Math.hypot(v2.x - sTo.velocity.x, v2.y - sTo.velocity.y);
+        const vInfDepart = Math.hypot(
+          v1.x - sFrom.velocity.x,
+          v1.y - sFrom.velocity.y,
+        );
+        const vInfArrive = Math.hypot(
+          v2.x - sTo.velocity.x,
+          v2.y - sTo.velocity.y,
+        );
         if (vInfDepart > MAX_VINF_MPS || vInfArrive > MAX_VINF_MPS) return null;
         const c = transferConic(sFrom.position, v1, sTo.position, mu);
         if (!Number.isFinite(c.aAu) || !Number.isFinite(c.e)) return null;
@@ -162,7 +168,9 @@ export function sweepTransfers(
         argPeriapsis: pick.c.argPeriapsis,
         nu1: pick.c.nu1,
         nu2: pick.c.nu2,
-        ...(reframe ? { phaseDay: departDay, recurDays: reframe.recurDays } : {}),
+        ...(reframe
+          ? { phaseDay: departDay, recurDays: reframe.recurDays }
+          : {}),
       });
     }
   }

@@ -52,7 +52,11 @@ Deno.test("serializeViewState: includes resolved mode when focus present", () =>
 });
 
 Deno.test("serializeViewState then parseViewState round-trips", () => {
-  const state = { hl: ["obj_3", "obj_7"], focus: ["obj_7"], mode: "lock" as const };
+  const state = {
+    hl: ["obj_3", "obj_7"],
+    focus: ["obj_7"],
+    mode: "lock" as const,
+  };
   const parsed = parseViewState("?" + serializeViewState(state));
   assertEquals(parsed, state);
 });

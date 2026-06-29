@@ -68,10 +68,11 @@
     </style>
   </head>
   <body>
-    <div id="route-tip" style="position:fixed; pointer-events:none; z-index:20;
-  display:none; background:rgba(0,0,0,0.9); border:1px solid #2a2a3a;
-  border-radius:4px; padding:0.35rem 0.55rem; color:#eee; font-family:monospace;
-  font-size:0.75rem; line-height:1.35; white-space:nowrap;"></div>
+    <div
+      id="route-tip"
+      style="position: fixed; pointer-events: none; z-index: 20; display: none; background: rgba(0, 0, 0, 0.9); border: 1px solid #2a2a3a; border-radius: 4px; padding: 0.35rem 0.55rem; color: #eee; font-family: monospace; font-size: 0.75rem; line-height: 1.35; white-space: nowrap"
+    >
+    </div>
     <div id="loading">LOADING...</div>
     <script type="module">
       import {
@@ -125,7 +126,9 @@
         if (data) {
           if (loadingEl) loadingEl.remove();
           const fmtDuration = (days) =>
-            days >= 365 ? `${(days / 365).toFixed(1)} yr` : `${days.toFixed(0)} d`;
+            days >= 365
+              ? `${(days / 365).toFixed(1)} yr`
+              : `${days.toFixed(0)} d`;
           const routeTip = document.getElementById("route-tip");
           const animObjects = buildViewModel(data, 0);
           const knownIds = new Set(animObjects.map((o) => o.id));
@@ -143,7 +146,7 @@
             history.replaceState(null, "", url);
           }
 
-          let panelHandle;  // declared before orrery so onRoutePick can close over it
+          let panelHandle; // declared before orrery so onRoutePick can close over it
           let currentRouteViews = [];
 
           const orrery = createCanvasOrrery(document.body, {
@@ -162,7 +165,10 @@
               writeURL();
             },
             onRouteHover: (info, sx, sy) => {
-              if (!info) { routeTip.style.display = "none"; return; }
+              if (!info) {
+                routeTip.style.display = "none";
+                return;
+              }
               // roleDisplayName returns from a static map; no user input reaches innerHTML.
               routeTip.innerHTML =
                 `<strong>${roleDisplayName(info.role)}</strong><br>` +
@@ -182,7 +188,12 @@
 
           function drawRoutesFor(fromId, toId) {
             try {
-              const views = routeViewsForPick(data, fromId, toId, orrery.getCurrentDay());
+              const views = routeViewsForPick(
+                data,
+                fromId,
+                toId,
+                orrery.getCurrentDay(),
+              );
               if (views.length === 0) {
                 orrery.setRoutes([]);
                 currentRouteViews = [];

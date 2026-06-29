@@ -27,7 +27,6 @@ import {
   type RouteLeg,
   type RouteNode,
   RouteNodeKind,
-  type RouteRole,
   type TravelOptions,
 } from "./types.ts";
 import { DAY_S, mpsToKmps } from "./units.ts";
@@ -313,7 +312,10 @@ export function findCrossFrameRoutes(
   // the requested [startWindow, …] window regardless of the clock. The reframe path samples
   // from day 0 and projects via phaseDay afterward, so it must not be shifted here.
   if (!reframeOn && from.parent) {
-    const fromAp = planetoAppendage(from.parent.body, from.parent.moonOrbitRadiusM);
+    const fromAp = planetoAppendage(
+      from.parent.body,
+      from.parent.moonOrbitRadiusM,
+    );
     const originTerminal = buildTerminal(
       from.body,
       from.endState,

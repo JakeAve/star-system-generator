@@ -1,7 +1,11 @@
 // src/orbit/orbit.ts
 // Circular-orbit physics and the public computeOrbit entry point.
 
-import { type CelestialObject, type GeneratorConfig, ObjectType, type SolarSystem } from "../core/types.ts";
+import type {
+  CelestialObject,
+  GeneratorConfig,
+  SolarSystem,
+} from "../core/types.ts";
 import { DEFAULT_CONFIG } from "../core/config.ts";
 import { AU_M, DAY_S, mpsToKmps, mToAu } from "../travel/units.ts";
 import { bodyMu, stabilityBand, surfaceRadiusM } from "./central.ts";
@@ -33,7 +37,11 @@ export function specificEnergy(mu: number, rM: number): number {
  * rM, burn 2 circularizes. Ignores atmospheric drag, gravity losses, and the
  * body's rotational launch assist — a clean physics lower bound.
  */
-export function deltaVFromSurface(mu: number, surfaceM: number, rM: number): number {
+export function deltaVFromSurface(
+  mu: number,
+  surfaceM: number,
+  rM: number,
+): number {
   if (rM === surfaceM) return 0;
   const a = (surfaceM + rM) / 2; // transfer-ellipse semi-major axis
   const vc0 = Math.sqrt(mu / surfaceM);
@@ -69,7 +77,9 @@ function resolveRadiusM(
       return { rM: surfaceM * (1 + config.lowOrbitAltitudeFraction) };
     case "synchronous": {
       if (!(body.rotationPeriodDays > 0)) {
-        return { reason: "central body does not rotate; no synchronous orbit exists" };
+        return {
+          reason: "central body does not rotate; no synchronous orbit exists",
+        };
       }
       const tS = body.rotationPeriodDays * DAY_S;
       const rM = Math.cbrt((mu * tS ** 2) / (4 * Math.PI ** 2));
@@ -92,7 +102,9 @@ export function computeOrbit(
   const surfaceM = surfaceRadiusM(body);
 
   const resolved = resolveRadiusM(spec, body, mu, surfaceM, config);
-  if ("reason" in resolved) return { applicable: false, spec, reason: resolved.reason };
+  if ("reason" in resolved) {
+    return { applicable: false, spec, reason: resolved.reason };
+  }
   const { rM } = resolved;
 
   const { rMinM, rMaxM } = stabilityBand(body, system);
@@ -111,7 +123,10 @@ export function computeOrbit(
     radiusBodyRadii: rM / surfaceM,
     altitudeKm: (rM - surfaceM) / 1000,
     stable,
-    band: { rMinKm: rMinM / 1000, rMaxKm: rMaxM === null ? null : rMaxM / 1000 },
+    band: {
+      rMinKm: rMinM / 1000,
+      rMaxKm: rMaxM === null ? null : rMaxM / 1000,
+    },
     appliedSpec: "unit" in spec
       ? { kind: "distance", unit: spec.unit, value: spec.value }
       : { kind: "named", type: spec.type },

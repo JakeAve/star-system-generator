@@ -1,4 +1,9 @@
-import { assert, assertAlmostEquals, assertEquals, assertThrows } from "@std/assert";
+import {
+  assert,
+  assertAlmostEquals,
+  assertEquals,
+  assertThrows,
+} from "@std/assert";
 import { generateSolarSystem } from "../core/generator.ts";
 import {
   getBestRoutes,
@@ -526,7 +531,12 @@ Deno.test("getBestRoutes(findSoonest): deterministic", () => {
 
 Deno.test("getBestRoutes(findSoonest): the star cannot be an endpoint", () => {
   assertThrows(() =>
-    getBestRoutes(system, { obj: system.star.id, type: EndState.Orbit }, wp(b), { findSoonest: true })
+    getBestRoutes(
+      system,
+      { obj: system.star.id, type: EndState.Orbit },
+      wp(b),
+      { findSoonest: true },
+    )
   );
 });
 
@@ -553,7 +563,10 @@ Deno.test("getBestRoutes(findSoonest): synodic cap makes a huge window match the
     departWindowDays: huge,
     maxAssists: 0,
   });
-  const dflt = getBestRoutes(system, wp(a), wp(b), { findSoonest: true, maxAssists: 0 });
+  const dflt = getBestRoutes(system, wp(a), wp(b), {
+    findSoonest: true,
+    maxAssists: 0,
+  });
   assertEquals(JSON.stringify(capped), JSON.stringify(dflt));
 });
 
@@ -628,15 +641,25 @@ Deno.test("getBestRoutes3: control getBestRoutes(findSoonest) is unaffected by a
 
 Deno.test("getBestRoutes(findSoonest): rejects endWindow <= startWindow", () => {
   assertThrows(() =>
-    getBestRoutes(system, wp(a), wp(b), { findSoonest: true, startWindow: 1000, endWindow: 1000 })
+    getBestRoutes(system, wp(a), wp(b), {
+      findSoonest: true,
+      startWindow: 1000,
+      endWindow: 1000,
+    })
   );
   assertThrows(() =>
-    getBestRoutes(system, wp(a), wp(b), { findSoonest: true, startWindow: 1000, endWindow: 500 })
+    getBestRoutes(system, wp(a), wp(b), {
+      findSoonest: true,
+      startWindow: 1000,
+      endWindow: 500,
+    })
   );
 });
 
 Deno.test("getBestRoutes(findSoonest): rejects negative or non-finite startWindow", () => {
-  assertThrows(() => getBestRoutes(system, wp(a), wp(b), { findSoonest: true, startWindow: -1 }));
+  assertThrows(() =>
+    getBestRoutes(system, wp(a), wp(b), { findSoonest: true, startWindow: -1 })
+  );
   assertThrows(() =>
     getBestRoutes(system, wp(a), wp(b), {
       findSoonest: true,
@@ -661,7 +684,9 @@ Deno.test("getRoutes: startWindow 0 with a positive endWindow is valid", () => {
 
 Deno.test("getBestRoutes(findSoonest): bare endWindow is validated against the default start of 0", () => {
   // endWindow 0 is not > the default startWindow (0) → throws.
-  assertThrows(() => getBestRoutes(system, wp(a), wp(b), { findSoonest: true, endWindow: 0 }));
+  assertThrows(() =>
+    getBestRoutes(system, wp(a), wp(b), { findSoonest: true, endWindow: 0 })
+  );
   // endWindow 1 is > 0 → valid.
   getBestRoutes(system, wp(a), wp(b), { findSoonest: true, endWindow: 1 });
 });
@@ -688,7 +713,10 @@ Deno.test("getBestRoutes(findSoonest): startWindow shifts the departure window (
 
 Deno.test("getBestRoutes(findSoonest): omitting the window equals startWindow 0", () => {
   const dflt = getBestRoutes(system, wp(a), wp(b), { findSoonest: true });
-  const explicit = getBestRoutes(system, wp(a), wp(b), { findSoonest: true, startWindow: 0 });
+  const explicit = getBestRoutes(system, wp(a), wp(b), {
+    findSoonest: true,
+    startWindow: 0,
+  });
   assertEquals(JSON.stringify(dflt), JSON.stringify(explicit));
 });
 
@@ -760,7 +788,10 @@ Deno.test("getBestRoutes(findSoonest): anchors agree with getRoutes within a shi
     rank: RankMode.All,
     ...shared,
   });
-  const picks = getBestRoutes(system, wp(a), wp(b), { findSoonest: true, ...shared });
+  const picks = getBestRoutes(system, wp(a), wp(b), {
+    findSoonest: true,
+    ...shared,
+  });
   if (picks.length === 0) throw new Error("expected picks");
   const arr = (r: Route) => r.departAt + r.duration;
   const minDv = Math.min(...all.map((r) => r.totalDeltaV));
@@ -878,9 +909,12 @@ Deno.test("lagrangeWaypoint: rejects a star parent", () => {
 });
 
 Deno.test("lagrangeWaypoint: L4 leads parent by 1/6 of a phase", () => {
-  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const planet = system.objects.find((o) => o.moons.length === 0) ??
+    system.objects[0];
   const wp = lagrangeWaypoint(system, planet, "L4", EndState.Dock);
-  if (!("spec" in wp)) throw new Error("planet parent should yield a heliocentric spec");
+  if (!("spec" in wp)) {
+    throw new Error("planet parent should yield a heliocentric spec");
+  }
   assertEquals(wp.spec.id, `L4:${planet.id}`);
   assertEquals(wp.spec.orbitRadiusAu, planet.orbitRadius);
   assertEquals(wp.spec.eccentricity, planet.eccentricity);
@@ -890,18 +924,24 @@ Deno.test("lagrangeWaypoint: L4 leads parent by 1/6 of a phase", () => {
 });
 
 Deno.test("lagrangeWaypoint: L5 trails parent by 1/6 of a phase", () => {
-  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const planet = system.objects.find((o) => o.moons.length === 0) ??
+    system.objects[0];
   const wp = lagrangeWaypoint(system, planet, "L5", EndState.Intercept);
-  if (!("spec" in wp)) throw new Error("planet parent should yield a heliocentric spec");
+  if (!("spec" in wp)) {
+    throw new Error("planet parent should yield a heliocentric spec");
+  }
   const expected = ((planet.orbitalPhase - 1 / 6) % 1 + 1) % 1;
   assertAlmostEquals(wp.spec.orbitalPhase!, expected, 1e-12);
 });
 
 Deno.test("lagrangeWaypoint: retrograde planet flips the L4 leading offset and tags the waypoint", () => {
-  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const planet = system.objects.find((o) => o.moons.length === 0) ??
+    system.objects[0];
   const retroPlanet = { ...planet, retrograde: true };
   const wp = lagrangeWaypoint(system, retroPlanet, "L4", EndState.Dock);
-  if (!("spec" in wp)) throw new Error("planet parent should yield a heliocentric spec");
+  if (!("spec" in wp)) {
+    throw new Error("planet parent should yield a heliocentric spec");
+  }
   // Leading in the direction of motion => lower inertial angle for a retrograde body.
   const expected = ((retroPlanet.orbitalPhase - 1 / 6) % 1 + 1) % 1;
   assertAlmostEquals(wp.spec.orbitalPhase!, expected, 1e-12);
@@ -909,10 +949,23 @@ Deno.test("lagrangeWaypoint: retrograde planet flips the L4 leading offset and t
 });
 
 Deno.test("lagrangeWaypoint: retrograde parent leaves L1 collinear geometry unchanged", () => {
-  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
-  const pro = lagrangeWaypoint(system, { ...planet, retrograde: false }, "L1", EndState.Intercept);
-  const retro = lagrangeWaypoint(system, { ...planet, retrograde: true }, "L1", EndState.Intercept);
-  if (!("spec" in pro) || !("spec" in retro)) throw new Error("expected heliocentric specs");
+  const planet = system.objects.find((o) => o.moons.length === 0) ??
+    system.objects[0];
+  const pro = lagrangeWaypoint(
+    system,
+    { ...planet, retrograde: false },
+    "L1",
+    EndState.Intercept,
+  );
+  const retro = lagrangeWaypoint(
+    system,
+    { ...planet, retrograde: true },
+    "L1",
+    EndState.Intercept,
+  );
+  if (!("spec" in pro) || !("spec" in retro)) {
+    throw new Error("expected heliocentric specs");
+  }
   // L1 phaseOffset is 0; only the retrograde tag differs, radius/phase match.
   assertAlmostEquals(retro.spec.orbitRadiusAu, pro.spec.orbitRadiusAu, 1e-12);
   assertAlmostEquals(retro.spec.orbitalPhase!, pro.spec.orbitalPhase!, 1e-12);
@@ -920,26 +973,37 @@ Deno.test("lagrangeWaypoint: retrograde parent leaves L1 collinear geometry unch
 });
 
 Deno.test("lagrangeWaypoint: routes end-to-end to a planet's L5", () => {
-  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const planet = system.objects.find((o) => o.moons.length === 0) ??
+    system.objects[0];
   const dest = lagrangeWaypoint(system, planet, "L5", EndState.Dock);
   const routes = getBestRoutes(system, { obj: a, type: EndState.Orbit }, dest);
   if (routes.length === 0) throw new Error("expected routes to L5");
-  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `L5:${planet.id}`);
+  assertEquals(
+    routes[0].bodies[routes[0].bodies.length - 1],
+    `L5:${planet.id}`,
+  );
 });
 
 Deno.test("getBestRoutes: pSpec station as cross-frame destination docks", () => {
-  const origin = sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
-    sys42.objects.find((o) => o.id !== giant42!.id);
+  const origin =
+    sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
+      sys42.objects.find((o) => o.id !== giant42!.id);
   if (!giant42 || !origin) throw new Error("seed 42 fixture missing");
   const routes = getBestRoutes(
     sys42,
     { obj: origin.id, type: EndState.Orbit },
     {
-      pSpec: { id: "giant-station", parentId: giant42.id, orbitRadiusAu: giant42.moons[0].orbitRadius },
+      pSpec: {
+        id: "giant-station",
+        parentId: giant42.id,
+        orbitRadiusAu: giant42.moons[0].orbitRadius,
+      },
       type: EndState.Dock,
     },
   );
-  if (routes.length === 0) throw new Error("expected cross-frame routes to pSpec station");
+  if (routes.length === 0) {
+    throw new Error("expected cross-frame routes to pSpec station");
+  }
   assertEquals(routes[0].bodies[routes[0].bodies.length - 1], "giant-station");
 });
 
@@ -950,23 +1014,38 @@ Deno.test("getBestRoutes: pSpec same-parent (real moon -> station around same pl
     sys42,
     { obj: moonId, type: EndState.Orbit },
     {
-      pSpec: { id: "sibling-station", parentId: giant42.id, orbitRadiusAu: giant42.moons[1].orbitRadius },
+      pSpec: {
+        id: "sibling-station",
+        parentId: giant42.id,
+        orbitRadiusAu: giant42.moons[1].orbitRadius,
+      },
       type: EndState.Dock,
     },
   );
   if (routes.length === 0) throw new Error("expected same-parent route");
   assertEquals(routes[0].bodies[0], moonId);
-  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], "sibling-station");
+  assertEquals(
+    routes[0].bodies[routes[0].bodies.length - 1],
+    "sibling-station",
+  );
 });
 
 Deno.test("getBestRoutes: pSpec intercept has zero terminal Δv at the station", () => {
-  const origin = sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
-    sys42.objects.find((o) => o.id !== giant42!.id);
+  const origin =
+    sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
+      sys42.objects.find((o) => o.id !== giant42!.id);
   if (!giant42 || !origin) throw new Error("seed 42 fixture missing");
   const routes = getBestRoutes(
     sys42,
     { obj: origin.id, type: EndState.Orbit },
-    { pSpec: { id: "wp", parentId: giant42.id, orbitRadiusAu: giant42.moons[0].orbitRadius }, type: EndState.Intercept },
+    {
+      pSpec: {
+        id: "wp",
+        parentId: giant42.id,
+        orbitRadiusAu: giant42.moons[0].orbitRadius,
+      },
+      type: EndState.Intercept,
+    },
   );
   if (routes.length === 0) throw new Error("expected routes");
   const arrive = routes[0].nodes[routes[0].nodes.length - 1];
@@ -980,7 +1059,10 @@ Deno.test("getBestRoutes: pSpec rejects Orbit end-state", () => {
       getBestRoutes(
         sys42,
         { obj: giant42!.moons[0].id, type: EndState.Orbit },
-        { pSpec: { parentId: giant42!.id, orbitRadiusAu: 0.01 }, type: EndState.Orbit },
+        {
+          pSpec: { parentId: giant42!.id, orbitRadiusAu: 0.01 },
+          type: EndState.Orbit,
+        },
       ),
     Error,
     "virtual bodies only support Intercept or Dock",
@@ -994,7 +1076,10 @@ Deno.test("getBestRoutes: pSpec rejects a moon parentId", () => {
       getBestRoutes(
         sys42,
         { obj: giant42!.moons[1].id, type: EndState.Orbit },
-        { pSpec: { parentId: giant42!.moons[0].id, orbitRadiusAu: 0.01 }, type: EndState.Dock },
+        {
+          pSpec: { parentId: giant42!.moons[0].id, orbitRadiusAu: 0.01 },
+          type: EndState.Dock,
+        },
       ),
     Error,
     "pSpec parentId must be a planet, not a moon",
@@ -1008,7 +1093,10 @@ Deno.test("getBestRoutes: pSpec rejects an unknown parentId", () => {
       getBestRoutes(
         sys42,
         { obj: giant42!.moons[0].id, type: EndState.Orbit },
-        { pSpec: { parentId: "obj_does_not_exist", orbitRadiusAu: 0.01 }, type: EndState.Dock },
+        {
+          pSpec: { parentId: "obj_does_not_exist", orbitRadiusAu: 0.01 },
+          type: EndState.Dock,
+        },
       ),
     Error,
     "unknown parent body",
@@ -1017,13 +1105,17 @@ Deno.test("getBestRoutes: pSpec rejects an unknown parentId", () => {
 
 Deno.test("getBestRoutes: pSpec auto-generates an id from parent and radius", () => {
   if (!giant42) throw new Error("seed 42 fixture missing");
-  const origin = sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
-    sys42.objects.find((o) => o.id !== giant42!.id)!;
+  const origin =
+    sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
+      sys42.objects.find((o) => o.id !== giant42!.id)!;
   const radius = giant42.moons[0].orbitRadius;
   const routes = getBestRoutes(
     sys42,
     { obj: origin.id, type: EndState.Orbit },
-    { pSpec: { parentId: giant42.id, orbitRadiusAu: radius }, type: EndState.Dock },
+    {
+      pSpec: { parentId: giant42.id, orbitRadiusAu: radius },
+      type: EndState.Dock,
+    },
   );
   if (routes.length === 0) throw new Error("expected routes");
   assertEquals(
@@ -1043,8 +1135,9 @@ Deno.test("lagrangeWaypoint: moon parent yields a planetocentric pSpec", () => {
 });
 
 Deno.test("lagrangeWaypoint: planet parent still yields a heliocentric spec", () => {
-  const planet = sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
-    sys42.objects.find((o) => o.id !== giant42!.id)!;
+  const planet =
+    sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
+      sys42.objects.find((o) => o.id !== giant42!.id)!;
   const wp = lagrangeWaypoint(sys42, planet, "L5", EndState.Intercept);
   if (!("spec" in wp)) throw new Error("planet parent should yield a spec");
   assertEquals(wp.spec.orbitRadiusAu, planet.orbitRadius);
@@ -1071,15 +1164,22 @@ Deno.test("getRoutes: a retrograde captured moon deep in the Hill band still pro
     throw new Error("seed 42 expected to have a planet with >= 2 moons");
   }
   const moon = giant42.moons[0];
-  const deepMoon = { ...moon, retrograde: true, orbitRadius: moon.orbitRadius * 2 };
+  const deepMoon = {
+    ...moon,
+    retrograde: true,
+    orbitRadius: moon.orbitRadius * 2,
+  };
   const retroSystem = {
     ...sys42,
     objects: sys42.objects.map((o) =>
-      o.id === giant42!.id ? { ...o, moons: [deepMoon, ...giant42!.moons.slice(1)] } : o
+      o.id === giant42!.id
+        ? { ...o, moons: [deepMoon, ...giant42!.moons.slice(1)] }
+        : o
     ),
   };
-  const depart = sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
-    sys42.objects.find((o) => o.id !== giant42!.id)!;
+  const depart =
+    sys42.objects.find((o) => o.id !== giant42!.id && o.moons.length === 0) ??
+      sys42.objects.find((o) => o.id !== giant42!.id)!;
   const routes = getRoutes(
     retroSystem,
     { obj: depart.id, type: EndState.Orbit },
@@ -1097,7 +1197,9 @@ Deno.test("getRoutes: produces a finite, sane route to a retrograde planet", () 
   // Flip the target body retrograde; route to it from the (prograde) first body.
   const retroSystem = {
     ...system,
-    objects: system.objects.map((o) => o.id === b ? { ...o, retrograde: true } : o),
+    objects: system.objects.map((o) =>
+      o.id === b ? { ...o, retrograde: true } : o
+    ),
   };
   const routes = getRoutes(
     retroSystem,
@@ -1105,7 +1207,10 @@ Deno.test("getRoutes: produces a finite, sane route to a retrograde planet", () 
     { obj: b, type: EndState.Orbit },
     { maxAssists: 0 },
   );
-  assert(routes.length > 0, "expected at least one route to the retrograde target");
+  assert(
+    routes.length > 0,
+    "expected at least one route to the retrograde target",
+  );
   for (const r of routes) {
     assert(Number.isFinite(r.totalDeltaV) && r.totalDeltaV > 0);
     assert(Number.isFinite(r.duration) && r.duration > 0);
@@ -1113,8 +1218,14 @@ Deno.test("getRoutes: produces a finite, sane route to a retrograde planet", () 
 });
 
 Deno.test("lagrangePointGeometry: L4/L5 are co-orbital with ±1/6 phase", () => {
-  assertEquals(lagrangePointGeometry("L4", 0), { radiusFactor: 1, phaseOffset: 1 / 6 });
-  assertEquals(lagrangePointGeometry("L5", 0), { radiusFactor: 1, phaseOffset: -1 / 6 });
+  assertEquals(lagrangePointGeometry("L4", 0), {
+    radiusFactor: 1,
+    phaseOffset: 1 / 6,
+  });
+  assertEquals(lagrangePointGeometry("L5", 0), {
+    radiusFactor: 1,
+    phaseOffset: -1 / 6,
+  });
 });
 
 Deno.test("lagrangeWaypoint: moon L1/L2 yield pSpec at an adjusted radius", () => {
@@ -1130,8 +1241,16 @@ Deno.test("lagrangeWaypoint: moon L1/L2 yield pSpec at an adjusted radius", () =
   }
   assertEquals(l1.pSpec.id, `L1:${moon.id}`);
   assertEquals(l1.pSpec.parentId, moon.parentId);
-  assertAlmostEquals(l1.pSpec.orbitRadiusAu, moon.orbitRadius * (1 - alpha), 1e-12);
-  assertAlmostEquals(l2.pSpec.orbitRadiusAu, moon.orbitRadius * (1 + alpha), 1e-12);
+  assertAlmostEquals(
+    l1.pSpec.orbitRadiusAu,
+    moon.orbitRadius * (1 - alpha),
+    1e-12,
+  );
+  assertAlmostEquals(
+    l2.pSpec.orbitRadiusAu,
+    moon.orbitRadius * (1 + alpha),
+    1e-12,
+  );
 });
 
 Deno.test("lagrangeWaypoint: moon L3 yields pSpec at adjusted radius, phase dropped", () => {
@@ -1142,7 +1261,11 @@ Deno.test("lagrangeWaypoint: moon L3 yields pSpec at adjusted radius, phase drop
   const wp = lagrangeWaypoint(sys42, moon, "L3", EndState.Dock);
   if (!("pSpec" in wp)) throw new Error("moon parent should yield a pSpec");
   // pSpec carries no phase field — the 180° offset is intentionally not represented.
-  assertAlmostEquals(wp.pSpec.orbitRadiusAu, moon.orbitRadius * (1 - (7 * mu) / 12), 1e-12);
+  assertAlmostEquals(
+    wp.pSpec.orbitRadiusAu,
+    moon.orbitRadius * (1 - (7 * mu) / 12),
+    1e-12,
+  );
 });
 
 Deno.test("lagrangePointGeometry: collinear factors for a Sun–Earth mass ratio", () => {
@@ -1163,7 +1286,8 @@ Deno.test("lagrangePointGeometry: collinear factors for a Sun–Earth mass ratio
 });
 
 Deno.test("lagrangeWaypoint: planet L1/L2 sit inside/outside the parent orbit", () => {
-  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const planet = system.objects.find((o) => o.moons.length === 0) ??
+    system.objects[0];
   const mu = (planet.mass * M_EARTH_KG) /
     (system.star.mass * M_SUN_KG + planet.mass * M_EARTH_KG);
   const alpha = Math.cbrt(mu / 3);
@@ -1173,39 +1297,63 @@ Deno.test("lagrangeWaypoint: planet L1/L2 sit inside/outside the parent orbit", 
     throw new Error("planet parent should yield a heliocentric spec");
   }
   assertEquals(l1.spec.id, `L1:${planet.id}`);
-  assertAlmostEquals(l1.spec.orbitRadiusAu, planet.orbitRadius * (1 - alpha), 1e-12);
-  assertAlmostEquals(l2.spec.orbitRadiusAu, planet.orbitRadius * (1 + alpha), 1e-12);
+  assertAlmostEquals(
+    l1.spec.orbitRadiusAu,
+    planet.orbitRadius * (1 - alpha),
+    1e-12,
+  );
+  assertAlmostEquals(
+    l2.spec.orbitRadiusAu,
+    planet.orbitRadius * (1 + alpha),
+    1e-12,
+  );
   // Collinear points share the parent's phase (no leading/trailing offset).
-  assertAlmostEquals(l1.spec.orbitalPhase!, ((planet.orbitalPhase) % 1 + 1) % 1, 1e-12);
+  assertAlmostEquals(
+    l1.spec.orbitalPhase!,
+    ((planet.orbitalPhase) % 1 + 1) % 1,
+    1e-12,
+  );
 });
 
 Deno.test("lagrangeWaypoint: planet L3 sits opposite the parent at 180°", () => {
-  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const planet = system.objects.find((o) => o.moons.length === 0) ??
+    system.objects[0];
   const mu = (planet.mass * M_EARTH_KG) /
     (system.star.mass * M_SUN_KG + planet.mass * M_EARTH_KG);
   const wp = lagrangeWaypoint(system, planet, "L3", EndState.Dock);
   if (!("spec" in wp)) throw new Error("planet parent should yield a spec");
-  assertAlmostEquals(wp.spec.orbitRadiusAu, planet.orbitRadius * (1 - (7 * mu) / 12), 1e-12);
+  assertAlmostEquals(
+    wp.spec.orbitRadiusAu,
+    planet.orbitRadius * (1 - (7 * mu) / 12),
+    1e-12,
+  );
   const expected = ((planet.orbitalPhase + 0.5) % 1 + 1) % 1;
   assertAlmostEquals(wp.spec.orbitalPhase!, expected, 1e-12);
 });
 
 Deno.test("lagrangeWaypoint: routes end-to-end to a planet's L2", () => {
-  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const planet = system.objects.find((o) => o.moons.length === 0) ??
+    system.objects[0];
   const dest = lagrangeWaypoint(system, planet, "L2", EndState.Dock);
   const routes = getBestRoutes(system, { obj: a, type: EndState.Orbit }, dest);
   if (routes.length === 0) throw new Error("expected routes to L2");
-  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `L2:${planet.id}`);
+  assertEquals(
+    routes[0].bodies[routes[0].bodies.length - 1],
+    `L2:${planet.id}`,
+  );
 });
 
 // orbitWaypoint
 
 Deno.test("orbitWaypoint: planet body yields planetocentric pSpec at orbit radius", () => {
-  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
+  const planet = system.objects.find((o) => o.moons.length === 0) ??
+    system.objects[0];
   const result = computeOrbit(planet, { value: 500, unit: "km" }, system);
   if (!result.applicable) throw new Error("expected applicable orbit");
   const wp = orbitWaypoint(planet, result, EndState.Dock);
-  if (!("pSpec" in wp)) throw new Error("planet should yield a planetocentric pSpec");
+  if (!("pSpec" in wp)) {
+    throw new Error("planet should yield a planetocentric pSpec");
+  }
   assertEquals(wp.pSpec.parentId, planet.id);
   assertEquals(wp.pSpec.id, `station:${planet.id}`);
   assertAlmostEquals(wp.pSpec.orbitRadiusAu, result.radiusAu, 1e-12);
@@ -1239,8 +1387,13 @@ Deno.test("orbitWaypoint: rejects a star body", () => {
 });
 
 Deno.test("orbitWaypoint: rejects an OrbitUnavailable result", () => {
-  const planet = system.objects.find((o) => o.moons.length === 0) ?? system.objects[0];
-  const unavailable = { applicable: false as const, spec: { type: "synchronous" as const }, reason: "no rotation" };
+  const planet = system.objects.find((o) => o.moons.length === 0) ??
+    system.objects[0];
+  const unavailable = {
+    applicable: false as const,
+    spec: { type: "synchronous" as const },
+    reason: "no rotation",
+  };
   assertThrows(
     () => orbitWaypoint(planet, unavailable, EndState.Dock),
     Error,
@@ -1256,5 +1409,8 @@ Deno.test("orbitWaypoint: routes end-to-end from another body to a planet statio
   const dest = orbitWaypoint(planet, result, EndState.Dock);
   const routes = getBestRoutes(system, { obj: a, type: EndState.Orbit }, dest);
   if (routes.length === 0) throw new Error("expected routes to station");
-  assertEquals(routes[0].bodies[routes[0].bodies.length - 1], `station:${planet.id}`);
+  assertEquals(
+    routes[0].bodies[routes[0].bodies.length - 1],
+    `station:${planet.id}`,
+  );
 });

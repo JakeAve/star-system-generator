@@ -201,8 +201,14 @@ Deno.test("hitTestRoutes: routes with shared endpoints are disambiguated by arc,
   // The new code picks by leg arc proximity, so hovering over B's arc returns B.
   const sharedDepart = { x: 0, y: 0 };
   const sharedArrive = { x: 100, y: 0 };
-  const arcA = { nodes: [sharedDepart, sharedArrive], legPoints: [{ x: 0, y: 0 }, { x: 50, y: -30 }, { x: 100, y: 0 }] };
-  const arcB = { nodes: [sharedDepart, sharedArrive], legPoints: [{ x: 0, y: 0 }, { x: 50, y: 30 }, { x: 100, y: 0 }] };
+  const arcA = {
+    nodes: [sharedDepart, sharedArrive],
+    legPoints: [{ x: 0, y: 0 }, { x: 50, y: -30 }, { x: 100, y: 0 }],
+  };
+  const arcB = {
+    nodes: [sharedDepart, sharedArrive],
+    legPoints: [{ x: 0, y: 0 }, { x: 50, y: 30 }, { x: 100, y: 0 }],
+  };
   const a = fakeRoute("A", arcA);
   const b = fakeRoute("B", arcB);
 
@@ -350,7 +356,10 @@ Deno.test("roleColor maps balanced roles to muted gray", () => {
 
 Deno.test("roleDisplayName is human-readable", () => {
   assertEquals(roleDisplayName("cheapest"), "Cheapest");
-  assertEquals(roleDisplayName("balanced-cheap-fast"), "Balanced: cheap + fast");
+  assertEquals(
+    roleDisplayName("balanced-cheap-fast"),
+    "Balanced: cheap + fast",
+  );
   assertEquals(roleDisplayName("balanced-all"), "Balanced: all-round");
 });
 

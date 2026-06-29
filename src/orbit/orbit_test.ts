@@ -1,5 +1,15 @@
-import { assertAlmostEquals, assertEquals, assertFalse, assertThrows } from "@std/assert";
-import { MigrationArchetype, ObjectType, type CelestialObject, type SolarSystem } from "../core/types.ts";
+import {
+  assertAlmostEquals,
+  assertEquals,
+  assertFalse,
+  assertThrows,
+} from "@std/assert";
+import {
+  type CelestialObject,
+  MigrationArchetype,
+  ObjectType,
+  type SolarSystem,
+} from "../core/types.ts";
 import {
   circularVelocity,
   computeOrbit,
@@ -14,17 +24,40 @@ const R_EARTH = 6.371e6;
 
 function body(partial: Partial<CelestialObject>): CelestialObject {
   return {
-    id: "x", name: "x", type: ObjectType.RockyPlanet,
-    orbitRadius: 1, orbitPeriod: 0, eccentricity: 0,
-    radius: 1, mass: 1, settlementCap: 0, deposits: [], moons: [],
-    knownAtStart: true, orbitalPhase: 0, periapsisAngle: 0,
-    retrograde: false, rotationPeriodDays: 1, tidallyLocked: false,
+    id: "x",
+    name: "x",
+    type: ObjectType.RockyPlanet,
+    orbitRadius: 1,
+    orbitPeriod: 0,
+    eccentricity: 0,
+    radius: 1,
+    mass: 1,
+    settlementCap: 0,
+    deposits: [],
+    moons: [],
+    knownAtStart: true,
+    orbitalPhase: 0,
+    periapsisAngle: 0,
+    retrograde: false,
+    rotationPeriodDays: 1,
+    tidallyLocked: false,
     ...partial,
   };
 }
-const star = body({ id: "star", type: ObjectType.Star, mass: 1, radius: 1, orbitRadius: 0 }) as SolarSystem["star"];
+const star = body({
+  id: "star",
+  type: ObjectType.Star,
+  mass: 1,
+  radius: 1,
+  orbitRadius: 0,
+}) as SolarSystem["star"];
 function system(objects: CelestialObject[]): SolarSystem {
-  return { seed: 1, star, migrationHistory: MigrationArchetype.DynamicallyCold, objects };
+  return {
+    seed: 1,
+    star,
+    migrationHistory: MigrationArchetype.DynamicallyCold,
+    objects,
+  };
 }
 
 Deno.test("circularVelocity: LEO (400 km) ≈ 7670 m/s", () => {
@@ -40,7 +73,11 @@ Deno.test("orbitalPeriod: GEO radius ≈ 86164 s (sidereal day)", () => {
 });
 
 Deno.test("specificEnergy: negative and equals -mu/2r", () => {
-  assertAlmostEquals(specificEnergy(MU_EARTH, 4.2164e7), -MU_EARTH / (2 * 4.2164e7), 1);
+  assertAlmostEquals(
+    specificEnergy(MU_EARTH, 4.2164e7),
+    -MU_EARTH / (2 * 4.2164e7),
+    1,
+  );
 });
 
 Deno.test("deltaVFromSurface: Earth surface→GEO ≈ 4015 m/s", () => {
@@ -57,7 +94,14 @@ Deno.test("computeOrbit: Earth-like planet, 400 km altitude → ~7.67 km/s, stab
 });
 
 Deno.test("computeOrbit: synchronous around non-rotating star → unavailable", () => {
-  const nonRotatingStar = body({ id: "star", type: ObjectType.Star, mass: 1, radius: 1, orbitRadius: 0, rotationPeriodDays: 0 }) as SolarSystem["star"];
+  const nonRotatingStar = body({
+    id: "star",
+    type: ObjectType.Star,
+    mass: 1,
+    radius: 1,
+    orbitRadius: 0,
+    rotationPeriodDays: 0,
+  }) as SolarSystem["star"];
   const r = computeOrbit(nonRotatingStar, { type: "synchronous" }, system([]));
   assertFalse(r.applicable);
 });
@@ -72,7 +116,11 @@ Deno.test("computeOrbit: orbit beyond SOI is reported but unstable", () => {
 
 Deno.test("computeOrbit: radius echoed in km, AU, and body-radii agree", () => {
   const earth = body({ id: "p", mass: 1, radius: 1, orbitRadius: 1 });
-  const r = computeOrbit(earth, { value: 1, unit: "bodyRadii" }, system([earth]));
+  const r = computeOrbit(
+    earth,
+    { value: 1, unit: "bodyRadii" },
+    system([earth]),
+  );
   if (!r.applicable) throw new Error("expected applicable result");
   assertAlmostEquals(r.radiusBodyRadii, 1, 1e-9);
   assertAlmostEquals(r.radiusKm, 6371, 5);

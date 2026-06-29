@@ -1,11 +1,11 @@
 import {
-  ArchetypeProfile,
-  EccentricitySpec,
-  GeneratorConfig,
+  type ArchetypeProfile,
+  type EccentricitySpec,
+  type GeneratorConfig,
   MigrationArchetype,
   ObjectType,
   Resource,
-  ResourceWeights,
+  type ResourceWeights,
   SpectralType,
 } from "./types.ts";
 

@@ -2,9 +2,9 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { SolarSystem } from "../core/types.ts";
 import { eccentricAngleAtTime, visualRadius } from "../core/kinematics.ts";
-import { buildViewModel, ViewBody } from "../view/view-model.ts";
+import { buildViewModel, type ViewBody } from "../view/view-model.ts";
 import { centroidOf, enclosingRadius } from "../view/framing.ts";
-import type { RouteView, RoutePickTarget } from "../view/route-view-model.ts";
+import type { RoutePickTarget, RouteView } from "../view/route-view-model.ts";
 
 const SOLAR_TO_EARTH_RADII = 109;
 const AU_SCALE = 100;
@@ -596,7 +596,10 @@ export function createOrrery(
         const route = currentRoutes.find((r) => r.id === routeId);
         if (route) {
           const node = route.nodes[obj.userData.nodeIdx as number];
-          if (node) { opts.onRoutePick({ kind: "node", routeId, node }); return; }
+          if (node) {
+            opts.onRoutePick({ kind: "node", routeId, node });
+            return;
+          }
         }
       }
       // Leg lines — generous threshold so thin lines are clickable.
@@ -608,7 +611,10 @@ export function createOrrery(
         const route = currentRoutes.find((r) => r.id === routeId);
         if (route) {
           const leg = route.legs[obj.userData.legIdx as number];
-          if (leg) { opts.onRoutePick({ kind: "leg", routeId, leg }); return; }
+          if (leg) {
+            opts.onRoutePick({ kind: "leg", routeId, leg });
+            return;
+          }
         }
       }
     }

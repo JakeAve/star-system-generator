@@ -32,7 +32,11 @@ Deno.test("combinedRecurrenceDays: commensurate chain returns the LCM", () => {
 Deno.test("combinedRecurrenceDays: incommensurate chain falls back to C·max", () => {
   // 10 and 10π never re-phase within tolerance → fallback min(C·max, cap).
   const C = 12, max = 10 * Math.PI;
-  assertAlmostEquals(combinedRecurrenceDays([10, 10 * Math.PI], 1e6), C * max, 1.0);
+  assertAlmostEquals(
+    combinedRecurrenceDays([10, 10 * Math.PI], 1e6),
+    C * max,
+    1.0,
+  );
 });
 
 Deno.test("combinedRecurrenceDays: caps at the outer period", () => {

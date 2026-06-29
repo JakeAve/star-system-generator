@@ -109,8 +109,20 @@ Deno.test("sweepTransfers: discards physically-absurd v∞ artifacts", () => {
 
 Deno.test("sweepTransfers: reframe samples depart at exact Δd spacing and tags candidates", () => {
   const mu = muStar(1);
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
-  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3, retrograde: false };
+  const from = {
+    orbitRadiusAu: 1,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0,
+    retrograde: false,
+  };
+  const to = {
+    orbitRadiusAu: 1.2,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.3,
+    retrograde: false,
+  };
   const opts = {
     departHorizonDays: 60,
     departSamples: 0, // ignored under reframe
@@ -119,56 +131,138 @@ Deno.test("sweepTransfers: reframe samples depart at exact Δd spacing and tags 
     tofSamples: 0, // ignored under reframe
   };
   const reframe = {
-    deltaD: 5, minD: 4, maxD: 120, deltaT: 10, minT: 4, maxT: 120, recurDays: 200,
+    deltaD: 5,
+    minD: 4,
+    maxD: 120,
+    deltaT: 10,
+    minT: 4,
+    maxT: 120,
+    recurDays: 200,
   };
   const cands = sweepTransfers(from, to, mu, opts, reframe);
   for (const c of cands) {
     assertEquals(c.recurDays, 200);
     assertEquals(c.phaseDay, c.departDay);
   }
-  const departs = [...new Set(cands.map((c) => c.departDay))].sort((a, b) => a - b);
+  const departs = [...new Set(cands.map((c) => c.departDay))].sort((a, b) =>
+    a - b
+  );
   for (const d of departs) assertAlmostEquals((d / 5) % 1, 0, 1e-9);
 });
 
 Deno.test("sweepTransfers: reframe windows nest (narrow depart set ⊆ wide depart set)", () => {
   const mu = muStar(1);
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
-  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3, retrograde: false };
-  const reframe = {
-    deltaD: 5, minD: 4, maxD: 120, deltaT: 10, minT: 4, maxT: 120, recurDays: 500,
+  const from = {
+    orbitRadiusAu: 1,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0,
+    retrograde: false,
   };
-  const base = { departSamples: 0, tofMinDays: 50, tofMaxDays: 130, tofSamples: 0 };
-  const wide = sweepTransfers(from, to, mu, { ...base, departHorizonDays: 100 }, reframe);
-  const narrow = sweepTransfers(from, to, mu, { ...base, departHorizonDays: 40 }, reframe);
+  const to = {
+    orbitRadiusAu: 1.2,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.3,
+    retrograde: false,
+  };
+  const reframe = {
+    deltaD: 5,
+    minD: 4,
+    maxD: 120,
+    deltaT: 10,
+    minT: 4,
+    maxT: 120,
+    recurDays: 500,
+  };
+  const base = {
+    departSamples: 0,
+    tofMinDays: 50,
+    tofMaxDays: 130,
+    tofSamples: 0,
+  };
+  const wide = sweepTransfers(
+    from,
+    to,
+    mu,
+    { ...base, departHorizonDays: 100 },
+    reframe,
+  );
+  const narrow = sweepTransfers(from, to, mu, {
+    ...base,
+    departHorizonDays: 40,
+  }, reframe);
   const wideSet = new Set(wide.map((c) => Math.round(c.departDay * 1e6) / 1e6));
-  const narrowDeparts = [...new Set(narrow.map((c) => Math.round(c.departDay * 1e6) / 1e6))];
+  const narrowDeparts = [
+    ...new Set(narrow.map((c) => Math.round(c.departDay * 1e6) / 1e6)),
+  ];
   for (const d of narrowDeparts) assertEquals(wideSet.has(d), true);
 });
 
 Deno.test("sweepTransfers: all-prograde pair is unchanged by the both-arc search", () => {
   // Same fixture as the Hohmann-baseline test; the prograde arc must still win,
   // so the cheapest total is the Hohmann total within tolerance.
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
-  const to = { orbitRadiusAu: 1.524, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.5, retrograde: false };
+  const from = {
+    orbitRadiusAu: 1,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0,
+    retrograde: false,
+  };
+  const to = {
+    orbitRadiusAu: 1.524,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.5,
+    retrograde: false,
+  };
   const cands = sweepTransfers(from, to, MU, {
-    departHorizonDays: 800, departSamples: 40, tofMinDays: 200, tofMaxDays: 400, tofSamples: 40,
+    departHorizonDays: 800,
+    departSamples: 40,
+    tofMinDays: 200,
+    tofMaxDays: 400,
+    tofSamples: 40,
   });
   const h = hohmann(1 * AU_M, 1.524 * AU_M, MU);
   const best = cands.reduce((m, c) =>
     c.vInfDepart + c.vInfArrive < m.vInfDepart + m.vInfArrive ? c : m
   );
-  assertAlmostEquals((best.vInfDepart + best.vInfArrive) / 1000, (h.dvDepart + h.dvArrive) / 1000, 0.3);
+  assertAlmostEquals(
+    (best.vInfDepart + best.vInfArrive) / 1000,
+    (h.dvDepart + h.dvArrive) / 1000,
+    0.3,
+  );
 });
 
 Deno.test("sweepTransfers: reaching a retrograde target yields finite candidates and a retrograde-arc pick", () => {
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
+  const from = {
+    orbitRadiusAu: 1,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0,
+    retrograde: false,
+  };
   // Target orbits the opposite way:
-  const to = { orbitRadiusAu: 1.524, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.5, retrograde: true };
+  const to = {
+    orbitRadiusAu: 1.524,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.5,
+    retrograde: true,
+  };
   const cands = sweepTransfers(from, to, MU, {
-    departHorizonDays: 800, departSamples: 40, tofMinDays: 200, tofMaxDays: 400, tofSamples: 40,
+    departHorizonDays: 800,
+    departSamples: 40,
+    tofMinDays: 200,
+    tofMaxDays: 400,
+    tofSamples: 40,
   });
   assert(cands.length > 0);
-  assert(cands.every((c) => Number.isFinite(c.vInfDepart) && Number.isFinite(c.vInfArrive)));
+  assert(
+    cands.every((c) =>
+      Number.isFinite(c.vInfDepart) && Number.isFinite(c.vInfArrive)
+    ),
+  );
   // With a retrograde target, the cheaper arc for at least one cell is the
   // retrograde one (transfer conic walks nu1 -> nu2 backward => nu2 < nu1).
   assert(cands.some((c) => c.nu2 < c.nu1));
@@ -176,10 +270,26 @@ Deno.test("sweepTransfers: reaching a retrograde target yields finite candidates
 
 Deno.test("sweepTransfers: no reframe arg leaves candidates untagged (fixed path)", () => {
   const mu = muStar(1);
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
-  const to = { orbitRadiusAu: 1.2, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3, retrograde: false };
+  const from = {
+    orbitRadiusAu: 1,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0,
+    retrograde: false,
+  };
+  const to = {
+    orbitRadiusAu: 1.2,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.3,
+    retrograde: false,
+  };
   const cands = sweepTransfers(from, to, mu, {
-    departHorizonDays: 200, departSamples: 12, tofMinDays: 50, tofMaxDays: 130, tofSamples: 12,
+    departHorizonDays: 200,
+    departSamples: 12,
+    tofMinDays: 50,
+    tofMaxDays: 130,
+    tofSamples: 12,
   });
   for (const c of cands) {
     assertEquals(c.phaseDay, undefined);
@@ -190,8 +300,20 @@ Deno.test("sweepTransfers: no reframe arg leaves candidates untagged (fixed path
 Deno.test("sweepTransfers tags each candidate with the full transfer conic", () => {
   // Two coplanar circular orbits about a 1-solar-mass star.
   const mu = muStar(1);
-  const from = { orbitRadiusAu: 1, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false };
-  const to = { orbitRadiusAu: 1.6, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0.3, retrograde: false };
+  const from = {
+    orbitRadiusAu: 1,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0,
+    retrograde: false,
+  };
+  const to = {
+    orbitRadiusAu: 1.6,
+    eccentricity: 0,
+    periapsisAngle: 0,
+    orbitalPhase: 0.3,
+    retrograde: false,
+  };
   const cands = sweepTransfers(from, to, mu, {
     departHorizonDays: 200,
     departSamples: 4,
@@ -201,7 +323,9 @@ Deno.test("sweepTransfers tags each candidate with the full transfer conic", () 
   });
   if (cands.length === 0) throw new Error("expected at least one candidate");
   for (const c of cands) {
-    if (!Number.isFinite(c.argPeriapsis)) throw new Error("argPeriapsis not finite");
+    if (!Number.isFinite(c.argPeriapsis)) {
+      throw new Error("argPeriapsis not finite");
+    }
     if (!Number.isFinite(c.nu1) || !Number.isFinite(c.nu2)) {
       throw new Error("nu span not finite");
     }

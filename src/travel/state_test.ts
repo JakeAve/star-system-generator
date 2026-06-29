@@ -1,4 +1,4 @@
-import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
+import { assert, assertAlmostEquals } from "@std/assert";
 import { conic, type OrbitElements, stateAt, transferConic } from "./state.ts";
 import { AU_M, muStar } from "./units.ts";
 
@@ -7,7 +7,13 @@ const MU = muStar(1); // 1 solar mass central body
 Deno.test("stateAt: circular orbit has |r|=a and speed=circular velocity", () => {
   const a = 1; // AU
   const s = stateAt(
-    { orbitRadiusAu: a, eccentricity: 0, periapsisAngle: 0, orbitalPhase: 0, retrograde: false },
+    {
+      orbitRadiusAu: a,
+      eccentricity: 0,
+      periapsisAngle: 0,
+      orbitalPhase: 0,
+      retrograde: false,
+    },
     MU,
     0,
   );
@@ -20,7 +26,13 @@ Deno.test("stateAt: circular orbit has |r|=a and speed=circular velocity", () =>
 Deno.test("stateAt: at periapsis (phase 0) r=a(1-e) and speed matches vis-viva", () => {
   const a = 1.5, e = 0.3;
   const s = stateAt(
-    { orbitRadiusAu: a, eccentricity: e, periapsisAngle: 0, orbitalPhase: 0, retrograde: false },
+    {
+      orbitRadiusAu: a,
+      eccentricity: e,
+      periapsisAngle: 0,
+      orbitalPhase: 0,
+      retrograde: false,
+    },
     MU,
     0,
   );
@@ -90,9 +102,15 @@ Deno.test("transferConic recovers orientation and swept anomaly span from a know
   assertAlmostEquals(tc.argPeriapsis, 0.7, 1e-3);
   // Sampling the conic at nu1 reproduces r1's direction (perifocal -> world).
   const ang1 = Math.atan2(s1.position.y, s1.position.x);
-  assertAlmostEquals(((tc.nu1 + tc.argPeriapsis) % (2 * Math.PI)), ((ang1) + 2 * Math.PI) % (2 * Math.PI), 1e-3);
+  assertAlmostEquals(
+    (tc.nu1 + tc.argPeriapsis) % (2 * Math.PI),
+    (ang1 + 2 * Math.PI) % (2 * Math.PI),
+    1e-3,
+  );
   // Prograde motion sweeps forward: nu2 > nu1.
-  if (!(tc.nu2 > tc.nu1)) throw new Error(`expected nu2 > nu1, got ${tc.nu1} -> ${tc.nu2}`);
+  if (!(tc.nu2 > tc.nu1)) {
+    throw new Error(`expected nu2 > nu1, got ${tc.nu1} -> ${tc.nu2}`);
+  }
   // Backward-compatible a/e agree with the legacy conic().
   const c = conic(s1.position, s1.velocity, mu);
   assertAlmostEquals(tc.aAu, c.aAu, 1e-9);
