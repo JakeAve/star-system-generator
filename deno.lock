@@ -211,6 +211,7 @@
   "workspace": {
     "dependencies": [
       "jsr:@std/assert@1",
+      "npm:esbuild@0.23.1",
       "npm:three@0.165.0"
     ]
   }

@@ -55,6 +55,26 @@ deno task seed 42 --json ./exports
 deno task test
 ```
 
+### Code quality & git hooks
+
+Run the full quality gate (format check, lint, type-check) at any time:
+
+```
+deno task check        # deno fmt --check && deno lint && deno check
+deno task check && deno task test
+```
+
+After cloning, wire up the git hooks once:
+
+```
+deno task setup        # points core.hooksPath at .githooks
+```
+
+This installs `pre-commit` and `pre-push` hooks that both run
+`deno task check && deno task test`, so unformatted, lint-dirty, type-broken, or
+failing code can't be committed or pushed. The same gate runs in CI
+(`.github/workflows/ci.yml`) on every push and pull request as a backstop.
+
 ### One-shot build
 
 ```

@@ -1,6 +1,6 @@
 {
   "name": "@jakeave/star-system-seeder",
-  "version": "0.17.0",
+  "version": "0.17.1",
   "description": "Procedural solar system generator and renderer.",
   "license": "MIT",
   "exports": {
@@ -12,7 +12,31 @@
     "seed": "deno run --allow-write src/core/main.ts",
     "build": "deno run --allow-read --allow-write --allow-env --allow-run --allow-net build.ts",
     "renderer": "deno task build && deno run --allow-net --allow-read --allow-write --allow-run --allow-env server.ts",
-    "test": "deno test --allow-read --allow-write --allow-env --allow-run --allow-net"
+    "test": "deno test --allow-read --allow-write --allow-env --allow-run --allow-net",
+    "check": "deno fmt --check && deno lint && deno check mod.ts server.ts build.ts build_test.ts src/",
+    "pre-commit": "deno task check && deno task test",
+    "pre-push": "deno task check && deno task test",
+    "setup": "git config core.hooksPath .githooks && chmod +x .githooks/pre-commit .githooks/pre-push"
+  },
+  "fmt": {
+    "exclude": [
+      "app/*.bundle.js",
+      "seeds",
+      "bench",
+      "docs",
+      ".superpowers",
+      ".claude"
+    ]
+  },
+  "lint": {
+    "exclude": [
+      "app/*.bundle.js",
+      "seeds",
+      "bench",
+      "docs",
+      ".superpowers",
+      ".claude"
+    ]
   },
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext", "deno.ns"]
@@ -22,6 +46,7 @@
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1",
+    "esbuild": "npm:esbuild@0.23.1",
     "three": "npm:three@0.165.0"
   }
 }

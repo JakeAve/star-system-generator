@@ -1,4 +1,4 @@
-import * as esbuild from "npm:esbuild@0.23.1";
+import * as esbuild from "esbuild";
 
 const BUNDLES: Array<{ entry: string; out: string; external: string[] }> = [
   { entry: "mod.ts", out: "app/star-seeder.bundle.js", external: [] },
